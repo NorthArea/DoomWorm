@@ -41,9 +41,9 @@ def test_differential_drive_turns() -> None:
 
 def test_motors_are_clamped() -> None:
     w = make_world()
-    w.step(5.0, -3.0)  # clamped to (1, 0): turn right at half speed
-    assert math.dist((w.agent.x, w.agent.y), (10.0, 10.0)) == pytest.approx(0.25)
-    assert w.agent.heading == pytest.approx(-0.5)
+    w.step(5.0, 5.0)  # clamped to (1, 1): full speed ahead
+    assert math.dist((w.agent.x, w.agent.y), (10.0, 10.0)) == pytest.approx(0.5)
+    assert w.agent.heading == pytest.approx(0.0)
 
 
 def test_no_obstacle_in_range_reads_zero() -> None:

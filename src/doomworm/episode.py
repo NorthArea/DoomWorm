@@ -7,12 +7,21 @@ reward module.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from doomworm.adapters import MotorAdapter, SensoryAdapter
+from doomworm.adapters import SensoryAdapter
 from doomworm.brain import Simulator
 from doomworm.environments.simple_2d import World
+
+
+class MotorLike(Protocol):
+    """Anything that turns (averaged) neural activity into wheel commands."""
+
+    def __call__(self, activity: Mapping[str, float]) -> tuple[float, float]:
+        """Return ``(motor_left, motor_right)``."""
+        ...
 
 
 class TickScorer(Protocol):
@@ -43,25 +52,40 @@ class Record:
     activity: dict[str, float] | None = None
 
 
+def average_activity(window: list[dict[str, float]]) -> dict[str, float]:
+    """Mean activity per neuron over a list of per-tick activity dicts."""
+    if len(window) == 1:
+        return window[0]
+    n = float(len(window))
+    return {nid: sum(step[nid] for step in window) / n for nid in window[0]}
+
+
 def run_episode(
     world: World,
     sim: Simulator,
     sensory: SensoryAdapter,
-    motor: MotorAdapter,
+    motor: MotorLike,
     steps: int,
     reward: TickScorer | None = None,
     record_activity: bool = False,
+    brain_steps: int = 1,
 ) -> list[Record]:
     """Step the closed loop until ``steps`` ticks or starvation; return the trace.
 
     ``reward``, when given, scores every tick (Plan §9) and the per-tick value
     lands in :attr:`Record.reward`. ``record_activity`` stores every neuron's
-    activity per tick for the debug screen (Plan §41).
+    activity per tick for the debug screen (Plan §41). ``brain_steps`` runs
+    that many brain ticks per environment step with the same sensory input
+    (Plan §3.1); the motor adapter sees the mean activity over the window.
     """
+    if brain_steps < 1:
+        raise ValueError("brain_steps must be >= 1")
     trace: list[Record] = []
     obs = world.observe()
     for tick in range(steps):
-        activity = sim.step(sensory(obs.as_channels()))
+        currents = sensory(obs.as_channels())
+        window = [sim.step(currents) for _ in range(brain_steps)]
+        activity = average_activity(window)
         motors = motor(activity)
         obs = world.step(*motors)
         tick_reward = 0.0

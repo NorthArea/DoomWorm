@@ -70,7 +70,10 @@ demo-6: ## Stage 6: debug screen GIF (runs/stage6_debug.gif)
 demo-7: ## Stage 7: sensory mapping and per-channel responders
 	$(UV) python -m doomworm.experiments.sensory_mapping_demo
 
-demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 ## Run every stage demo
+demo-8: ## Stage 8: motor mapping, wheel commands per channel
+	$(UV) python -m doomworm.experiments.motor_mapping_demo
+
+demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 ## Run every stage demo
 
 # --- training and connectome -------------------------------------------------
 

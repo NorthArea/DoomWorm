@@ -137,9 +137,9 @@ class World:
     # --- dynamics -----------------------------------------------------------
 
     def step(self, motor_left: float, motor_right: float) -> Observation:
-        """Apply motor commands in [0, 1] for one tick and return the observation."""
-        left = _clamp(motor_left, 0.0, 1.0)
-        right = _clamp(motor_right, 0.0, 1.0)
+        """Apply motor commands in [-1, 1] (negative = reverse) for one tick."""
+        left = _clamp(motor_left, -1.0, 1.0)
+        right = _clamp(motor_right, -1.0, 1.0)
         linear = (left + right) / 2.0 * self.speed
         angular = (right - left) / self.wheel_base * self.speed
 

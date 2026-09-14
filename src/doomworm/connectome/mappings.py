@@ -1,4 +1,4 @@
-"""Sensory mapping: world channels -> C. elegans sensory neurons (Plan §13).
+"""Sensory and motor mappings between the world and C. elegans neurons (Plan §13-14).
 
 The default table follows the plan. Left/right is an admitted artifice: the
 worm has no lateralised touch or smell in this sense, it steers with dorsal /
@@ -120,6 +120,79 @@ class SensoryMapping:
     def load(cls, path: Path | str) -> SensoryMapping:
         """Read JSON."""
         return cls.from_dict(json.loads(Path(path).read_text()))
+
+
+@dataclass
+class MotorMapping:
+    """Neuron groups read by the motor adapter (Plan §14).
+
+    ``forward`` and ``reversal`` set the drive, ``turn_left`` / ``turn_right``
+    the differential. Dorsal (SMDD) is read as left and ventral (SMDV) as
+    right: an admitted artifice, the worm bends its head dorso-ventrally.
+    """
+
+    forward: list[str] = field(default_factory=list)
+    reversal: list[str] = field(default_factory=list)
+    turn_left: list[str] = field(default_factory=list)
+    turn_right: list[str] = field(default_factory=list)
+
+    def groups(self) -> dict[str, list[str]]:
+        """Group name -> neurons."""
+        return {
+            "forward": self.forward,
+            "reversal": self.reversal,
+            "turn_left": self.turn_left,
+            "turn_right": self.turn_right,
+        }
+
+    def neurons(self) -> set[str]:
+        """Every neuron referenced."""
+        return {n for g in self.groups().values() for n in g}
+
+    def validate(self, connectome: Connectome) -> None:
+        """Raise if any neuron is missing or any group is empty."""
+        missing = sorted(n for n in self.neurons() if n not in connectome)
+        if missing:
+            raise KeyError(f"motor mapping references unknown neurons: {missing}")
+        empty = [name for name, group in self.groups().items() if not group]
+        if empty:
+            raise ValueError(f"empty motor groups: {empty}")
+
+    def describe(self) -> str:
+        """Human-readable table."""
+        return "\n".join(f"{name:<11} <- {', '.join(g)}" for name, g in self.groups().items())
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-ready form."""
+        return {name: list(g) for name, g in self.groups().items()}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MotorMapping:
+        """Inverse of :meth:`to_dict`."""
+        return cls(**{name: list(data.get(name, [])) for name in cls().groups()})
+
+    def save(self, path: Path | str) -> None:
+        """Write JSON."""
+        Path(path).write_text(json.dumps(self.to_dict(), indent=2) + "\n")
+
+    @classmethod
+    def load(cls, path: Path | str) -> MotorMapping:
+        """Read JSON."""
+        return cls.from_dict(json.loads(Path(path).read_text()))
+
+
+def default_motor_mapping() -> MotorMapping:
+    """The Plan §14 table: command interneurons plus A/B motor classes, SMD/RIV for turns."""
+    return MotorMapping(
+        forward=["AVBL", "AVBR", "PVCL", "PVCR"]
+        + [f"VB{i:02d}" for i in range(1, 12)]
+        + [f"DB{i:02d}" for i in range(1, 8)],
+        reversal=["AVAL", "AVAR", "AVDL", "AVDR"]
+        + [f"VA{i:02d}" for i in range(1, 13)]
+        + [f"DA{i:02d}" for i in range(1, 10)],
+        turn_left=["SMDDL", "SMDDR", "RIVL"],
+        turn_right=["SMDVL", "SMDVR", "RIVR"],
+    )
 
 
 def default_sensory_mapping() -> SensoryMapping:
