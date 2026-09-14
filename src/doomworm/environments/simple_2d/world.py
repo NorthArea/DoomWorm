@@ -13,12 +13,15 @@ bearing falls in - front ``[-30°, 30°]``, left ``(30°, 180°]``, right
 keeps the three channels mutually exclusive.
 
 Hunger grows by ``hunger_rate`` per tick, saturates at 1.0 (starved) and
-resets to 0.0 when the agent touches food, which is then consumed.
+resets to 0.0 when the agent touches food, which is then consumed. With
+``respawn_food`` every eaten item is replaced at a random free spot drawn
+from the world's seeded RNG, so the food count stays constant.
 """
 
 from __future__ import annotations
 
 import math
+import random
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
@@ -101,6 +104,8 @@ class World:
         obstacles: Sequence[Obstacle] = (),
         foods: Sequence[Food] = (),
         hunger_rate: float = 0.004,
+        respawn_food: bool = False,
+        seed: int | None = None,
         agent_radius: float = 0.5,
         sensor_range: float = 4.0,
         sensor_angles: tuple[float, float, float] = (math.pi / 4, 0.0, -math.pi / 4),
@@ -112,6 +117,8 @@ class World:
         self.agent = agent if agent is not None else AgentState(x=3.0, y=10.0)
         self.obstacles = list(obstacles)
         self.foods = list(foods)
+        self.respawn_food = respawn_food
+        self.rng = random.Random(seed)
         self.hunger_rate = hunger_rate
         self.hunger = 0.0
         self.food_eaten = 0
@@ -165,7 +172,23 @@ class World:
         self.foods = remaining
         self.food_eaten += eaten
         self.hunger = 0.0
+        if self.respawn_food:
+            for _ in range(eaten):
+                self.foods.append(self.spawn_food())
         return True
+
+    def spawn_food(self, radius: float = 0.3, margin: float = 1.0, tries: int = 100) -> Food:
+        """Draw a food position clear of walls, obstacles and the agent."""
+        for _ in range(tries):
+            x = self.rng.uniform(margin, self.width - margin)
+            y = self.rng.uniform(margin, self.height - margin)
+            near_obstacle = any(
+                math.dist((x, y), (o.x, o.y)) <= o.radius + margin for o in self.obstacles
+            )
+            near_agent = math.dist((x, y), (self.agent.x, self.agent.y)) <= 2.0
+            if not near_obstacle and not near_agent:
+                return Food(x=x, y=y, radius=radius)
+        raise RuntimeError("could not place food after many tries")
 
     def _collides(self, state: AgentState) -> bool:
         r = self.agent_radius

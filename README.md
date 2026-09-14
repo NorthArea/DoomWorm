@@ -35,7 +35,17 @@ uv run pytest --cov           # tests + coverage
 uv run ruff check . --fix     # lint
 uv run ruff format .          # format
 uv run mypy                   # type-check
-uv run doomworm --help        # CLI
+```
+
+## Stage demos
+
+```bash
+uv run python -m doomworm.experiments.three_neurons        # stage 0
+uv run python -m doomworm.experiments.obstacle_agent --plot # stage 1
+uv run python -m doomworm.experiments.food_agent --plot     # stage 2
+uv run python -m doomworm.experiments.reward_demo           # stage 3
+uv run doomworm train                                       # stage 4: evolve weights
+uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
 ## Layout

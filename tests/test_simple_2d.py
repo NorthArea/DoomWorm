@@ -167,3 +167,46 @@ def test_observation_channels_include_food_and_hunger() -> None:
         "food_right",
         "hunger",
     }
+
+
+# --- Stage 4: seeded food respawn (Plan §8 «Респаун еды») ------------------------
+
+
+def test_respawn_keeps_food_count_and_is_seeded() -> None:
+    def run(seed: int) -> list[tuple[float, float]]:
+        w = make_world(
+            foods=[Food(x=11.0, y=10.0)],
+            obstacles=[Obstacle(x=15.0, y=15.0, radius=2.0)],
+            respawn_food=True,
+            seed=seed,
+        )
+        w.step(0.0, 0.0)
+        w.step(1.0, 1.0)
+        assert w.food_eaten == 1
+        assert len(w.foods) == 1
+        return [(f.x, f.y) for f in w.foods]
+
+    assert run(1) == run(1)
+    assert run(1) != run(2)
+
+
+def test_respawned_food_avoids_obstacles_and_agent() -> None:
+    obstacle = Obstacle(x=15.0, y=15.0, radius=2.0)
+    for seed in range(20):
+        w = make_world(
+            foods=[Food(x=11.0, y=10.0)], obstacles=[obstacle], respawn_food=True, seed=seed
+        )
+        w.step(0.0, 0.0)
+        w.step(1.0, 1.0)
+        (f,) = w.foods
+        assert math.dist((f.x, f.y), (obstacle.x, obstacle.y)) > obstacle.radius + 1.0
+        assert math.dist((f.x, f.y), (w.agent.x, w.agent.y)) > 2.0
+        assert 1.0 <= f.x <= 19.0
+        assert 1.0 <= f.y <= 19.0
+
+
+def test_no_respawn_by_default() -> None:
+    w = make_world(foods=[Food(x=11.0, y=10.0)])
+    w.step(0.0, 0.0)
+    w.step(1.0, 1.0)
+    assert w.foods == []

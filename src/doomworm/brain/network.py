@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 
 from doomworm.brain.neuron import Neuron
 from doomworm.brain.synapse import Synapse
@@ -37,3 +38,22 @@ class Network:
     def activities(self) -> dict[str, float]:
         """Snapshot of every neuron's current activity."""
         return {nid: n.activity for nid, n in self.neurons.items()}
+
+    # --- trainable parameters ----------------------------------------------
+
+    def get_weights(self) -> list[float]:
+        """Synaptic weights in insertion order: the genome of this topology."""
+        return [s.weight for s in self.synapses]
+
+    def set_weights(self, weights: Sequence[float]) -> None:
+        """Overwrite synaptic weights in insertion order."""
+        if len(weights) != len(self.synapses):
+            raise ValueError(f"expected {len(self.synapses)} weights, got {len(weights)}")
+        for synapse, w in zip(self.synapses, weights, strict=True):
+            synapse.weight = float(w)
+
+    def reset(self) -> None:
+        """Clear transient state (potential, activity) before a new episode."""
+        for neuron in self.neurons.values():
+            neuron.potential = 0.0
+            neuron.activity = 0.0
