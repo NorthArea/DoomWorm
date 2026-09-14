@@ -1,0 +1,104 @@
+[project]
+name = "doomworm"
+version = "0.1.0"
+description = "C. elegans connectome as a trainable controller: from a 3-neuron net to Doom."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Alexandr" }]
+keywords = ["c-elegans", "connectome", "spiking-neural-network", "neuroevolution", "doom"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=2.0",
+    "networkx>=3.3",
+    "matplotlib>=3.9",
+]
+
+[project.scripts]
+doomworm = "doomworm.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.16",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/doomworm"]
+
+# ---------------------------------------------------------------------------
+# Ruff: lint + format
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "N",        # pep8-naming
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "SIM",      # simplify
+    "RUF",      # ruff-specific
+    "NPY",      # numpy
+    "PT",       # pytest style
+    "D",        # docstrings
+]
+ignore = [
+    "D100", "D104", "D105", "D107",  # missing docstrings in module/package/magic/__init__
+    "D203", "D213",                  # conflicting docstring styles
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"scripts/**" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# ---------------------------------------------------------------------------
+# Mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["networkx.*", "matplotlib.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# Pytest / coverage
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --import-mode=importlib"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["doomworm"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
