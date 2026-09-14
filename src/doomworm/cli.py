@@ -1,6 +1,7 @@
 """Command-line entry point.
 
-doomworm train                     evolve weights (stage 4 scenario)
+doomworm train                     evolve weights (stage 4 small network)
+doomworm train --scenario worm     evolve the connectome weights (stage 10)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
@@ -17,6 +18,7 @@ from doomworm import __version__
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser."""
     from doomworm.experiments.evolve_small import add_train_args
+    from doomworm.experiments.evolve_worm import add_worm_args
 
     parser = argparse.ArgumentParser(prog="doomworm", description=__doc__)
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -24,6 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     train = sub.add_parser("train", help="evolve synaptic weights")
     add_train_args(train)
+    train.add_argument("--scenario", choices=["small_food", "worm"], default="small_food")
+    add_worm_args(train)
 
     play = sub.add_parser("play", help="run a saved brain and show the trajectory")
     play.add_argument("--brain", type=Path, required=True)
@@ -111,13 +115,15 @@ def run_play(args: argparse.Namespace) -> int:
         brain_steps=scenario.brain_steps,
     )
 
+    from doomworm.experiments.worm_agent import summarise
+
     print_trace(trace, args.every)
     print()
     print(render_ascii(world, trace))
-    print(
-        f"\nseed {args.seed}: {len(trace)} ticks, food {world.food_eaten}, "
-        f"collisions {world.collisions}, reward {tracker.total:.1f} {tracker.breakdown}"
-    )
+    summary = summarise(trace, world)
+    cells = [f"{k} {v:.2f}" if isinstance(v, float) else f"{k} {v}" for k, v in summary.items()]
+    print(f"\nseed {args.seed}: " + "  ".join(cells))
+    print(f"reward breakdown {tracker.breakdown}")
     if args.plot:
         out = Path("runs") / f"play_{args.seed}.png"
         save_plot(world, trace, out, f"{args.brain.name} on seed {args.seed}")
@@ -133,6 +139,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
         return 0
     if args.command == "train":
+        if args.scenario == "worm":
+            from doomworm.experiments.evolve_worm import run_train as run_train_worm
+
+            return run_train_worm(args)
         from doomworm.experiments.evolve_small import run_train
 
         return run_train(args)

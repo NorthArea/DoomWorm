@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos train play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos train train-worm play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -82,6 +82,9 @@ demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run eve
 
 train: ## Stage 4: evolve the small network -> $(BRAIN)
 	$(UV) doomworm train --out $(BRAIN)
+
+train-worm: ## Stage 10: evolve the connectome weights -> runs/worm_evolved.json
+	$(UV) doomworm train --scenario worm --out runs/worm_evolved.json $(TRAIN_ARGS)
 
 play: ## Replay $(BRAIN) on seed $(SEED) with a plot
 	$(UV) doomworm play --brain $(BRAIN) --seed $(SEED) --plot

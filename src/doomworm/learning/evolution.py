@@ -55,17 +55,40 @@ def random_population(n_weights: int, size: int, rng: np.random.Generator) -> np
     return rng.uniform(-1.0, 1.0, size=(size, n_weights))
 
 
+def seeded_population(
+    initial: np.ndarray, size: int, sigma: float, rng: np.random.Generator
+) -> np.ndarray:
+    """``initial`` unchanged plus ``size - 1`` Gaussian perturbations of it."""
+    noise = rng.normal(0.0, sigma, size=(size - 1, initial.size))
+    return np.vstack([initial[None, :], initial[None, :] + noise])
+
+
 def evolve(
     fitness: Fitness,
     n_weights: int,
     config: EvolutionConfig | None = None,
     seed: int = 0,
     on_generation: Callable[[GenerationStats], None] | None = None,
+    initial: np.ndarray | None = None,
+    initial_sigma: float | None = None,
 ) -> EvolutionResult:
-    """Run truncation selection with Gaussian mutation; deterministic for a seed."""
+    """Run truncation selection with Gaussian mutation; deterministic for a seed.
+
+    With ``initial`` the first generation is that genome plus perturbations of
+    scale ``initial_sigma`` (default: the mutation sigma) instead of uniform
+    random genomes: this is how a connectome's weights are trained in place.
+    """
     cfg = config or EvolutionConfig()
     rng = np.random.default_rng(seed)
-    population = random_population(n_weights, cfg.population, rng)
+    if initial is None:
+        population = random_population(n_weights, cfg.population, rng)
+    else:
+        if initial.size != n_weights:
+            raise ValueError(f"initial genome has {initial.size} weights, expected {n_weights}")
+        sigma0 = cfg.mutation_sigma if initial_sigma is None else initial_sigma
+        population = seeded_population(
+            np.asarray(initial, dtype=float), cfg.population, sigma0, rng
+        )
     low, high = cfg.weight_range
 
     best_weights = population[0].copy()
