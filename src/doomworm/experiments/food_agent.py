@@ -27,6 +27,7 @@ from doomworm.brain import Network, Neuron, Simulator, Synapse
 from doomworm.environments.simple_2d import AgentState, Food, Obstacle, World
 from doomworm.experiments.episode import print_trace, render_ascii, run_episode, save_plot
 from doomworm.experiments.obstacle_agent import MOTOR_NEURONS, build_brain, sensor_channels
+from doomworm.learning import RewardTracker
 
 HUNGER_THRESHOLD = 0.3
 FOOD_NEURONS = {"food_left": "F_LEFT", "food_front": "F_FRONT", "food_right": "F_RIGHT"}
@@ -54,7 +55,7 @@ def build_world() -> World:
         agent=AgentState(x=3.0, y=10.0, heading=0.0),
         obstacles=[Obstacle(x=10.0, y=10.0, radius=1.5)],
         foods=[Food(x=6.0, y=16.0), Food(x=16.0, y=5.0)],
-        hunger_rate=0.01,
+        hunger_rate=0.004,
     )
 
 
@@ -77,11 +78,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     world, sim, sensory, motor = build_scenario()
-    trace = run_episode(world, sim, sensory, motor, args.steps)
+    tracker = RewardTracker()
+    trace = run_episode(world, sim, sensory, motor, args.steps, reward=tracker)
     print_trace(trace, args.every)
     print()
     print(render_ascii(world, trace))
-    print(f"\ncollisions: {world.collisions}  food eaten: {world.food_eaten}")
+    print(
+        f"\ncollisions: {world.collisions}  food eaten: {world.food_eaten}  "
+        f"reward: {tracker.total:.1f} {tracker.breakdown}"
+    )
 
     if args.plot:
         out = Path("runs") / "stage2_food.png"

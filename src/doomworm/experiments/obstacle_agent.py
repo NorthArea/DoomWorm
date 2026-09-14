@@ -25,6 +25,7 @@ from doomworm.adapters import MotorAdapter, SensoryAdapter
 from doomworm.brain import Network, Neuron, Simulator, Synapse
 from doomworm.environments.simple_2d import AgentState, Obstacle, World
 from doomworm.experiments.episode import print_trace, render_ascii, run_episode, save_plot
+from doomworm.learning import RewardTracker
 
 SENSOR_THRESHOLD = 0.5
 SENSOR_NEURONS = {"sensor_left": "S_LEFT", "sensor_front": "S_FRONT", "sensor_right": "S_RIGHT"}
@@ -76,11 +77,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     world, sim, sensory, motor = build_scenario()
-    trace = run_episode(world, sim, sensory, motor, args.steps)
+    tracker = RewardTracker()
+    trace = run_episode(world, sim, sensory, motor, args.steps, reward=tracker)
     print_trace(trace, args.every)
     print()
     print(render_ascii(world, trace))
-    print(f"\ncollisions: {world.collisions}")
+    print(f"\ncollisions: {world.collisions}  reward: {tracker.total:.1f} {tracker.breakdown}")
 
     if args.plot:
         out = Path("runs") / "stage1_obstacle.png"

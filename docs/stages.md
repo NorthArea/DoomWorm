@@ -7,7 +7,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 0 | 3-neuron network (Neuron, Synapse, Network, Simulator) | `tests/test_brain.py` | `python -m doomworm.experiments.three_neurons` | done |
 | 1 | 2D agent: 3 distance sensors, 2 motors, 1 obstacle | `tests/test_simple_2d.py`, `tests/test_adapters.py`, `tests/test_obstacle_agent.py` | `python -m doomworm.experiments.obstacle_agent --plot` | done |
 | 2 | Food + hunger | `tests/test_simple_2d.py`, `tests/test_food_agent.py` | `python -m doomworm.experiments.food_agent --plot` | done |
-| 3 | Reward | | | todo |
+| 3 | Reward | `tests/test_reward.py`, `tests/test_episode.py`, `tests/test_reward_demo.py` | `python -m doomworm.experiments.reward_demo` | done |
 | 4 | Evolution on the small network | | | todo |
 | 5 | Load C. elegans connectome into internal format | | | todo |
 | 6 | Stimulate connectome, observe propagation | | | todo |

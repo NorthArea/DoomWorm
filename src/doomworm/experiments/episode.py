@@ -8,6 +8,7 @@ from pathlib import Path
 from doomworm.adapters import MotorAdapter, SensoryAdapter
 from doomworm.brain import Simulator
 from doomworm.environments.simple_2d import World
+from doomworm.learning import RewardTracker
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,8 @@ class Record:
     motors: tuple[float, float]
     collided: bool
     ate: bool
+    starved: bool = False
+    reward: float = 0.0
 
 
 def run_episode(
@@ -32,14 +35,28 @@ def run_episode(
     sensory: SensoryAdapter,
     motor: MotorAdapter,
     steps: int,
+    reward: RewardTracker | None = None,
 ) -> list[Record]:
-    """Step the closed loop ``steps`` times and return the trace."""
+    """Step the closed loop until ``steps`` ticks or starvation; return the trace.
+
+    ``reward``, when given, scores every tick (Plan §9) and the per-tick value
+    lands in :attr:`Record.reward`.
+    """
     trace: list[Record] = []
     obs = world.observe()
     for tick in range(steps):
         activity = sim.step(sensory(obs.as_channels()))
         motors = motor(activity)
         obs = world.step(*motors)
+        tick_reward = 0.0
+        if reward is not None:
+            tick_reward = reward.step(
+                x=world.agent.x,
+                y=world.agent.y,
+                ate=obs.ate,
+                collided=obs.collided,
+                starved=world.starved,
+            )
         trace.append(
             Record(
                 tick=tick,
@@ -52,8 +69,12 @@ def run_episode(
                 motors=motors,
                 collided=obs.collided,
                 ate=obs.ate,
+                starved=world.starved,
+                reward=tick_reward,
             )
         )
+        if world.starved:
+            break
     return trace
 
 
@@ -118,16 +139,19 @@ def save_plot(world: World, trace: list[Record], path: Path, title: str) -> None
 
 def print_trace(trace: list[Record], every: int) -> None:
     """Print a tick table; always show collision and eating ticks."""
-    print("tick      x      y   head |  O_L  O_F  O_R |  F_L  F_F  F_R | hung | M_L M_R | ev")
+    print(
+        "tick      x      y   head |  O_L  O_F  O_R |  F_L  F_F  F_R | hung | M_L M_R |    rew | ev"
+    )
     for rec in trace:
-        if rec.tick % every and not rec.collided and not rec.ate:
+        if rec.tick % every and not rec.collided and not rec.ate and not rec.starved:
             continue
         o_l, o_f, o_r = rec.obstacle
         f_l, f_f, f_r = rec.food
         m_l, m_r = rec.motors
         event = ("X" if rec.collided else "") + ("EAT" if rec.ate else "")
+        event += "DEAD" if rec.starved else ""
         print(
             f"{rec.tick:>4} {rec.x:>6.2f} {rec.y:>6.2f} {rec.heading:>6.2f} | "
             f"{o_l:>4.2f} {o_f:>4.2f} {o_r:>4.2f} | {f_l:>4.2f} {f_f:>4.2f} {f_r:>4.2f} | "
-            f"{rec.hunger:>4.2f} | {m_l:>3.0f} {m_r:>3.0f} | {event}"
+            f"{rec.hunger:>4.2f} | {m_l:>3.0f} {m_r:>3.0f} | {rec.reward:>6.2f} | {event}"
         )
