@@ -52,6 +52,7 @@ uv run doomworm train                                       # stage 4: evolve we
 uv run python -m doomworm.experiments.connectome_stats     # stage 5: real connectome
 uv run doomworm stimulate ASHL --plot                      # stage 6: propagation
 uv run python -m doomworm.experiments.debug_screen_demo    # stage 6: debug screen GIF
+uv run python -m doomworm.experiments.sensory_mapping_demo # stage 7: sensory mapping
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
