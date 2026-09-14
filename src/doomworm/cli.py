@@ -2,6 +2,7 @@
 
 doomworm train                     evolve weights (stage 4 scenario)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
+doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
 
 from __future__ import annotations
@@ -30,7 +31,55 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--steps", type=int, default=600)
     play.add_argument("--every", type=int, default=50)
     play.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
+
+    stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
+    stim.add_argument("neurons", nargs="+", help="neuron names, e.g. ASHL ASHR")
+    stim.add_argument("--current", type=float, default=1.0)
+    stim.add_argument("--hold", type=int, default=10, help="ticks with stimulus on")
+    stim.add_argument("--settle", type=int, default=20, help="ticks after stimulus off")
+    stim.add_argument("--gain", type=float, default=0.45)
+    stim.add_argument("--decay", type=float, default=0.5)
+    stim.add_argument("--top", type=int, default=15)
+    stim.add_argument("--threshold", type=float, default=0.01, help="activity counted as active")
+    stim.add_argument("--plot", action="store_true", help="save raster + subgraph PNGs to runs/")
     return parser
+
+
+def run_stimulate(args: argparse.Namespace) -> int:
+    """Stimulate named neurons and print how activity spreads (Plan §12)."""
+    from doomworm.brain import stimulate
+    from doomworm.connectome import build_network, load_cook2019
+    from doomworm.visualization import plot_active_subgraph, plot_raster, propagation_tree
+
+    worm = load_cook2019()
+    unknown = [n for n in args.neurons if n not in worm]
+    if unknown:
+        raise SystemExit(f"unknown neurons: {unknown}")
+    net = build_network(worm, gain=args.gain, decay=args.decay)
+    trace = stimulate(net, dict.fromkeys(args.neurons, args.current), args.hold, args.settle)
+
+    first = trace.first_active(args.threshold)
+    print(f"stimulus {trace.stimulus} for {args.hold} ticks, gain {args.gain}, decay {args.decay}")
+    print(f"neurons active (> {args.threshold}) at some point: {len(first)} of {len(net.neurons)}")
+    for name in args.neurons:
+        print()
+        print(propagation_tree(worm, trace, name, args.threshold))
+    print(f"\ntop {args.top} responders:")
+    print(f"{'neuron':<8}{'type':<13}{'first':>6}{'peak':>8}")
+    for nid, peak in trace.top(args.top):
+        print(f"{nid:<8}{worm.neuron(nid).type:<13}{first.get(nid, '-'):>6}{peak:>8.3f}")
+    silent = [t for t in range(trace.hold, trace.ticks) if trace.max_activity(t) < args.threshold]
+    state = f"silent from tick {silent[0]}" if silent else "still active"
+    print(f"\nafter stimulus off: {state}")
+
+    if args.plot:
+        stem = "_".join(args.neurons)
+        raster = Path("runs") / f"stimulate_{stem}_raster.png"
+        graph = Path("runs") / f"stimulate_{stem}_graph.png"
+        plot_raster(trace, raster)
+        plot_active_subgraph(worm, trace, graph)
+        print(f"saved {raster} and {graph}")
+    return 0
 
 
 def run_play(args: argparse.Namespace) -> int:
@@ -76,4 +125,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         from doomworm.experiments.evolve_small import run_train
 
         return run_train(args)
+    if args.command == "stimulate":
+        return run_stimulate(args)
     return run_play(args)

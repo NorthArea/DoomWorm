@@ -4,9 +4,11 @@ from doomworm.brain.network import Network
 from doomworm.brain.neuron import Neuron
 from doomworm.brain.serialization import load_brain, network_from_dict, network_to_dict, save_brain
 from doomworm.brain.simulator import Simulator
+from doomworm.brain.stimulation import ActivityTrace, stimulate
 from doomworm.brain.synapse import Synapse
 
 __all__ = [
+    "ActivityTrace",
     "Network",
     "Neuron",
     "Simulator",
@@ -15,4 +17,5 @@ __all__ = [
     "network_from_dict",
     "network_to_dict",
     "save_brain",
+    "stimulate",
 ]

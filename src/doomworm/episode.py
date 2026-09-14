@@ -39,6 +39,8 @@ class Record:
     ate: bool
     starved: bool = False
     reward: float = 0.0
+    foods: tuple[tuple[float, float], ...] = ()
+    activity: dict[str, float] | None = None
 
 
 def run_episode(
@@ -48,11 +50,13 @@ def run_episode(
     motor: MotorAdapter,
     steps: int,
     reward: TickScorer | None = None,
+    record_activity: bool = False,
 ) -> list[Record]:
     """Step the closed loop until ``steps`` ticks or starvation; return the trace.
 
     ``reward``, when given, scores every tick (Plan §9) and the per-tick value
-    lands in :attr:`Record.reward`.
+    lands in :attr:`Record.reward`. ``record_activity`` stores every neuron's
+    activity per tick for the debug screen (Plan §41).
     """
     trace: list[Record] = []
     obs = world.observe()
@@ -83,6 +87,8 @@ def run_episode(
                 ate=obs.ate,
                 starved=world.starved,
                 reward=tick_reward,
+                foods=tuple((f.x, f.y) for f in world.foods),
+                activity=dict(activity) if record_activity else None,
             )
         )
         if world.starved:

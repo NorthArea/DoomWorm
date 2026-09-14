@@ -10,7 +10,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 3 | Reward | `tests/test_reward.py`, `tests/test_episode.py`, `tests/test_reward_demo.py` | `python -m doomworm.experiments.reward_demo` | done |
 | 4 | Evolution on the small network | `tests/test_evolution.py`, `tests/test_serialization.py`, `tests/test_evolve_small.py` | `doomworm train` then `doomworm play --brain runs/small_evolved.json --seed 1003` | done |
 | 5 | Load C. elegans connectome into internal format | `tests/test_connectome_loader.py`, graded neuron tests in `tests/test_brain.py` | `python -m doomworm.experiments.connectome_stats` | done |
-| 6 | Stimulate connectome, observe propagation | | | todo |
+| 6 | Stimulate connectome, observe propagation | `tests/test_stimulation.py`, `tests/test_visualization.py` | `doomworm stimulate ASHL --plot`, `python -m doomworm.experiments.debug_screen_demo` | done |
 | 7 | Sensory mapping | | | todo |
 | 8 | Motor mapping | | | todo |
 | 9 | C. elegans controls 2D agent | | | todo |

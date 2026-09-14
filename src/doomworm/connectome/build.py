@@ -7,6 +7,11 @@ Rules:
 * electrical connections are always positive (already expanded to both directions);
 * magnitude is proportional to the dataset weight and normalised per target so
   that the absolute incoming weights of every neuron sum to ``gain``.
+
+Stability: with graded neurons the steady-state gain per synaptic hop is
+``gain / decay``. Below 1 a stimulus spreads and then fades; at or above 1
+the almost entirely excitatory network locks into an all-on state. Defaults
+``gain=0.45, decay=0.5`` give 0.9 per hop (see docs/assumptions.md, stage 6).
 """
 
 from __future__ import annotations
@@ -22,7 +27,7 @@ from doomworm.connectome.neurotransmitters import GABA_NEURONS
 def build_network(
     connectome: Connectome,
     *,
-    gain: float = 1.0,
+    gain: float = 0.45,
     threshold: float = 1.0,
     decay: float = 0.5,
     graded: bool = True,
