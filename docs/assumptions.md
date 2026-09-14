@@ -12,3 +12,8 @@ Plan rule 7: document assumptions. Add an entry per stage as decisions are made.
 | 2026-09-14 | 0 | Synchronous update: a step reads activities from the previous tick, so a signal travels one synapse per tick and neuron order is irrelevant. | Determinism; matches Plan §40 replay requirement. |
 | 2026-09-14 | 0 | Activity is binary (0/1) and potential resets to 0 on firing. Leak is applied before input: `p = p*(1-decay) + I`. | Simplest model that satisfies Plan §6 acceptance criteria. |
 | 2026-09-14 | 0 | Pure Python dicts, no NumPy in the brain yet. | 3 neurons; vectorise only when the 302-neuron connectome demands it (Plan §42). |
+| 2026-09-14 | 1 | World is a bounded box; walls are sensed and collide like obstacles. Obstacles are circles. | Simplest geometry with exact ray casts. |
+| 2026-09-14 | 1 | Sensor reading = `1 - distance/range` clamped to [0,1]; rays at +45°, 0°, -45° from heading, range 4.0. | Proximity, not distance, so "closer" is "stronger" (Plan §8 uses the same convention for food). |
+| 2026-09-14 | 1 | On collision the agent keeps its rotation but does not move; collision is counted. | Avoids tunnelling and gives a clean signal for later reward (Plan §9). |
+| 2026-09-14 | 1 | Adapters are introduced now: `SensoryAdapter` (channel -> neuron, gain, tonic currents) and `MotorAdapter` (two neuron ids -> wheels). | Plan §2.2 wants independent layers from the start; both are tiny. |
+| 2026-09-14 | 1 | Motor neurons run on a tonic current of 1.0 and sensors inhibit the *opposite* wheel. Front also excites the left wheel so a front+right conflict still turns right instead of freezing. | Hand tuning only (Plan §7); first wiring deadlocked and was fixed. |
