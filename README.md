@@ -54,6 +54,7 @@ uv run doomworm stimulate ASHL --plot                      # stage 6: propagatio
 uv run python -m doomworm.experiments.debug_screen_demo    # stage 6: debug screen GIF
 uv run python -m doomworm.experiments.sensory_mapping_demo # stage 7: sensory mapping
 uv run python -m doomworm.experiments.motor_mapping_demo   # stage 8: motor mapping
+uv run python -m doomworm.experiments.worm_agent --plot --gif # stage 9: untrained worm drives
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 

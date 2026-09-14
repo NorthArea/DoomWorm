@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demos train play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos train play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -73,7 +73,10 @@ demo-7: ## Stage 7: sensory mapping and per-channel responders
 demo-8: ## Stage 8: motor mapping, wheel commands per channel
 	$(UV) python -m doomworm.experiments.motor_mapping_demo
 
-demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 ## Run every stage demo
+demo-9: ## Stage 9: untrained worm drives the 2D agent (PNG + GIF + JSONL log)
+	$(UV) python -m doomworm.experiments.worm_agent --seed $(SEED) --plot --gif
+
+demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every stage demo
 
 # --- training and connectome -------------------------------------------------
 

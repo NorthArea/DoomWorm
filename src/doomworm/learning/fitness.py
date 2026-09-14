@@ -8,10 +8,10 @@ from typing import Protocol
 
 import numpy as np
 
-from doomworm.adapters import MotorAdapter, SensoryAdapter
+from doomworm.adapters import SensoryAdapter
 from doomworm.brain import Network, Simulator
 from doomworm.environments.simple_2d import World
-from doomworm.episode import run_episode
+from doomworm.episode import MotorLike, run_episode
 from doomworm.learning.reward import RewardConfig, RewardTracker
 
 
@@ -20,7 +20,12 @@ class Scenario(Protocol):
 
     template: Network
     sensory: SensoryAdapter
-    motor: MotorAdapter
+    brain_steps: int
+
+    @property
+    def motor(self) -> MotorLike:
+        """Activity -> wheels."""
+        ...
 
     def make_world(self, seed: int) -> World:
         """Build a fresh, seeded world."""
@@ -53,7 +58,15 @@ def evaluate(
         net.reset()
         world = scenario.make_world(seed)
         tracker = RewardTracker(reward_config or RewardConfig())
-        trace = run_episode(world, Simulator(net), scenario.sensory, scenario.motor, steps, tracker)
+        trace = run_episode(
+            world,
+            Simulator(net),
+            scenario.sensory,
+            scenario.motor,
+            steps,
+            tracker,
+            brain_steps=scenario.brain_steps,
+        )
         totals.append(tracker.total)
         food += world.food_eaten
         collisions += world.collisions

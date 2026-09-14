@@ -13,7 +13,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 6 | Stimulate connectome, observe propagation | `tests/test_stimulation.py`, `tests/test_visualization.py` | `doomworm stimulate ASHL --plot`, `python -m doomworm.experiments.debug_screen_demo` | done |
 | 7 | Sensory mapping | `tests/test_sensory_mapping.py` | `make demo-7` | done |
 | 8 | Motor mapping | `tests/test_motor_mapping.py` | `make demo-8` | done |
-| 9 | C. elegans controls 2D agent | | | todo |
+| 9 | C. elegans controls 2D agent | `tests/test_worm_agent.py` | `make demo-9 SEED=1001` | done (untrained: drives, slows on touch, no reversal, no steering) |
 | 10 | Train weights | | | todo |
 | 11 | Real vs random vs shuffled topology | | | todo |
 | 12 | Random maps | | | todo |

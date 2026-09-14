@@ -59,6 +59,16 @@ class SensoryMapping:
         """Every neuron referenced."""
         return {r.neuron for r in self.routes} | set(self.tonic)
 
+    def scale(self, channel_prefix: str, factor: float) -> SensoryMapping:
+        """Multiply the gain of every route whose channel starts with ``channel_prefix``."""
+        scaled = []
+        for r in self.routes:
+            if r.channel.startswith(channel_prefix):
+                r = Route(r.channel, r.neuron, r.gain * factor)
+            scaled.append(r)
+        self.routes = scaled
+        return self
+
     def channels(self) -> list[str]:
         """Channels in first-seen order."""
         return list(dict.fromkeys(r.channel for r in self.routes))

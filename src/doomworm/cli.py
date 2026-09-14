@@ -86,18 +86,29 @@ def run_play(args: argparse.Namespace) -> int:
     """Load a brain JSON and run one episode on the scenario named in its metadata."""
     from doomworm.brain import Simulator, load_brain
     from doomworm.experiments.episode import print_trace, render_ascii, run_episode, save_plot
-    from doomworm.experiments.evolve_small import SCENARIO_NAME, SmallFoodScenario
-    from doomworm.learning import RewardTracker
+    from doomworm.experiments.evolve_small import SmallFoodScenario
+    from doomworm.experiments.worm_agent import WormScenario
+    from doomworm.learning import RewardTracker, Scenario
 
     net, meta = load_brain(args.brain)
-    scenario_name = meta.get("scenario", SCENARIO_NAME)
-    if scenario_name != SCENARIO_NAME:
+    scenario_name = meta.get("scenario", "small_food")
+    scenario: Scenario
+    if scenario_name == "small_food":
+        scenario = SmallFoodScenario()
+    elif scenario_name == "worm":
+        scenario = WormScenario(**meta.get("params", {}))
+    else:
         raise SystemExit(f"unknown scenario {scenario_name!r}")
-    scenario = SmallFoodScenario()
     world = scenario.make_world(args.seed)
     tracker = RewardTracker()
     trace = run_episode(
-        world, Simulator(net), scenario.sensory, scenario.motor, args.steps, tracker
+        world,
+        Simulator(net),
+        scenario.sensory,
+        scenario.motor,
+        args.steps,
+        tracker,
+        brain_steps=scenario.brain_steps,
     )
 
     print_trace(trace, args.every)

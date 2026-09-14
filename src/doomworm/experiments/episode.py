@@ -7,7 +7,33 @@ from pathlib import Path
 from doomworm.environments.simple_2d import World
 from doomworm.episode import Record, run_episode
 
-__all__ = ["Record", "print_trace", "render_ascii", "run_episode", "save_plot"]
+__all__ = ["Record", "print_trace", "render_ascii", "run_episode", "save_log", "save_plot"]
+
+
+def save_log(trace: list[Record], path: Path, top: int = 10) -> None:
+    """Write one JSON object per tick (Plan §15 log): pose, sensors, wheels, reward, neurons."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        for rec in trace:
+            active = sorted((rec.activity or {}).items(), key=lambda kv: -kv[1])[:top]
+            row = {
+                "tick": rec.tick,
+                "x": round(rec.x, 4),
+                "y": round(rec.y, 4),
+                "heading": round(rec.heading, 4),
+                "obstacle": [round(v, 4) for v in rec.obstacle],
+                "food": [round(v, 4) for v in rec.food],
+                "hunger": round(rec.hunger, 4),
+                "motors": [round(v, 4) for v in rec.motors],
+                "reward": round(rec.reward, 4),
+                "collided": rec.collided,
+                "ate": rec.ate,
+                "starved": rec.starved,
+                "active_neurons": {n: round(v, 4) for n, v in active if v > 0.0},
+            }
+            f.write(json.dumps(row) + "\n")
 
 
 def render_ascii(world: World, trace: list[Record], cols: int = 60, rows: int = 24) -> str:

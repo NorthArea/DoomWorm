@@ -33,6 +33,7 @@ class SmallFoodScenario:
     def __init__(self) -> None:
         self.template: Network = food_agent.extend_brain(obstacle_agent.build_brain())
         _, _, self.sensory, self.motor = food_agent.build_scenario()
+        self.brain_steps = 1
 
     @property
     def n_weights(self) -> int:
