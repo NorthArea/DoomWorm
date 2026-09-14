@@ -34,7 +34,8 @@ optional track B, never the main line.
 
 ## Tooling
 - `uv` for everything: `uv sync --all-groups`, `uv run pytest`, `uv run ruff check . --fix`,
-  `uv run ruff format .`, `uv run mypy`.
+  `uv run ruff format .`, `uv run mypy`. `Makefile` wraps them: `make check`, `make demo-N`,
+  `make train`, `make play`, `make stimulate`. Add a `demo-N` target for every new stage.
 - src layout: code in `src/doomworm/`, tests in `tests/`, cross-cutting scripts in `scripts/`,
   stage demos live next to the stage code as `demo_*.py` or under `experiments/`.
 - Experiment outputs go to `runs/` (git-ignored).

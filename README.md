@@ -29,6 +29,10 @@ uv run pre-commit install
 
 ## Development
 
+`make help` lists every shortcut: `make check` runs lint, mypy and tests; `make demo-N`
+runs a stage demo; `make train`, `make play SEED=1003`, `make stimulate NEURON=ASHL`.
+The underlying commands:
+
 ```bash
 uv run pytest                 # tests
 uv run pytest --cov           # tests + coverage
