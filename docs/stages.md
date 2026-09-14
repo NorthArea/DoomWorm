@@ -4,7 +4,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 
 | # | Stage | Tests | Demo | Status |
 |---|-------|-------|------|--------|
-| 0 | 3-neuron network (Neuron, Synapse, Network, Simulator) | | | todo |
+| 0 | 3-neuron network (Neuron, Synapse, Network, Simulator) | `tests/test_brain.py` | `python -m doomworm.experiments.three_neurons` | done |
 | 1 | 2D agent: 3 distance sensors, 2 motors, 1 obstacle | | | todo |
 | 2 | Food + hunger | | | todo |
 | 3 | Reward | | | todo |
