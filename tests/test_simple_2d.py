@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from doomworm.environments.simple_2d import AgentState, Obstacle, World
+from doomworm.environments.simple_2d import AgentState, Food, Obstacle, World
 
 DEG = math.pi / 180
 
@@ -90,5 +90,80 @@ def test_cannot_leave_world() -> None:
 
 def test_observation_channels_are_floats() -> None:
     ch = make_world().observe().as_channels()
-    assert set(ch) == {"sensor_left", "sensor_front", "sensor_right"}
     assert all(isinstance(v, float) for v in ch.values())
+
+
+# --- Stage 2: food + hunger (Plan §8) ------------------------------------------
+
+
+def test_no_food_reads_zero() -> None:
+    obs = make_world().observe()
+    assert obs.food_left == obs.food_front == obs.food_right == 0.0
+
+
+def test_food_ahead_reads_inverse_distance() -> None:
+    w = make_world(foods=[Food(x=14.0, y=10.0)])
+    obs = w.observe()
+    assert obs.food_front == pytest.approx(0.25)
+    assert obs.food_left == obs.food_right == 0.0
+
+
+def test_food_signal_is_clamped_to_one() -> None:
+    w = make_world(foods=[Food(x=10.5, y=10.0)])
+    assert w.observe().food_front == 1.0
+
+
+def test_food_sensors_are_sectored() -> None:
+    left = make_world(foods=[Food(x=10.0, y=12.0)]).observe()  # bearing +90°
+    assert (left.food_left > 0.0, left.food_front, left.food_right) == (True, 0.0, 0.0)
+
+    right = make_world(foods=[Food(x=10.0, y=8.0)]).observe()  # bearing -90°
+    assert (right.food_right > 0.0, right.food_front, right.food_left) == (True, 0.0, 0.0)
+
+    behind = make_world(foods=[Food(x=8.0, y=10.0 + 1e-9)]).observe()  # bearing ~180°
+    assert behind.food_left > 0.0, "food behind is still sensed on the left sector"
+
+
+def test_only_nearest_food_is_sensed() -> None:
+    w = make_world(foods=[Food(x=12.0, y=10.0), Food(x=18.0, y=10.0)])
+    assert w.observe().food_front == pytest.approx(0.5)
+
+    w = make_world(foods=[Food(x=10.0, y=13.0), Food(x=10.0, y=8.0)])  # left far, right near
+    obs = w.observe()
+    assert obs.food_right == pytest.approx(0.5)
+    assert obs.food_left == 0.0
+
+
+def test_hunger_grows_and_saturates() -> None:
+    w = make_world(hunger_rate=0.4)
+    assert w.hunger == 0.0
+    w.step(0.0, 0.0)
+    assert w.hunger == pytest.approx(0.4)
+    w.step(0.0, 0.0)
+    w.step(0.0, 0.0)
+    assert w.hunger == 1.0
+    assert w.starved
+
+
+def test_eating_resets_hunger_and_removes_food() -> None:
+    w = make_world(foods=[Food(x=11.0, y=10.0)], hunger_rate=0.1)
+    w.step(0.0, 0.0)
+    obs = w.step(1.0, 1.0)  # moves to x=10.5, within reach
+    assert obs.ate
+    assert w.hunger == 0.0
+    assert w.food_eaten == 1
+    assert w.foods == []
+    assert w.observe().food_front == 0.0
+
+
+def test_observation_channels_include_food_and_hunger() -> None:
+    ch = make_world().observe().as_channels()
+    assert set(ch) == {
+        "sensor_left",
+        "sensor_front",
+        "sensor_right",
+        "food_left",
+        "food_front",
+        "food_right",
+        "hunger",
+    }

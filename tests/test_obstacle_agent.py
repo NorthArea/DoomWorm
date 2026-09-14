@@ -2,7 +2,8 @@
 
 import math
 
-from doomworm.experiments.obstacle_agent import SENSOR_THRESHOLD, build_scenario, run_episode
+from doomworm.experiments.episode import run_episode
+from doomworm.experiments.obstacle_agent import SENSOR_THRESHOLD, build_scenario
 
 
 def test_agent_drives_reacts_and_turns() -> None:
@@ -11,7 +12,7 @@ def test_agent_drives_reacts_and_turns() -> None:
     start, end = trace[0], trace[-1]
     assert math.dist((start.x, start.y), (end.x, end.y)) > 1.0, "agent moved"
 
-    first_trigger = next(i for i, r in enumerate(trace) if max(r.sensors) >= SENSOR_THRESHOLD)
+    first_trigger = next(i for i, r in enumerate(trace) if max(r.obstacle) >= SENSOR_THRESHOLD)
     headings_before = {round(r.heading, 9) for r in trace[: first_trigger + 1]}
     assert headings_before == {trace[0].heading}, "no turning before a sensor fires"
 
