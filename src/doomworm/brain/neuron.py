@@ -15,7 +15,10 @@ class Neuron:
         decay: Fraction of potential lost per step, in [0, 1]. 0 = perfect
             integrator, 1 = no memory between steps.
         potential: Current membrane potential.
-        activity: Output of the last :meth:`update` (1.0 fired, 0.0 silent).
+        activity: Output of the last :meth:`update`. Binary mode: 1.0 fired,
+            0.0 silent, potential resets on firing. Graded mode (Plan §2.3,
+            stage 5+): ``clip(potential / threshold, 0, 1)``, no reset.
+        graded: Select graded mode.
     """
 
     id: str
@@ -23,6 +26,7 @@ class Neuron:
     decay: float = 0.5
     potential: float = 0.0
     activity: float = 0.0
+    graded: bool = False
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.decay <= 1.0:
@@ -35,8 +39,10 @@ class Neuron:
         self.potential = self.potential * (1.0 - self.decay) + current
 
     def update(self) -> float:
-        """Fire if the threshold is reached; return the new activity."""
-        if self.potential >= self.threshold:
+        """Compute the new activity from the potential and return it."""
+        if self.graded:
+            self.activity = min(1.0, max(0.0, self.potential / self.threshold))
+        elif self.potential >= self.threshold:
             self.activity = 1.0
             self.potential = 0.0
         else:

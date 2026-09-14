@@ -23,7 +23,7 @@ def test_round_trip_dict() -> None:
     net.neurons["a"].potential = 3.0  # transient state must not be serialised
     d = network_to_dict(net)
     assert d["format"] == FORMAT_VERSION
-    assert d["neurons"][0] == {"id": "a", "threshold": 0.5, "decay": 0.2}
+    assert d["neurons"][0] == {"id": "a", "threshold": 0.5, "decay": 0.2, "graded": False}
     assert d["synapses"][1] == {"source": "b", "target": "a", "weight": 0.25, "kind": "electrical"}
     clone = network_from_dict(d)
     assert network_to_dict(clone) == d

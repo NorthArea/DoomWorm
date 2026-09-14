@@ -3,7 +3,7 @@
 ```
 {
   "format": 1,
-  "neurons":  [{"id", "threshold", "decay"}],
+  "neurons":  [{"id", "threshold", "decay", "graded"}],
   "synapses": [{"source", "target", "weight", "kind"}],
   "meta":     {...}
 }
@@ -31,7 +31,8 @@ def network_to_dict(net: Network, meta: dict[str, Any] | None = None) -> dict[st
     return {
         "format": FORMAT_VERSION,
         "neurons": [
-            {"id": n.id, "threshold": n.threshold, "decay": n.decay} for n in net.neurons.values()
+            {"id": n.id, "threshold": n.threshold, "decay": n.decay, "graded": n.graded}
+            for n in net.neurons.values()
         ],
         "synapses": [
             {"source": s.source, "target": s.target, "weight": s.weight, "kind": s.kind}
@@ -48,11 +49,11 @@ def network_from_dict(data: dict[str, Any]) -> Network:
         raise ValueError(f"unsupported brain format {version!r}, expected {FORMAT_VERSION}")
     net = Network()
     for n in data["neurons"]:
-        net.add_neuron(Neuron(n["id"], threshold=n["threshold"], decay=n["decay"]))
+        graded = bool(n.get("graded", False))
+        net.add_neuron(Neuron(n["id"], threshold=n["threshold"], decay=n["decay"], graded=graded))
     for s in data["synapses"]:
-        net.add_synapse(
-            Synapse(s["source"], s["target"], weight=s["weight"], kind=s.get("kind", "chemical"))
-        )
+        kind = s.get("kind", "chemical")
+        net.add_synapse(Synapse(s["source"], s["target"], weight=s["weight"], kind=kind))
     return net
 
 

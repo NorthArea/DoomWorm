@@ -45,6 +45,7 @@ uv run python -m doomworm.experiments.obstacle_agent --plot # stage 1
 uv run python -m doomworm.experiments.food_agent --plot     # stage 2
 uv run python -m doomworm.experiments.reward_demo           # stage 3
 uv run doomworm train                                       # stage 4: evolve weights
+uv run python -m doomworm.experiments.connectome_stats     # stage 5: real connectome
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
@@ -61,6 +62,7 @@ src/doomworm/
   visualization/   brain activity, metrics, debug screen
 tests/             pytest suite (one test module per layer)
 docs/              assumptions, stage checklist
+data/connectome/   Cook 2019 connectome CSVs (see its README for source and citation)
 scripts/           cross-cutting utilities
 runs/              experiment outputs (git-ignored)
 ```

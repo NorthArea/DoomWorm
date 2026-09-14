@@ -108,3 +108,29 @@ def test_simulation_is_deterministic() -> None:
     a = Simulator(make_chain()).run(20, {"INPUT": 0.7})
     b = Simulator(make_chain()).run(20, {"INPUT": 0.7})
     assert a == b
+
+
+# --- Graded activity (Plan §2.3, stage 5+) -------------------------------------
+
+
+def test_graded_neuron_activity_is_potential_over_threshold() -> None:
+    n = Neuron("g", threshold=2.0, decay=0.0, graded=True)
+    n.integrate(0.5)
+    assert n.update() == pytest.approx(0.25)
+    assert n.potential == pytest.approx(0.5), "no reset in graded mode"
+    n.integrate(3.0)
+    assert n.update() == 1.0, "clipped at 1"
+    n.integrate(-10.0)
+    assert n.update() == 0.0, "clipped at 0"
+
+
+def test_graded_chain_passes_fractional_signal() -> None:
+    net = Network()
+    for name in ("A", "B"):
+        net.add_neuron(Neuron(name, threshold=1.0, decay=1.0, graded=True))
+    net.add_synapse(Synapse("A", "B", weight=0.5))
+    sim = Simulator(net)
+    sim.step({"A": 0.6})
+    activity = sim.step({"A": 0.6})
+    assert activity["A"] == pytest.approx(0.6)
+    assert activity["B"] == pytest.approx(0.3)
