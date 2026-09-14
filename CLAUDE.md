@@ -14,6 +14,13 @@ Source of truth: `Plan.md`. Read it before any implementation work.
 - Brain, connectome, environments, adapters, learning are independent layers. No game logic in the brain.
 - Connectome topology is FIXED; only synaptic weights are trainable.
 - Neuron model v1 is Leaky Integrate-and-Fire. No Hodgkin-Huxley/NEURON/body model.
+  Binary activity on stages 0-4; graded activity in [0, 1] from stage 5 (Plan §2.3).
+- From stage 5 the network holds only the 302 connectome neurons: no artificial
+  interneurons; internal states are injected as currents into biological neurons (Plan §11).
+- Several brain ticks per environment step (`brain_steps_per_env_step`, Plan §3.1);
+  the motor adapter averages over that window.
+- Reward is the single source of numbers; fitness = sum of reward over an episode (Plan §9-10).
+  Evaluate on several seeded maps with food respawn, never on one fixed layout.
 - CPU + NumPy only. No GPU/CUDA/Rust/distributed until the hypothesis is demonstrated.
 - No ViZDoom until the 2D agent works; no framebuffer until structured-input Doom works.
 - Deterministic seeds; experiments save seed/brain/weights/environment and can be replayed.

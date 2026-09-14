@@ -23,5 +23,11 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 16 | FIRE action | | | todo |
 | 17 | Mini-Doom combat | | | todo |
 | 18 | ViZDoom integration | | | todo |
-| 19-22 | Doom levels 1-7 | | | todo |
-| 23 | Visual input | | | todo |
+| 19 | Doom L1: empty room, EXIT | | | todo |
+| 20 | Doom L2: walls, corridors | | | todo |
+| 21 | Doom L3: stationary enemy, avoid | | | todo |
+| 22 | Doom L4: FIRE at stationary enemy | | | todo |
+| 23 | Doom L5: moving enemy | | | todo |
+| 24 | Doom L6: several rooms | | | todo |
+| 25 | Doom L7: standard scenario | | | todo |
+| 26 | Visual input | | | todo |
