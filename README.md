@@ -1,14 +1,18 @@
 # DoomWorm
 
 Experimental project: the **C. elegans connectome** (302 neurons) used as a trainable
-controller, moving step by step from a 3-neuron network to a 2D agent and finally to Doom.
+controller, moving step by step from a 3-neuron network to a 2D agent and finally to a
+small car that explores an apartment on its own needs. The worm is the reactive and
+motivational layer; map building and planning are an engineered layer outside the brain.
+Doom is an optional stress-test track.
 
 ```text
 Environment -> Sensory Adapter -> Brain Simulator -> Motor Adapter -> Environment
 ```
 
 The research question: does the biological topology of C. elegans provide a useful
-inductive bias for learning behaviour in a completely foreign environment?
+inductive bias for learning behaviour in a completely foreign environment, compared with
+a same-size network trained from scratch?
 Full roadmap and constraints: [Plan.md](Plan.md). Stage progress: [docs/stages.md](docs/stages.md).
 
 ## Requirements

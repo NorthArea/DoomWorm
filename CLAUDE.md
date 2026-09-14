@@ -2,6 +2,11 @@
 
 Source of truth: `Plan.md`. Read it before any implementation work.
 
+End goal: a physical differential-drive car that explores an apartment, keeps a map and
+moves on its own needs (battery, call, curiosity). The worm is the reactive/motivational
+layer; map and planner are an engineered layer outside the brain (Plan §3.2). Doom is an
+optional track B, never the main line.
+
 ## Workflow
 - Implement stages strictly in the order of Plan §44. Never start stage N+1 until stage N
   works, is covered by tests, and has a runnable demo (Plan §45).
@@ -22,7 +27,9 @@ Source of truth: `Plan.md`. Read it before any implementation work.
 - Reward is the single source of numbers; fitness = sum of reward over an episode (Plan §9-10).
   Evaluate on several seeded maps with food respawn, never on one fixed layout.
 - CPU + NumPy only. No GPU/CUDA/Rust/distributed until the hypothesis is demonstrated.
-- No ViZDoom until the 2D agent works; no framebuffer until structured-input Doom works.
+- The simulator models the future hardware (range sensors, metres, noise); never make it
+  more convenient than the real world (Plan §2.4). No hardware before stage 17.
+- Doom (track B) only after the decision gate in Plan §17.1, and only if asked.
 - Deterministic seeds; experiments save seed/brain/weights/environment and can be replayed.
 
 ## Tooling

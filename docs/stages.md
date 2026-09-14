@@ -17,17 +17,26 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 10 | Train weights | | | todo |
 | 11 | Real vs random vs shuffled topology | | | todo |
 | 12 | Random maps | | | todo |
-| 13 | Target instead of food | | | todo |
-| 14 | Danger / enemy | | | todo |
-| 15 | Mini-Doom (2D) | | | todo |
-| 16 | FIRE action | | | todo |
-| 17 | Mini-Doom combat | | | todo |
-| 18 | ViZDoom integration | | | todo |
-| 19 | Doom L1: empty room, EXIT | | | todo |
-| 20 | Doom L2: walls, corridors | | | todo |
-| 21 | Doom L3: stationary enemy, avoid | | | todo |
-| 22 | Doom L4: FIRE at stationary enemy | | | todo |
-| 23 | Doom L5: moving enemy | | | todo |
-| 24 | Doom L6: several rooms | | | todo |
-| 25 | Doom L7: standard scenario | | | todo |
-| 26 | Visual input | | | todo |
+| 13 | Target instead of food ("come to X") | | | todo |
+| 14 | Danger zone | | | todo |
+| 15 | Apartment-like maps (rooms, doors) | | | todo |
+| 16 | Battery + dock | | | todo |
+| 17 | Sensor noise, delay, hardware-like config | | | todo |
+| 18 | External occupancy-grid map | | | todo |
+| 19 | Planner -> virtual gradient, "come to X" on unseen map | | | todo |
+| 20 | Needs arbitration: battery > call > curiosity | | | todo |
+| 21 | Physical platform | | | todo |
+
+Decision gate after stage 11 (Plan §17.1): record the real/random/shuffled/free
+comparison in `docs/` and decide which brain goes forward.
+
+## Track B: Doom (optional, after the decision gate)
+
+| # | Stage | Status |
+|---|-------|--------|
+| B1 | Mini-Doom (2D) | todo |
+| B2 | FIRE action | todo |
+| B3 | Mini-Doom combat | todo |
+| B4 | ViZDoom integration | todo |
+| B5-B11 | Doom levels 1-7 | todo |
+| B12 | Visual input | todo |
