@@ -100,7 +100,7 @@ class World:
         agent: AgentState | None = None,
         obstacles: Sequence[Obstacle] = (),
         foods: Sequence[Food] = (),
-        hunger_rate: float = 0.01,
+        hunger_rate: float = 0.004,
         agent_radius: float = 0.5,
         sensor_range: float = 4.0,
         sensor_angles: tuple[float, float, float] = (math.pi / 4, 0.0, -math.pi / 4),
