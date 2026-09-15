@@ -1,0 +1,51 @@
+{
+  "scenario": "worm",
+  "params": {
+    "tonic_avb": 0.1,
+    "obstacle_gain": 3.0,
+    "food_gain": 1.0,
+    "gain": 0.45,
+    "decay": 0.5,
+    "gain_drive": 6.0,
+    "gain_turn": 6.0,
+    "brain_steps": 5,
+    "maps": "apartment",
+    "task": "clean",
+    "dangers": 0,
+    "sensors": "vacuum"
+  },
+  "candidate": "worm",
+  "layer": "needs",
+  "train": {
+    "layer": "needs",
+    "train_seeds": [
+      100,
+      101,
+      102
+    ],
+    "steps": 800,
+    "population": 40,
+    "generations": 25,
+    "sigma": 0.02,
+    "init_sigma": null,
+    "weight_range": [
+      -1.0,
+      1.0
+    ],
+    "mutation_fraction": 1.0,
+    "seed": 0,
+    "workers": 2,
+    "spec": {
+      "kind": "worm",
+      "init": null,
+      "variant_seed": 0,
+      "maps": "apartment",
+      "task": "clean",
+      "sensors": "vacuum",
+      "dangers": 0,
+      "params": {}
+    }
+  },
+  "fitness": 23.100000000000026,
+  "generations": 25
+}
