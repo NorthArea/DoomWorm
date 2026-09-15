@@ -59,6 +59,9 @@ def render_ascii(world: World, trace: list[Record], cols: int = 60, rows: int = 
     for f in world.foods:
         r, c = cell(f.x, f.y)
         grid[r][c] = "F"
+    if world.dock is not None:
+        r, c = cell(world.dock.x, world.dock.y)
+        grid[r][c] = "D"
     if world.target is not None:
         r, c = cell(world.target.x, world.target.y)
         grid[r][c] = "X"
@@ -93,6 +96,13 @@ def save_plot(world: World, trace: list[Record], path: Path, title: str) -> None
         ax.add_patch(Circle((f.x, f.y), f.radius, color="tab:green"))
     if world.target is not None:
         ax.plot(world.target.x, world.target.y, "X", color="tab:orange", ms=12, label="target")
+    if world.dirt is not None:
+        dirty = world.dirt.dirty_centres()
+        if dirty:
+            xs, ys = [p[0] for p in dirty], [p[1] for p in dirty]
+            ax.plot(xs, ys, "s", color="0.8", ms=4, mec="none")
+    if world.dock is not None:
+        ax.add_patch(Circle((world.dock.x, world.dock.y), world.dock.radius, color="tab:cyan"))
     for d in world.dangers:
         ax.add_patch(Circle((d.x, d.y), d.radius, color="tab:purple", alpha=0.3, hatch="//"))
     xs, ys = [r.x for r in trace], [r.y for r in trace]
@@ -126,6 +136,7 @@ def print_trace(trace: list[Record], every: int) -> None:
         event = ("X" if rec.collided else "") + ("EAT" if rec.ate else "")
         event += "GOAL" if rec.reached else ""
         event += "DMG" if rec.damaged else ""
+        event += "DOCK" if rec.docked else ""
         event += "DEAD" if rec.dead and not rec.starved else ""
         event += "DEAD" if rec.starved else ""
         print(

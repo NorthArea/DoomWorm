@@ -34,6 +34,7 @@ OBSTACLE = {"left": "sensor_left", "front": "sensor_front", "right": "sensor_rig
 FOOD = {"left": "food_left", "front": "food_front", "right": "food_right"}
 DANGER = {"left": "danger_left", "front": "danger_front", "right": "danger_right"}
 TARGET = {"left": "target_left", "front": "target_front", "right": "target_right"}
+DOCK = {"left": "dock_left", "front": "dock_front", "right": "dock_right"}
 
 
 @dataclass(frozen=True)
@@ -221,6 +222,9 @@ def default_sensory_mapping() -> SensoryMapping:
     m.add(TARGET["left"], ["AWAL", "AWCL", "ASEL"])
     m.add(TARGET["right"], ["AWAR", "AWCR", "ASER"])
     m.add(TARGET["front"], ["AWAL", "AWCL", "ASEL", "AWAR", "AWCR", "ASER"])
+    m.add(DOCK["left"], ["AWAL", "AWCL", "ASEL"])
+    m.add(DOCK["right"], ["AWAR", "AWCR", "ASER"])
+    m.add(DOCK["front"], ["AWAL", "AWCL", "ASEL", "AWAR", "AWCR", "ASER"])
     m.add(DANGER["left"], ["ASHL"])
     m.add(DANGER["right"], ["ASHR"])
     m.add(DANGER["front"], ["ASHL", "ASHR"])

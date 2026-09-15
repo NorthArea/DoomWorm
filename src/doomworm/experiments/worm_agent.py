@@ -38,7 +38,7 @@ from doomworm.environments.maze import (
     random_world,
     rooms_visited,
 )
-from doomworm.environments.simple_2d import AgentState, Obstacle, World
+from doomworm.environments.simple_2d import AgentState, Dock, Obstacle, World
 from doomworm.episode import Record, run_episode
 from doomworm.experiments.episode import print_trace, render_ascii, save_log, save_plot
 from doomworm.learning import RewardTracker
@@ -46,6 +46,7 @@ from doomworm.visualization import save_debug_gif
 
 SCENARIO_NAME = "worm"
 N_FOOD = 2
+BATTERY_DRAIN = 0.002  # 500 ticks from full to empty (Plan §8 range)
 
 
 class WormScenario:
@@ -86,8 +87,8 @@ class WormScenario:
         if maps not in ("fixed", "random", "apartment"):
             raise ValueError("maps must be 'fixed', 'random' or 'apartment'")
         self.maps = maps
-        if task not in ("food", "target"):
-            raise ValueError("task must be 'food' or 'target'")
+        if task not in ("food", "target", "clean"):
+            raise ValueError("task must be 'food', 'target' or 'clean'")
         self.task = task
         self.dangers = dangers
         self.params = {
@@ -142,11 +143,18 @@ class WormScenario:
         return self._apply_task(world)
 
     def _apply_task(self, world: World) -> World:
-        """``target`` task: no food, one respawning target ("come to X"); then dangers."""
+        """Task overlays: ``target`` (come to X), ``clean`` (vacuum: dirt, dock, battery)."""
         if self.task == "target":
             world.foods = []
             world.respawn_target = True
             world.target = world.spawn_target()
+        elif self.task == "clean":
+            world.foods = []
+            world.hunger_rate = BATTERY_DRAIN
+            spot = world.spawn_food(radius=0.6, margin=1.2)
+            world.dock = Dock(x=spot.x, y=spot.y)
+            world.agent = AgentState(x=spot.x, y=spot.y, heading=world.agent.heading)
+            world.init_dirt()
         world.dangers = [world.spawn_danger() for _ in range(self.dangers)]
         return world
 
@@ -181,6 +189,9 @@ def summarise(trace: list[Record], world: World) -> dict[str, float]:
         "targets": world.targets_reached,
         "damage": world.damage_taken,
         "rooms": rooms_visited(world, [(r.x, r.y) for r in trace]),
+        "coverage": world.coverage,
+        "dockings": world.dockings,
+        "charging": world.charging_ticks,
         "collisions": world.collisions,
         "reward": sum(r.reward for r in trace),
         "mean_left": float(np.mean([r.motors[0] for r in trace])),
@@ -198,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tonic-avb", type=float, default=0.1)
     parser.add_argument("--obstacle-gain", type=float, default=3.0)
     parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="fixed")
-    parser.add_argument("--task", choices=["food", "target"], default="food")
+    parser.add_argument("--task", choices=["food", "target", "clean"], default="food")
     parser.add_argument("--dangers", type=int, default=0)
     parser.add_argument("--plot", action="store_true", help="save runs/stage9_worm_<seed>.png")
     parser.add_argument("--gif", action="store_true", help="save runs/stage9_worm_<seed>.gif")

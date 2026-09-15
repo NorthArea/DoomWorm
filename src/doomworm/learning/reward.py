@@ -5,6 +5,8 @@ Movement is never rewarded directly. Rewarded events:
     ate food            +food
     reached target      +target
     inside danger       +damage per tick
+    cleaned cells       +clean per cell (vacuum task)
+    docked when low     +dock once per docking with battery <= low_battery
     died (health 0)     +death once, episode ends
     collision           +collision per tick of contact, capped per episode
     new cell visited    +new_cell (cell_size x cell_size grid)
@@ -25,6 +27,9 @@ class RewardConfig:
     target: float = 10.0
     damage: float = -2.0
     death: float = -20.0
+    clean: float = 0.1
+    dock: float = 10.0
+    low_battery: float = 0.3
     collision: float = -0.5
     max_collision_penalty: float = 20.0
     new_cell: float = 0.1
@@ -44,6 +49,8 @@ class RewardTracker:
             "target": 0.0,
             "damage": 0.0,
             "death": 0.0,
+            "clean": 0.0,
+            "dock": 0.0,
             "collision": 0.0,
             "explore": 0.0,
             "starvation": 0.0,
@@ -52,6 +59,7 @@ class RewardTracker:
     _visited: set[tuple[int, int]] = field(default_factory=set)
     _starved: bool = False
     _dead: bool = False
+    _docked: bool = False
 
     @property
     def cells_visited(self) -> int:
@@ -69,6 +77,9 @@ class RewardTracker:
         reached: bool = False,
         damaged: bool = False,
         dead: bool = False,
+        cleaned: int = 0,
+        docked: bool = False,
+        battery: float = 1.0,
     ) -> float:
         """Score one tick and return its reward."""
         reward = 0.0
@@ -80,6 +91,11 @@ class RewardTracker:
             reward += self._add("target", cfg.target)
         if damaged:
             reward += self._add("damage", cfg.damage)
+        if cleaned:
+            reward += self._add("clean", cfg.clean * cleaned)
+        if docked and not self._docked and battery <= cfg.low_battery:
+            reward += self._add("dock", cfg.dock)
+        self._docked = docked
         if dead and not starved and not self._dead:
             self._dead = True
             reward += self._add("death", cfg.death)

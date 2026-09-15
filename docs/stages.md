@@ -20,7 +20,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 13 | Target instead of food ("come to X") | `tests/test_target.py` | `make demo-13 SEED=2004` | done (partial transfer: 3 targets on 6 unseen maps without retraining) |
 | 14 | Danger zone | `tests/test_danger.py` | `make train-worm-danger`, `make demo-14 SEED=2003` | done (avoidance learned: 0 damage, 0 deaths; target attraction weak; see `docs/results/stage14_danger_eval_2026-09-15.md`) |
 | 15 | Apartment-like maps (rooms, doors) | `tests/test_apartment.py` | `make demo-15 SEED=3002` | done (weak: doors passed on 2/6 unseen maps by the stage-12 brain; apartment training made it worse; see `docs/results/stage15_apartment_eval_2026-09-15.md`) |
-| 16 | A1: dirt map + coverage, battery, dock | | | todo |
+| 16 | A1: dirt map + coverage, battery, dock | `tests/test_vacuum.py` | `make demo-16 SEED=3002` | done (stage-12 brain runs unchanged: coverage 4%, 11 dockings; it treats the dock as food) |
 | 17 | A1: vacuum sensor suite with noise and delay | | | todo |
 | 18 | A1: Brain interface, Gymnasium env, benchmark + leaderboard | | | todo |
 | 19 | A1: occupancy grid, path + coverage planner -> virtual gradient | | | todo |

@@ -40,7 +40,9 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument(
         "--maps", choices=["fixed", "random", "apartment"], default=None, help="override brain"
     )
-    play.add_argument("--task", choices=["food", "target"], default=None, help="override brain")
+    play.add_argument(
+        "--task", choices=["food", "target", "clean"], default=None, help="override brain"
+    )
     play.add_argument("--dangers", type=int, default=None, help="override brain")
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")

@@ -3,6 +3,8 @@
 from doomworm.environments.simple_2d.world import (
     AgentState,
     Danger,
+    DirtMap,
+    Dock,
     Food,
     Observation,
     Obstacle,
@@ -11,4 +13,15 @@ from doomworm.environments.simple_2d.world import (
     World,
 )
 
-__all__ = ["AgentState", "Danger", "Food", "Observation", "Obstacle", "Target", "Wall", "World"]
+__all__ = [
+    "AgentState",
+    "Danger",
+    "DirtMap",
+    "Dock",
+    "Food",
+    "Observation",
+    "Obstacle",
+    "Target",
+    "Wall",
+    "World",
+]

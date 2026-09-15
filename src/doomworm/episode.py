@@ -38,6 +38,9 @@ class TickScorer(Protocol):
         reached: bool,
         damaged: bool,
         dead: bool,
+        cleaned: int,
+        docked: bool,
+        battery: float,
     ) -> float:
         """Score one tick."""
         ...
@@ -67,6 +70,10 @@ class Record:
     health: float = 1.0
     damaged: bool = False
     dead: bool = False
+    battery: float = 1.0
+    docked: bool = False
+    cleaned: int = 0
+    coverage: float = 0.0
     activity: dict[str, float] | None = None
 
 
@@ -118,6 +125,9 @@ def run_episode(
                 reached=obs.reached,
                 damaged=obs.damaged,
                 dead=world.dead,
+                cleaned=obs.cleaned,
+                docked=obs.docked,
+                battery=obs.battery,
             )
         trace.append(
             Record(
@@ -142,6 +152,10 @@ def run_episode(
                 damaged=obs.damaged,
                 dead=world.dead,
                 activity=dict(activity) if record_activity else None,
+                battery=obs.battery,
+                docked=obs.docked,
+                cleaned=obs.cleaned,
+                coverage=world.coverage,
             )
         )
         if world.dead:

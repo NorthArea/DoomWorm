@@ -89,6 +89,58 @@ class Danger:
 
 
 @dataclass(frozen=True)
+class Dock:
+    """Charging dock (Plan §20.3, stage 16): persistent, beacon of limited range."""
+
+    x: float
+    y: float
+    radius: float = 0.6
+    beacon_range: float = 8.0
+    charge_rate: float = 0.02  # battery gained per tick while docked (50 ticks to full)
+
+
+class DirtMap:
+    """Grid of cells to clean; a cell is floor if its centre is not inside a solid."""
+
+    def __init__(self, world: World, cell: float = 1.0) -> None:
+        self.cell = cell
+        self.cols = round(world.width / cell)
+        self.rows = round(world.height / cell)
+        self.floor: set[tuple[int, int]] = set()
+        for i in range(self.cols):
+            for j in range(self.rows):
+                cx, cy = (i + 0.5) * cell, (j + 0.5) * cell
+                if world.clearance(cx, cy) > 0.0:
+                    self.floor.add((i, j))
+        self.dirty: set[tuple[int, int]] = set(self.floor)
+
+    @property
+    def coverage(self) -> float:
+        """Share of floor cells cleaned so far."""
+        if not self.floor:
+            return 0.0
+        return 1.0 - len(self.dirty) / len(self.floor)
+
+    def clean_around(self, x: float, y: float, radius: float) -> int:
+        """Clean every dirty cell whose centre lies within ``radius``; return the count."""
+        cleaned = 0
+        i0, i1 = int((x - radius) / self.cell), int((x + radius) / self.cell)
+        j0, j1 = int((y - radius) / self.cell), int((y + radius) / self.cell)
+        for i in range(max(0, i0), min(self.cols, i1 + 1)):
+            for j in range(max(0, j0), min(self.rows, j1 + 1)):
+                if (i, j) in self.dirty:
+                    cx, cy = (i + 0.5) * self.cell, (j + 0.5) * self.cell
+                    if math.dist((x, y), (cx, cy)) <= radius:
+                        self.dirty.discard((i, j))
+                        cleaned += 1
+        return cleaned
+
+    def dirty_centres(self) -> list[tuple[float, float]]:
+        """World coordinates of the cells still dirty."""
+        return [((i + 0.5) * self.cell, (j + 0.5) * self.cell) for i, j in sorted(self.dirty)]
+
+
+@dataclass(frozen=True)
 class AgentState:
     """Pose of the agent."""
 
@@ -115,6 +167,12 @@ class Observation:
     danger_front: float = 0.0
     danger_right: float = 0.0
     health: float = 1.0
+    battery: float = 1.0
+    dock_left: float = 0.0
+    dock_front: float = 0.0
+    dock_right: float = 0.0
+    docked: bool = False
+    cleaned: int = 0
     collided: bool = False
     ate: bool = False
     reached: bool = False
@@ -137,6 +195,10 @@ class Observation:
             "danger_front": self.danger_front,
             "danger_right": self.danger_right,
             "health": self.health,
+            "battery": self.battery,
+            "dock_left": self.dock_left,
+            "dock_front": self.dock_front,
+            "dock_right": self.dock_right,
         }
 
 
@@ -170,6 +232,7 @@ class World:
         respawn_target: bool = False,
         dangers: Sequence[Danger] = (),
         damage_rate: float = 0.25,
+        dock: Dock | None = None,
         seed: int | None = None,
         agent_radius: float = 0.5,
         sensor_range: float = 4.0,
@@ -192,6 +255,11 @@ class World:
         self.damage_rate = damage_rate
         self.health = 1.0
         self.damage_taken = 0
+        self.dock = dock
+        self.dirt: DirtMap | None = None
+        self.charging_ticks = 0
+        self.dockings = 0
+        self._docked = False
         self.rng = random.Random(seed)
         self.hunger_rate = hunger_rate
         self.hunger = 0.0
@@ -207,6 +275,26 @@ class World:
     def starved(self) -> bool:
         """True once hunger has saturated."""
         return self.hunger >= 1.0
+
+    @property
+    def battery(self) -> float:
+        """Charge level: the complement of hunger (Plan §20.3, hunger -> battery)."""
+        return 1.0 - self.hunger
+
+    @property
+    def coverage(self) -> float:
+        """Share of the floor cleaned (0 without a dirt map)."""
+        return self.dirt.coverage if self.dirt is not None else 0.0
+
+    @property
+    def docked(self) -> bool:
+        """True while the agent sits on the dock."""
+        return self._docked
+
+    def init_dirt(self, cell: float = 1.0) -> DirtMap:
+        """Create the dirt map from the current geometry; call after walls are final."""
+        self.dirt = DirtMap(self, cell)
+        return self.dirt
 
     @property
     def dead(self) -> bool:
@@ -238,7 +326,36 @@ class World:
         ate = self._eat()
         reached = self._reach()
         damaged = self._take_damage()
-        return replace(self.observe(), collided=collided, ate=ate, reached=reached, damaged=damaged)
+        cleaned = self._clean()
+        docked = self._charge()
+        return replace(
+            self.observe(),
+            collided=collided,
+            ate=ate,
+            reached=reached,
+            damaged=damaged,
+            cleaned=cleaned,
+            docked=docked,
+        )
+
+    def _clean(self) -> int:
+        if self.dirt is None:
+            return 0
+        brush = self.agent_radius + self.dirt.cell / 2  # the brush is wider than the body
+        return self.dirt.clean_around(self.agent.x, self.agent.y, brush)
+
+    def _charge(self) -> bool:
+        d = self.dock
+        if d is None:
+            return False
+        docked = math.dist((self.agent.x, self.agent.y), (d.x, d.y)) < d.radius
+        if docked:
+            if not self._docked:
+                self.dockings += 1
+            self.charging_ticks += 1
+            self.hunger = _clamp(self.hunger - d.charge_rate, 0.0, 1.0)
+        self._docked = docked
+        return docked
 
     def _take_damage(self) -> bool:
         ax, ay = self.agent.x, self.agent.y
@@ -339,6 +456,7 @@ class World:
         f_left, f_front, f_right = self._sense_food()
         t_left, t_front, t_right = self._sense_target()
         d_left, d_front, d_right = self._sense_danger()
+        k_left, k_front, k_right = self._sense_dock()
         return Observation(
             sensor_left=left,
             sensor_front=front,
@@ -354,7 +472,20 @@ class World:
             danger_front=d_front,
             danger_right=d_right,
             health=self.health,
+            battery=self.battery,
+            dock_left=k_left,
+            dock_front=k_front,
+            dock_right=k_right,
+            docked=self._docked,
         )
+
+    def _sense_dock(self) -> tuple[float, float, float]:
+        d = self.dock
+        if d is None:
+            return 0.0, 0.0, 0.0
+        if math.dist((self.agent.x, self.agent.y), (d.x, d.y)) > d.beacon_range:
+            return 0.0, 0.0, 0.0
+        return self._sector_signal(d.x, d.y)
 
     def _sense_danger(self) -> tuple[float, float, float]:
         if not self.dangers:
