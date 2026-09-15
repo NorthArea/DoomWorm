@@ -15,7 +15,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 8 | Motor mapping | `tests/test_motor_mapping.py` | `make demo-8` | done |
 | 9 | C. elegans controls 2D agent | `tests/test_worm_agent.py` | `make demo-9 SEED=1001` | done (untrained: drives, slows on touch, no reversal, no steering) |
 | 10 | Train weights | `tests/test_evolve_worm.py`, `tests/test_simulator_vectorised.py` | `make train-worm` then `make play BRAIN=runs/worm_evolved.json SEED=1003` | done |
-| 11 | Real vs random vs shuffled topology | | | todo |
+| 11 | Real vs random vs shuffled topology | `tests/test_variants.py` | `make compare` (see `docs/comparison.md`) | done: Real ~= Random; worm stays primary, controls kept |
 | 12 | Random maps | | | todo |
 | 13 | Target instead of food ("come to X") | | | todo |
 | 14 | Danger zone | | | todo |
@@ -27,8 +27,9 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 20 | Needs arbitration: battery > call > curiosity | | | todo |
 | 21 | Physical platform | | | todo |
 
-Decision gate after stage 11 (Plan §17.1): record the real/random/shuffled/free
-comparison in `docs/` and decide which brain goes forward.
+Decision gate after stage 11 (Plan §17.1): recorded in `docs/comparison.md` on
+2026-09-15. Decision: the connectome stays the primary brain; random, shuffled
+and dense variants are trained as controls in every later run.
 
 ## Track B: Doom (optional, after the decision gate)
 

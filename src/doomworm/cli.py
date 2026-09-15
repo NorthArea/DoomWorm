@@ -37,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--steps", type=int, default=600)
     play.add_argument("--every", type=int, default=50)
     play.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
+    play.add_argument("--maps", choices=["fixed", "random"], default=None, help="override brain")
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
     add_compare_args(cmp)
@@ -105,7 +106,10 @@ def run_play(args: argparse.Namespace) -> int:
     if scenario_name == "small_food":
         scenario = SmallFoodScenario()
     elif scenario_name == "worm":
-        scenario = WormScenario(**meta.get("params", {}))
+        params = dict(meta.get("params", {}))
+        if args.maps is not None:
+            params["maps"] = args.maps
+        scenario = WormScenario(**params)
     else:
         raise SystemExit(f"unknown scenario {scenario_name!r}")
     world = scenario.make_world(args.seed)

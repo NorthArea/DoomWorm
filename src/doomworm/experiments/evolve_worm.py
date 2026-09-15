@@ -89,11 +89,12 @@ def add_worm_args(parser: argparse.ArgumentParser) -> None:
     """Worm-specific training options."""
     parser.add_argument("--sigma", type=float, default=0.02, help="mutation sigma (weights)")
     parser.add_argument("--init-sigma", type=float, default=None, help="first-generation spread")
+    parser.add_argument("--maps", choices=["fixed", "random"], default="fixed")
 
 
 def run_train(args: argparse.Namespace) -> int:
     """Train from parsed CLI args and report held-out results."""
-    scenario = WormScenario()
+    scenario = WormScenario(maps=args.maps)
     cfg = EvolutionConfig(
         population=args.population,
         generations=args.generations,
@@ -102,6 +103,8 @@ def run_train(args: argparse.Namespace) -> int:
     )
     train_seeds = tuple(range(args.train_seeds))
     out = args.out if args.out != Path("runs") / "small_evolved.json" else DEFAULT_OUT
+    if args.maps == "random" and out == DEFAULT_OUT:
+        out = out.with_name("worm_evolved_random.json")
     metrics = out.with_suffix(".csv")
     baseline = evaluate(scenario, scenario.template.get_weights(), train_seeds, args.steps)
     print(

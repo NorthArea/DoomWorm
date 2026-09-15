@@ -31,6 +31,7 @@ from doomworm.connectome import (
     default_sensory_mapping,
     load_cook2019,
 )
+from doomworm.environments.maze import MapConfig, random_world
 from doomworm.environments.simple_2d import AgentState, Obstacle, World
 from doomworm.episode import Record, run_episode
 from doomworm.experiments.episode import print_trace, render_ascii, save_log, save_plot
@@ -58,6 +59,7 @@ class WormScenario:
         gain_drive: float = 6.0,
         gain_turn: float = 6.0,
         brain_steps: int = 5,
+        maps: str = "fixed",
     ) -> None:
         self.connectome = connectome or load_cook2019()
         self.sensory_mapping = sensory_mapping or default_sensory_mapping()
@@ -73,6 +75,9 @@ class WormScenario:
             m.forward, m.reversal, m.turn_left, m.turn_right, gain_drive, gain_turn
         )
         self.brain_steps = brain_steps
+        if maps not in ("fixed", "random"):
+            raise ValueError("maps must be 'fixed' or 'random'")
+        self.maps = maps
         self.params = {
             "tonic_avb": tonic_avb,
             "obstacle_gain": obstacle_gain,
@@ -82,6 +87,7 @@ class WormScenario:
             "gain_drive": gain_drive,
             "gain_turn": gain_turn,
             "brain_steps": brain_steps,
+            "maps": maps,
         }
 
     @property
@@ -96,7 +102,9 @@ class WormScenario:
         return np.asarray(rng.uniform(-1.0, 1.0, size=base.size) * np.abs(base).max())
 
     def make_world(self, seed: int) -> World:
-        """Same layout family as stage 4: fixed obstacle, seeded pose and food, respawn."""
+        """``fixed``: stage-4 layout with seeded pose and food. ``random``: Plan §18 maps."""
+        if self.maps == "random":
+            return random_world(seed, MapConfig(n_food=N_FOOD))
         world = World(
             width=20.0,
             height=20.0,
@@ -159,11 +167,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every", type=int, default=25)
     parser.add_argument("--tonic-avb", type=float, default=0.1)
     parser.add_argument("--obstacle-gain", type=float, default=3.0)
+    parser.add_argument("--maps", choices=["fixed", "random"], default="fixed")
     parser.add_argument("--plot", action="store_true", help="save runs/stage9_worm_<seed>.png")
     parser.add_argument("--gif", action="store_true", help="save runs/stage9_worm_<seed>.gif")
     args = parser.parse_args(argv)
 
-    scenario = WormScenario(tonic_avb=args.tonic_avb, obstacle_gain=args.obstacle_gain)
+    scenario = WormScenario(
+        tonic_avb=args.tonic_avb, obstacle_gain=args.obstacle_gain, maps=args.maps
+    )
     world, trace, tracker = run_worm(scenario, args.seed, args.steps)
     print_trace(trace, args.every)
     print()
