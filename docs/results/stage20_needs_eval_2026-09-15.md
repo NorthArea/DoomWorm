@@ -5,12 +5,17 @@ Benchmark (apartment / clean / vacuum sensors, 6 unseen maps x 3 noise repeats,
 `benchmark_2026-09-15/leaderboard.md` were re-run on the final stage-20 code
 (the sensor delay buffer changed, see below), so every row matches the code:
 
-| brain | reward | coverage | collisions | dockings | survived | ticks |
-|---|---|---|---|---|---|---|
-| driver_follower+needs | 12.22 ± 9.28 | 0.28 | 10.8 | 3.0 | 16/18 | 767 |
-| worm_stage12+needs | -4.91 ± 13.60 | 0.16 | 93.6 | 2.7 | 15/18 | 751 |
-| driver_follower+planner | -5.63 ± 3.64 | 0.27 | 6.3 | 1.5 | 0/18 | 538 |
-| worm_stage12+planner | -20.09 ± 10.00 | 0.16 | 96.9 | 1.7 | 2/18 | 582 |
+| brain | reward v2 | reward v1 | coverage | collisions | dockings | survived | ticks |
+|---|---|---|---|---|---|---|---|
+| driver_follower+needs | 55.58 ± 15.13 | 12.22 ± 9.28 | 0.28 | 10.8 | 3.0 | 16/18 | 767 |
+| worm_stage12+needs | 19.64 ± 17.48 | -4.91 ± 13.60 | 0.16 | 93.6 | 2.7 | 15/18 | 751 |
+| driver_follower+planner | 34.86 ± 8.21 | -5.63 ± 3.64 | 0.27 | 6.3 | 1.5 | 0/18 | 538 |
+| worm_stage12+planner | 4.64 ± 15.61 | -20.09 ± 10.00 | 0.16 | 96.9 | 1.7 | 2/18 | 582 |
+
+Reward v1 is the scale these rows were first published with; reward v2
+(stage 21: a cleaned cell 0.5 instead of 0.1, docking bonus once per
+discharge cycle) is what `leaderboard.md` now shows. The brains and their
+behaviour are identical; only the score changed.
 
 With arbitration both brains recharge and keep cleaning until the 800-step
 cap in most episodes; without it (stage-19 rows) they discharge at ~540 ticks.
