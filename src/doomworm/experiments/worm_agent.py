@@ -31,7 +31,13 @@ from doomworm.connectome import (
     default_sensory_mapping,
     load_cook2019,
 )
-from doomworm.environments.maze import MapConfig, random_world
+from doomworm.environments.maze import (
+    ApartmentConfig,
+    MapConfig,
+    apartment_world,
+    random_world,
+    rooms_visited,
+)
 from doomworm.environments.simple_2d import AgentState, Obstacle, World
 from doomworm.episode import Record, run_episode
 from doomworm.experiments.episode import print_trace, render_ascii, save_log, save_plot
@@ -77,8 +83,8 @@ class WormScenario:
             m.forward, m.reversal, m.turn_left, m.turn_right, gain_drive, gain_turn
         )
         self.brain_steps = brain_steps
-        if maps not in ("fixed", "random"):
-            raise ValueError("maps must be 'fixed' or 'random'")
+        if maps not in ("fixed", "random", "apartment"):
+            raise ValueError("maps must be 'fixed', 'random' or 'apartment'")
         self.maps = maps
         if task not in ("food", "target"):
             raise ValueError("task must be 'food' or 'target'")
@@ -113,6 +119,9 @@ class WormScenario:
         """``fixed``: stage-4 layout with seeded pose and food. ``random``: Plan §18 maps."""
         if self.maps == "random":
             world = random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0))
+            return self._apply_task(world)
+        if self.maps == "apartment":
+            world = apartment_world(seed, ApartmentConfig(n_food=N_FOOD))
             return self._apply_task(world)
         world = World(
             width=20.0,
@@ -171,6 +180,7 @@ def summarise(trace: list[Record], world: World) -> dict[str, float]:
         "food": world.food_eaten,
         "targets": world.targets_reached,
         "damage": world.damage_taken,
+        "rooms": rooms_visited(world, [(r.x, r.y) for r in trace]),
         "collisions": world.collisions,
         "reward": sum(r.reward for r in trace),
         "mean_left": float(np.mean([r.motors[0] for r in trace])),
@@ -187,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every", type=int, default=25)
     parser.add_argument("--tonic-avb", type=float, default=0.1)
     parser.add_argument("--obstacle-gain", type=float, default=3.0)
-    parser.add_argument("--maps", choices=["fixed", "random"], default="fixed")
+    parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="fixed")
     parser.add_argument("--task", choices=["food", "target"], default="food")
     parser.add_argument("--dangers", type=int, default=0)
     parser.add_argument("--plot", action="store_true", help="save runs/stage9_worm_<seed>.png")

@@ -96,7 +96,7 @@ def add_worm_args(parser: argparse.ArgumentParser) -> None:
     """Worm-specific training options."""
     parser.add_argument("--sigma", type=float, default=0.02, help="mutation sigma (weights)")
     parser.add_argument("--init-sigma", type=float, default=None, help="first-generation spread")
-    parser.add_argument("--maps", choices=["fixed", "random"], default="fixed")
+    parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="fixed")
     parser.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
     parser.add_argument("--task", choices=["food", "target"], default="food")
     parser.add_argument("--dangers", type=int, default=0)

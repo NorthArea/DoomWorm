@@ -49,7 +49,9 @@ def render_ascii(world: World, trace: list[Record], cols: int = 60, rows: int = 
     for r in range(rows):
         for c in range(cols):
             wx, wy = (c + 0.5) / sx, (rows - r - 0.5) / sy
-            if any((wx - o.x) ** 2 + (wy - o.y) ** 2 <= o.radius**2 for o in world.obstacles):
+            if any(
+                (wx - o.x) ** 2 + (wy - o.y) ** 2 <= o.radius**2 for o in world.obstacles
+            ) or any(w.x <= wx <= w.x1 and w.y <= wy <= w.y1 for w in world.walls):
                 grid[r][c] = "#"
     for rec in trace:
         r, c = cell(rec.x, rec.y)
@@ -80,11 +82,13 @@ def save_plot(world: World, trace: list[Record], path: Path, title: str) -> None
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Circle
+    from matplotlib.patches import Circle, Rectangle
 
     fig, ax = plt.subplots(figsize=(6, 6))
     for o in world.obstacles:
         ax.add_patch(Circle((o.x, o.y), o.radius, color="tab:red", alpha=0.6))
+    for w in world.walls:
+        ax.add_patch(Rectangle((w.x, w.y), w.w, w.h, color="tab:gray"))
     for f in world.foods:
         ax.add_patch(Circle((f.x, f.y), f.radius, color="tab:green"))
     if world.target is not None:

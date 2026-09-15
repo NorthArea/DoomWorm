@@ -54,6 +54,32 @@ class Target:
 
 
 @dataclass(frozen=True)
+class Wall:
+    """Axis-aligned solid rectangle (room walls, furniture)."""
+
+    x: float
+    y: float
+    w: float
+    h: float
+
+    @property
+    def x1(self) -> float:
+        """Right edge."""
+        return self.x + self.w
+
+    @property
+    def y1(self) -> float:
+        """Top edge."""
+        return self.y + self.h
+
+    def distance(self, px: float, py: float) -> float:
+        """Distance from a point to the rectangle (0 inside)."""
+        dx = max(self.x - px, 0.0, px - self.x1)
+        dy = max(self.y - py, 0.0, py - self.y1)
+        return math.hypot(dx, dy)
+
+
+@dataclass(frozen=True)
 class Danger:
     """Hazard zone (Plan §20): sensed like food, not solid; every tick inside costs health."""
 
@@ -136,6 +162,7 @@ class World:
         height: float = 20.0,
         agent: AgentState | None = None,
         obstacles: Sequence[Obstacle] = (),
+        walls: Sequence[Wall] = (),
         foods: Sequence[Food] = (),
         hunger_rate: float = 0.004,
         respawn_food: bool = False,
@@ -154,6 +181,8 @@ class World:
         self.height = height
         self.agent = agent if agent is not None else AgentState(x=3.0, y=10.0)
         self.obstacles = list(obstacles)
+        self.walls = list(walls)
+        self.rooms: list[tuple[float, float, float, float]] = []  # optional (x0, y0, x1, y1)
         self.foods = list(foods)
         self.respawn_food = respawn_food
         self.target = target
@@ -227,9 +256,7 @@ class World:
         for _ in range(tries):
             x = self.rng.uniform(radius + margin, self.width - radius - margin)
             y = self.rng.uniform(radius + margin, self.height - radius - margin)
-            near_obstacle = any(
-                math.dist((x, y), (o.x, o.y)) <= radius + o.radius + margin for o in self.obstacles
-            )
+            near_obstacle = self.clearance(x, y) <= radius + margin
             near_agent = math.dist((x, y), (self.agent.x, self.agent.y)) <= radius + 2.0
             t = self.target
             near_target = t is not None and math.dist((x, y), (t.x, t.y)) <= radius + margin
@@ -275,11 +302,8 @@ class World:
         for _ in range(tries):
             x = self.rng.uniform(margin, self.width - margin)
             y = self.rng.uniform(margin, self.height - margin)
-            near_obstacle = any(
-                math.dist((x, y), (o.x, o.y)) <= o.radius + margin for o in self.obstacles
-            )
             near_agent = math.dist((x, y), (self.agent.x, self.agent.y)) <= 2.0
-            if not near_obstacle and not near_agent:
+            if self.clearance(x, y) > margin and not near_agent:
                 return Food(x=x, y=y, radius=radius)
         raise RuntimeError("could not place food after many tries")
 
@@ -287,7 +311,25 @@ class World:
         r = self.agent_radius
         if not (r <= state.x <= self.width - r and r <= state.y <= self.height - r):
             return True
-        return any(math.dist((state.x, state.y), (o.x, o.y)) < r + o.radius for o in self.obstacles)
+        if any(math.dist((state.x, state.y), (o.x, o.y)) < r + o.radius for o in self.obstacles):
+            return True
+        return any(w.distance(state.x, state.y) < r for w in self.walls)
+
+    def clearance(self, x: float, y: float) -> float:
+        """Distance from a point to the nearest obstacle or wall surface."""
+        best = min(x, y, self.width - x, self.height - y)
+        for o in self.obstacles:
+            best = min(best, math.dist((x, y), (o.x, o.y)) - o.radius)
+        for w in self.walls:
+            best = min(best, w.distance(x, y))
+        return best
+
+    def room_index(self, x: float, y: float) -> int | None:
+        """Index of the room containing the point, if rooms are defined."""
+        for i, (x0, y0, x1, y1) in enumerate(self.rooms):
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                return i
+        return None
 
     # --- sensing ------------------------------------------------------------
 
@@ -360,6 +402,10 @@ class World:
             t = _ray_circle(ox, oy, dx, dy, o.x, o.y, o.radius)
             if t is not None:
                 best = min(best, t)
+        for w in self.walls:
+            t = _ray_rect(ox, oy, dx, dy, w)
+            if t is not None:
+                best = min(best, t)
 
         for t in (
             _ray_line(ox, dx, 0.0),
@@ -387,6 +433,21 @@ def _ray_circle(
         if t >= 0.0:
             return t
     return None
+
+
+def _ray_rect(ox: float, oy: float, dx: float, dy: float, rect: Wall) -> float | None:
+    """Slab test: smallest non-negative t where the ray enters ``rect``, or None."""
+    tmin, tmax = 0.0, math.inf
+    for o, d, lo, hi in ((ox, dx, rect.x, rect.x1), (oy, dy, rect.y, rect.y1)):
+        if abs(d) < 1e-12:
+            if o < lo or o > hi:
+                return None
+            continue
+        t1, t2 = (lo - o) / d, (hi - o) / d
+        tmin, tmax = max(tmin, min(t1, t2)), min(tmax, max(t1, t2))
+        if tmin > tmax:
+            return None
+    return tmin
 
 
 def _ray_line(origin: float, direction: float, line: float) -> float | None:

@@ -24,7 +24,7 @@ def _neuron_order(trace: list[Record], top: int) -> list[str]:
 
 def draw_frame(fig: Any, world: World, trace: list[Record], tick: int, neurons: list[str]) -> None:
     """Draw one frame into ``fig`` (cleared first)."""
-    from matplotlib.patches import Circle, RegularPolygon
+    from matplotlib.patches import Circle, Rectangle, RegularPolygon
 
     fig.clf()
     rec = trace[tick]
@@ -35,6 +35,8 @@ def draw_frame(fig: Any, world: World, trace: list[Record], tick: int, neurons: 
 
     for o in world.obstacles:
         env.add_patch(Circle((o.x, o.y), o.radius, color="tab:red", alpha=0.6))
+    for w in world.walls:
+        env.add_patch(Rectangle((w.x, w.y), w.w, w.h, color="tab:gray"))
     for fx, fy in rec.foods:
         env.add_patch(Circle((fx, fy), 0.3, color="tab:green"))
     path = trace[: tick + 1]

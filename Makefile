@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demos train train-worm train-worm-random train-worm-danger compare play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demos train train-worm train-worm-random train-worm-danger train-worm-apartment compare play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -82,6 +82,9 @@ demo-12: ## Stage 12: brain trained on random maps, played on an unseen random m
 demo-13: ## Stage 13: the same brain sent to a target ("come to X") instead of food
 	$(UV) doomworm play --brain runs/worm_evolved_random.json --task target --seed $(SEED) --plot
 
+demo-15: ## Stage 15: a brain on an unseen apartment map (rooms, doors, furniture)
+	$(UV) doomworm play --brain runs/worm_evolved_random.json --maps apartment --seed $(SEED) --plot
+
 demo-14: ## Stage 14: target task with a danger zone (runs/worm_evolved_danger.json)
 	$(UV) doomworm play --brain runs/worm_evolved_danger.json --seed $(SEED) --plot
 
@@ -100,6 +103,9 @@ train-worm-random: ## Stage 12: evolve the connectome on random maps -> runs/wor
 
 train-worm-danger: ## Stage 14: continue from the random-map brain on target + danger
 	$(UV) doomworm train --scenario worm --maps random --task target --dangers 1 --init-brain runs/worm_evolved_random.json --out runs/worm_evolved_danger.json $(TRAIN_ARGS)
+
+train-worm-apartment: ## Stage 15: continue from the random-map brain on apartment maps
+	$(UV) doomworm train --scenario worm --maps apartment --init-brain runs/worm_evolved_random.json --out runs/worm_evolved_apartment.json $(TRAIN_ARGS)
 
 compare: ## Stage 11: real vs random vs shuffled vs free -> runs/compare/
 	$(UV) doomworm compare $(COMPARE_ARGS)

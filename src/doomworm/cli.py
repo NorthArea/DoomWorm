@@ -37,7 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--steps", type=int, default=600)
     play.add_argument("--every", type=int, default=50)
     play.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
-    play.add_argument("--maps", choices=["fixed", "random"], default=None, help="override brain")
+    play.add_argument(
+        "--maps", choices=["fixed", "random", "apartment"], default=None, help="override brain"
+    )
     play.add_argument("--task", choices=["food", "target"], default=None, help="override brain")
     play.add_argument("--dangers", type=int, default=None, help="override brain")
 

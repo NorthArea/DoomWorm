@@ -7,7 +7,8 @@ from doomworm.environments.simple_2d.world import (
     Observation,
     Obstacle,
     Target,
+    Wall,
     World,
 )
 
-__all__ = ["AgentState", "Danger", "Food", "Observation", "Obstacle", "Target", "World"]
+__all__ = ["AgentState", "Danger", "Food", "Observation", "Obstacle", "Target", "Wall", "World"]
