@@ -76,3 +76,26 @@ def test_evolve_cli(tmp_path: Path) -> None:
     args = ["evolve", "--candidate", "worm", "--train-seeds", "1", "--steps", "10"]
     assert main([*args, "--population", "2", "--generations", "1", "--out", str(out)]) == 0
     assert out.exists()
+
+
+def test_seed_summary_aggregates_over_directories(tmp_path: Path) -> None:
+    from doomworm.brains import ScriptedBrain
+    from doomworm.experiments.a2_summary import collect, main, summary_table
+    from doomworm.learning import BenchmarkConfig, run_benchmark, save_result
+
+    cfg = BenchmarkConfig(maps="random", task="food", sensors="ideal", test_seeds=(1,), steps=10)
+
+    def constant(speed: float) -> ScriptedBrain:
+        return ScriptedBrain(lambda _c: (speed, speed), "go")
+
+    for seed_dir, speed in (("s0", 1.0), ("s1", 0.5)):
+        d = tmp_path / seed_dir
+        save_result(run_benchmark(constant(speed), "go", cfg), d)
+        save_result(run_benchmark(ScriptedBrain(lambda _c: (0.0, 0.0), "still"), "still", cfg), d)
+    groups = collect([tmp_path / "s0", tmp_path / "s1"])
+    assert {k: len(v) for k, v in groups.items()} == {"go": 2, "still": 2}
+    table = summary_table(groups)
+    assert table.count("\n") == 3
+    assert "| 2 |" in table
+    assert main([str(tmp_path / "s0"), str(tmp_path / "s1"), "--out", str(tmp_path / "t.md")]) == 0
+    assert (tmp_path / "t.md").read_text().startswith("| # | brain | seeds |")
