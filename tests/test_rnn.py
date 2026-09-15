@@ -46,6 +46,8 @@ def test_rnn_trains_and_benchmarks_with_the_shared_harness(tmp_path: Path) -> No
     out = tmp_path / "rnn.json"
     result = train_candidate(CandidateSpec("rnn"), TINY, out)
     assert len(result.history) == 2
-    assert load_candidate(out).meta["layer"] == "needs"
+    loaded = load_candidate(out)
+    assert isinstance(loaded, RNNBrain)
+    assert loaded.meta["layer"] == "needs"
     args = ["benchmark", "--brain", str(out), "--planner", "needs", "--test-seeds", "1"]
     assert main([*args, "--repeats", "1", "--steps", "10", "--out-dir", str(tmp_path / "b")]) == 0

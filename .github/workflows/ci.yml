@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-      - run: uv sync --locked --all-groups
+      - run: uv sync --locked  # core + dev; the torch-based rl group is optional
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy

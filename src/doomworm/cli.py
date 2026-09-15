@@ -5,6 +5,7 @@ doomworm train --scenario worm     evolve the connectome weights (stage 10)
 doomworm compare                   real vs random vs shuffled vs free topology (stage 11)
 doomworm benchmark --brain X       run any saved brain through the benchmark (stage 18)
 doomworm evolve --candidate worm   train a bake-off candidate on the benchmark world (stage 21)
+doomworm ppo                       train the PPO candidate (optional rl group, stage 21.4)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
@@ -96,6 +97,18 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--seed", type=int, default=0, help="evolution seed")
     ev.add_argument("--workers", type=int, default=1, help="processes for fitness evaluation")
     ev.add_argument("--out", type=Path, default=None, help="default runs/a2/<candidate>.json")
+
+    ppo = sub.add_parser("ppo", help="train the PPO candidate (needs the rl group)")
+    ppo.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
+    ppo.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    ppo.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    ppo.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    ppo.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
+    ppo.add_argument("--steps", type=int, default=800)
+    ppo.add_argument("--timesteps", type=int, default=300_000)
+    ppo.add_argument("--n-steps", type=int, default=2048)
+    ppo.add_argument("--seed", type=int, default=0)
+    ppo.add_argument("--out", type=Path, default=Path("runs") / "a2" / "ppo.json")
 
     stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
     stim.add_argument("neurons", nargs="+", help="neuron names, e.g. ASHL ASHR")
@@ -206,6 +219,27 @@ def run_evolve_cli(args: argparse.Namespace) -> int:
     )
     print(f"best train fitness {result.best_fitness:.2f}; saved {out}")
     print(f"benchmark: doomworm benchmark --brain {out} --planner {cfg.layer}")
+    return 0
+
+
+def run_ppo_cli(args: argparse.Namespace) -> int:
+    """Train the PPO candidate (stage 21.4)."""
+    from doomworm.learning.rl import PPOConfig, train_ppo
+
+    cfg = PPOConfig(
+        maps=args.maps,
+        task=args.task,
+        sensors=args.sensors,
+        steps=args.steps,
+        layer=args.layer,
+        train_seeds=tuple(range(100, 100 + args.train_seeds)),
+        timesteps=args.timesteps,
+        n_steps=args.n_steps,
+        seed=args.seed,
+    )
+    print(f"ppo under layer {cfg.layer}: {cfg.timesteps} steps on {cfg.train_seeds} -> {args.out}")
+    out = train_ppo(cfg, args.out, verbose=1)
+    print(f"saved {out}; benchmark: doomworm benchmark --brain {out} --planner {cfg.layer}")
     return 0
 
 
@@ -326,4 +360,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_benchmark_cli(args)
     if args.command == "evolve":
         return run_evolve_cli(args)
+    if args.command == "ppo":
+        return run_ppo_cli(args)
     return run_play(args)

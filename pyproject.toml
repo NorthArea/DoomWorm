@@ -32,6 +32,10 @@ dev = [
     "mypy>=1.13",
     "pre-commit>=4.0",
 ]
+rl = [  # optional: PPO / NCP candidates of the A2 bake-off (Plan §20.4), torch-based
+    "stable-baselines3>=2.3",
+    "torch>=2.2",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -85,7 +89,7 @@ warn_unreachable = true
 pretty = true
 
 [[tool.mypy.overrides]]
-module = ["networkx.*", "matplotlib.*"]
+module = ["networkx.*", "matplotlib.*", "stable_baselines3.*", "torch.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ from typing import Any
 
 from doomworm.brains.rnn import RNNBrain
 from doomworm.brains.worm import WormBrain
+from doomworm.episode import BrainLike
 
 WORM_VARIANTS = ("worm", "worm_random", "worm_shuffled", "worm_dense")
 CANDIDATES = (*WORM_VARIANTS, "rnn")
@@ -37,11 +38,17 @@ class CandidateSpec:
         return self.kind if self.init is None else f"{self.kind}_from_{Path(self.init).stem}"
 
 
-def load_candidate(path: Path | str, **world: Any) -> Candidate:
+def load_candidate(path: Path | str, **world: Any) -> BrainLike:
     """Load any saved candidate brain by its file format."""
-    text = Path(path).read_text(encoding="utf-8")
-    if '"kind": "rnn"' in text[:200]:
+    head = Path(path).read_text(encoding="utf-8")[:200]
+    if '"kind": "rnn"' in head:
         return RNNBrain.from_file(path)
+    if '"kind": "ppo"' in head:
+        try:
+            from doomworm.learning.rl import PPOBrain
+        except ImportError as e:  # pragma: no cover - depends on the optional group
+            raise ImportError("a ppo brain needs the optional rl group: uv sync --group rl") from e
+        return PPOBrain.from_file(path)
     return WormBrain.from_file(path, **world)
 
 
@@ -53,6 +60,8 @@ def build_candidate(spec: CandidateSpec) -> Candidate:
         brain = load_candidate(
             spec.init, maps=spec.maps, task=spec.task, sensors=spec.sensors, dangers=spec.dangers
         )
+        if not isinstance(brain, WormBrain | RNNBrain):
+            raise ValueError(f"{spec.init} is not a trainable candidate")
         brain.meta["candidate"] = spec.kind
         return brain
     if spec.kind == "rnn":

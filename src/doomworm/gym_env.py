@@ -7,12 +7,13 @@ step cap is hit (truncated). Everything is seeded through ``reset(seed=...)``.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import gymnasium as gym
 import numpy as np
 
+from doomworm.brains.planner_layer import PlannerLayer
 from doomworm.environments.sensors import PASSTHROUGH, PRESETS, SensorSuite
 from doomworm.environments.simple_2d import Observation, World
 from doomworm.learning.reward import RewardConfig, RewardTracker
@@ -52,6 +53,7 @@ class DoomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         self.tick = 0
         self._obs: Observation | None = None
         self._seed = 0
+        self.last_channels: dict[str, float] = {}
 
     def _vector(self, channels: dict[str, float]) -> np.ndarray:
         return np.array([channels.get(c, 0.0) for c in self.channel_names], dtype=np.float64)
@@ -71,17 +73,14 @@ class DoomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         if seed is not None:
             self._seed = seed
         self.world = self.world_factory(self._seed)
-        self.suite = (
-            None
-            if self.sensor_preset == "ideal"
-            else SensorSuite(PRESETS[self.sensor_preset], seed=self._seed)
-        )
-        if self.suite is not None:
-            self.suite.reset(self.world)
+        # Every preset goes through the suite: ideal is noiseless, not sensorless.
+        self.suite = SensorSuite(PRESETS[self.sensor_preset], seed=self._seed)
+        self.suite.reset(self.world)
         self.tracker = RewardTracker(self.reward_config)
         self.tick = 0
         self._obs = self.world.observe()
-        return self._vector(self._channels()), {"seed": self._seed}
+        self.last_channels = self._channels()
+        return self._vector(self.last_channels), {"seed": self._seed}
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         """Apply wheel commands for one environment step."""
@@ -115,7 +114,8 @@ class DoomwormEnv(gym.Env[np.ndarray, np.ndarray]):
             "dockings": self.world.dockings,
             "total_reward": self.tracker.total,
         }
-        return self._vector(self._channels()), reward, terminated, truncated, info
+        self.last_channels = self._channels()
+        return self._vector(self.last_channels), reward, terminated, truncated, info
 
     def render(self) -> str:
         """ASCII snapshot."""
@@ -126,6 +126,59 @@ class DoomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         a = self.world.agent
         rec = Record(0, a.x, a.y, a.heading, (0, 0, 0), (0, 0, 0), 0.0, (0.0, 0.0), False, False)
         return render_ascii(self.world, [rec])
+
+
+class _Capture:
+    """Inner 'brain' of the planner layer that just records the merged channels."""
+
+    name = "capture"
+
+    def __init__(self) -> None:
+        self.channels: dict[str, float] = {}
+
+    def reset(self) -> None:
+        self.channels = {}
+
+    def act(self, channels: Mapping[str, float]) -> tuple[float, float]:
+        self.channels = dict(channels)
+        return 0.0, 0.0
+
+
+class PlannerWrapper(gym.Wrapper[np.ndarray, np.ndarray, np.ndarray, np.ndarray]):
+    """The map + planner + needs layer (Plan §3.2) as a Gymnasium wrapper.
+
+    The policy sees the same channels a wrapped Brain would: the planner's
+    virtual ``target_*`` gradient replaces the raw one, and while the robot
+    sits on the dock charging the action is overridden with stopped wheels.
+    So an RL policy is compared under exactly the layer the other candidates get.
+    """
+
+    def __init__(self, env: DoomwormEnv, mode: str = "needs") -> None:
+        super().__init__(env)
+        self.base = env
+        self.capture = _Capture()
+        self.layer = PlannerLayer(self.capture, PRESETS[env.sensor_preset], mode=mode)
+
+    def _merged(self, channels: dict[str, float]) -> np.ndarray:
+        self.layer.act(channels)
+        merged = self.capture.channels or (dict(channels) | self.layer.gradient())
+        return self.base._vector(merged)
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        """Fresh map and arbiter with the fresh world."""
+        _, info = self.base.reset(seed=seed, options=options)
+        self.layer.reset()
+        self.capture.reset()
+        return self._merged(self.base.last_channels), info
+
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+        """Parked on the dock: wheels stopped, whatever the policy says."""
+        if self.layer.parked():
+            action = np.zeros(2)
+        _, reward, terminated, truncated, info = self.base.step(action)
+        return self._merged(self.base.last_channels), reward, terminated, truncated, info
 
 
 def passthrough_names() -> list[str]:

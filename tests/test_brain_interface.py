@@ -124,3 +124,24 @@ def test_old_loop_still_works() -> None:
 
     trace = run_episode(world, Simulator(sc.template), sc.sensory, sc.motor, 5)
     assert len(trace) == 5
+
+
+def test_planner_wrapper_injects_gradient_and_parks_when_charging() -> None:
+    from doomworm.gym_env import PlannerWrapper
+
+    base = DoomwormEnv(lambda seed: build_world(seed, "apartment", "clean"), sensors="vacuum")
+    env = PlannerWrapper(base, mode="needs")
+    obs, _ = env.reset(seed=3000)
+    names = base.channel_names
+    assert obs.shape == base.observation_space.shape
+    for _ in range(6):
+        obs, _, _, _, _ = env.step(np.array([1.0, 1.0]))
+    target = [obs[names.index(f"target_{s}")] for s in ("left", "front", "right")]
+    assert max(target) > 0.0, "the planner's virtual gradient reaches the policy"
+    env.layer.needs.state = "charge"
+    env.layer.charging = True
+    assert env.layer.parked()
+    x0 = base.world.agent.x if base.world else 0.0
+    env.step(np.array([1.0, 1.0]))
+    assert base.world is not None
+    assert base.world.agent.x == x0, "wheels overridden while parked"
