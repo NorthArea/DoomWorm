@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark compare play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark compare play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -90,6 +90,21 @@ demo-15: ## Stage 15: a brain on an unseen apartment map (rooms, doors, furnitur
 
 demo-14: ## Stage 14: target task with a danger zone (runs/worm_evolved_danger.json)
 	$(UV) doomworm play --brain runs/worm_evolved_danger.json --seed $(SEED) --plot
+
+WORM_BRAIN ?= docs/results/brains/worm_evolved_random.json
+
+demo-17: ## Stage 17: stage-12 brain under the noisy vacuum sensor suite
+	$(UV) doomworm play --brain $(WORM_BRAIN) --maps random --sensors noisy --seed $(SEED) --plot
+
+demo-18: ## Stage 18: benchmark the stage-12 brain alone -> runs/benchmark/
+	$(UV) doomworm benchmark --brain $(WORM_BRAIN) --name worm_stage12
+
+demo-19: ## Stage 19: the same brain wrapped in the coverage planner
+	$(UV) doomworm benchmark --brain $(WORM_BRAIN) --name worm_stage12 --planner coverage
+
+demo-20: ## Stage 20: needs arbitration (battery > call > clean), worm and scripted driver
+	$(UV) doomworm benchmark --brain $(WORM_BRAIN) --name worm_stage12 --planner needs
+	$(UV) doomworm benchmark --driver --planner needs
 
 demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every stage demo
 

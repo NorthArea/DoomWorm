@@ -53,7 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_compare_args(cmp)
 
     bench = sub.add_parser("benchmark", help="run a saved brain through the benchmark")
-    bench.add_argument("--brain", type=Path, required=True)
+    bench.add_argument("--brain", type=Path, default=None, help="worm brain JSON")
+    bench.add_argument(
+        "--driver",
+        action="store_true",
+        help="benchmark the scripted GradientFollower test driver instead of --brain",
+    )
     bench.add_argument("--name", default=None, help="row name (default: file stem)")
     bench.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
     bench.add_argument("--task", choices=["food", "target", "clean"], default="clean")
@@ -99,14 +104,25 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
         repeats=args.repeats,
     )
     brain: BrainLike
-    brain = WormBrain.from_file(args.brain, maps=args.maps, task=args.task, dangers=args.dangers)
-    name = args.name or args.brain.stem
+    if args.driver:
+        from doomworm.brains import GradientFollower
+
+        brain = GradientFollower()
+        name = args.name or "driver_follower"
+    elif args.brain is not None:
+        brain = WormBrain.from_file(
+            args.brain, maps=args.maps, task=args.task, dangers=args.dangers
+        )
+        name = args.name or args.brain.stem
+    else:
+        raise SystemExit("benchmark: give --brain <file> or --driver")
     if args.planner != "none":
         from doomworm.brains import PlannerLayer
         from doomworm.environments.sensors import PRESETS
 
         brain = PlannerLayer(brain, PRESETS[args.sensors], mode=args.planner)
-        name += "+planner"
+        # "+planner" is the stage-19 coverage row name; other modes carry their own name.
+        name += "+planner" if args.planner == "coverage" else f"+{args.planner}"
     print(f"benchmark {name}: {cfg.episodes} episodes on {cfg.maps}/{cfg.task}/{cfg.sensors}")
     result = run_benchmark(
         brain,

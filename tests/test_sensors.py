@@ -37,9 +37,9 @@ def test_vacuum_channels_and_noise_are_seeded() -> None:
     for s in (a, b, c):
         s.reset(w)
     obs = w.observe()
-    # delay 1: first read is zeros for ranging channels, passthrough intact
+    # delay 1: the first read is the warm reading taken at rest (stale, not zero)
     first = a.read(w, obs)
-    assert first["range_2"] == 0.0
+    assert abs(first["range_2"] - obs.sensor_front) < 0.3
     assert first["hunger"] == obs.hunger
     b.read(w, obs)
     c.read(w, obs)

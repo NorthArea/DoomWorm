@@ -1,7 +1,11 @@
 """Stage 20: needs arbitration battery > call > clean (Plan §20.3)."""
 
+from pathlib import Path
+
+import pytest
+
 from doomworm.brains import GradientFollower, NeedsArbiter, PlannerLayer
-from doomworm.environments.sensors import IDEAL, SensorSuite
+from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
 from doomworm.episode import run_brain_episode
 from doomworm.worlds import build_world
 
@@ -19,6 +23,14 @@ def test_arbiter_priorities_and_hysteresis() -> None:
     assert a.call is None
 
 
+def test_trip_cost_moves_the_battery_threshold() -> None:
+    a = NeedsArbiter()
+    pose = (5.0, 5.0, 0.0)
+    a.decide(pose, 1.0)  # dock = (5, 5)
+    assert a.decide(pose, 0.5, trip=0.05)[0] == "clean"
+    assert a.decide(pose, 0.5, trip=0.15)[0] == "charge", "far from the dock: leave earlier"
+
+
 def test_needs_mode_returns_to_dock_and_survives() -> None:
     world = build_world(3001, "apartment", "clean")
     world.hunger_rate = 0.003  # drains in 333 ticks so the test sees a recharge
@@ -29,6 +41,36 @@ def test_needs_mode_returns_to_dock_and_survives() -> None:
     assert min(r.battery for r in trace) < 0.45
     assert max(r.battery for r in trace[300:]) > 0.9, "recharged"
     assert world.coverage > 0.05
+
+
+def test_needs_mode_survives_with_drifting_odometry() -> None:
+    """Vacuum preset: the dock is found by its beacon, not by dead reckoning."""
+    world = build_world(3001, "apartment", "clean")
+    world.hunger_rate = 0.003
+    layer = PlannerLayer(GradientFollower(), VACUUM, mode="needs")
+    trace = run_brain_episode(world, layer, 700, sensors=SensorSuite(VACUUM, seed=7))
+    assert len(trace) == 700, "discharged"
+    assert world.dockings >= 2
+    assert max(r.battery for r in trace[300:]) > 0.9, "recharged"
+    assert world.coverage > 0.05
+
+
+def test_beacon_overrides_waypoint_and_charging_parks() -> None:
+    layer = PlannerLayer(GradientFollower(), IDEAL, mode="needs")
+    layer.reset()
+    base = {"odom_x": 5.0, "odom_y": 5.0, "odom_heading": 0.0, "battery": 0.3}
+    layer.act(base)  # battery low -> state charge, dock = (5, 5), beacon out of range
+    assert layer.needs.state == "charge"
+    assert not layer.homing()
+    layer.act(base | {"dock_right": 0.4})  # 2.5 units away: too far to trust the bearing
+    assert not layer.homing()
+    layer.act(base | {"dock_right": 0.6})
+    assert layer.homing()
+    assert layer.gradient() == {"target_left": 0.0, "target_front": 0.0, "target_right": 0.6}
+    assert not layer.parked()
+    layer.act(base | {"odom_x": 6.0, "battery": 0.32, "dock_front": 1.0})  # battery rose
+    assert layer.parked()
+    assert layer.needs.dock == (6.0, 5.0), "dock re-anchored where charging happens"
 
 
 def test_call_takes_the_robot_to_a_point() -> None:
@@ -42,4 +84,31 @@ def test_call_takes_the_robot_to_a_point() -> None:
     trace = run_brain_episode(world, layer, 500, sensors=SensorSuite(IDEAL))
     visited = {world.room_index(r.x, r.y) for r in trace}
     assert (start_room ^ 1) in visited
+    assert layer.needs.call is None, "call cleared on arrival"
+
+
+def test_benchmark_cli_driver_and_needs_row_name(tmp_path: Path) -> None:
+    from doomworm.cli import main
+
+    args = ["benchmark", "--driver", "--planner", "needs", "--test-seeds", "1", "--repeats", "1"]
+    assert main([*args, "--steps", "20", "--out-dir", str(tmp_path)]) == 0
+    assert (tmp_path / "driver_follower+needs.json").exists()
+    # the ideal preset is noiseless, not sensorless: the planner still gets odometry
+    ideal = [*args, "--sensors", "ideal", "--steps", "20", "--out-dir", str(tmp_path / "ideal")]
+    assert main(ideal) == 0
+    assert "driver_follower+needs" in (tmp_path / "leaderboard.md").read_text()
+    with pytest.raises(SystemExit):
+        main(["benchmark", "--out-dir", str(tmp_path)])
+
+
+def test_call_works_with_drifting_odometry() -> None:
+    world = build_world(3002, "apartment", "clean")
+    layer = PlannerLayer(GradientFollower(), VACUUM, mode="needs", replan_every=3)
+    start_room = world.room_index(world.agent.x, world.agent.y)
+    assert start_room is not None
+    x0, y0, x1, y1 = world.rooms[start_room ^ 1]
+    layer.reset()
+    layer.call((x0 + x1) / 2, (y0 + y1) / 2)
+    trace = run_brain_episode(world, layer, 500, sensors=SensorSuite(VACUUM, seed=3))
+    assert (start_room ^ 1) in {world.room_index(r.x, r.y) for r in trace}
     assert layer.needs.call is None, "call cleared on arrival"

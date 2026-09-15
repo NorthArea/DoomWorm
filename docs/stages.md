@@ -24,9 +24,11 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 17 | A1: vacuum sensor suite with noise and delay | `tests/test_sensors.py` | `doomworm play --brain runs/worm_evolved_random.json --maps random --sensors noisy --seed 2002` | done (ideal 0 collisions -> vacuum 171, noisy 104; see `docs/results/stage17_sensors_eval_2026-09-15.md`) |
 | 18 | A1: Brain interface, Gymnasium env, benchmark + leaderboard | `tests/test_brain_interface.py` | `make benchmark BRAIN=runs/worm_evolved_random.json` | done |
 | 19 | A1: occupancy grid, path + coverage planner -> virtual gradient | `tests/test_mapping.py` | `doomworm benchmark --brain runs/worm_evolved_random.json --planner coverage` | done (planner doubles coverage: worm 7% -> 14%, driver 12% -> 24%; nobody docks yet) |
-| 20 | A1: needs arbitration (battery > call > clean) | `tests/test_needs.py` | `doomworm benchmark --brain docs/results/brains/worm_evolved_random.json --planner needs` | code done, tests green; benchmark rows for worm+needs and driver+needs still to run and record |
+| 20 | A1: needs arbitration (battery > call > clean) | `tests/test_needs.py` | `make demo-20` | done: on unseen apartments with vacuum sensors the driver recharges and survives 16/18 episodes (reward +12, coverage 28%), the worm 15/18 (reward −5, coverage 16%); calls reach the next room on the vacuum preset; see `docs/results/stage20_needs_eval_2026-09-15.md`. **Phase A1 closed 2026-09-15** (Plan §47 milestone). |
 | 21 | A2: bake-off of all candidate brains on the benchmark | | | todo |
 | 22 | A3: physical vacuum | | | todo |
+
+Known platform limitation carried into A2: the occupancy grid has no scan matching, so odometry drift (~1 unit per 300 ticks on the vacuum preset) shifts doors on the map; this costs 2-3 of 18 episodes per brain.
 
 Candidate brains for stage 21 (Plan §20.4): Roomba-style classical controller,
 worm (connectome + evolution), worm controls (random / shuffled / dense),

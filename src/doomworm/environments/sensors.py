@@ -122,12 +122,21 @@ class SensorSuite:
         return names + list(PASSTHROUGH)
 
     def reset(self, world: World) -> None:
-        """Start an episode: odometry begins at the true pose, buffers empty."""
+        """Start an episode: odometry begins at the true pose, sensors already warm.
+
+        The delay buffer is pre-filled with the reading at rest, so the first
+        ``delay`` ticks report stale values, not zeros: a robot that has been sitting
+        on its dock knows where it is and what is in front of it.
+        """
         self._buffer.clear()
         a = world.agent
         self.odom = [a.x, a.y, a.heading]
         self._last_pose = (a.x, a.y, a.heading)
         self.gyro_bias = 0.0
+        if self.config.delay:
+            warm = self._measure(world, world.observe())
+            for _ in range(self.config.delay):
+                self._buffer.append(dict(warm))
 
     def read(self, world: World, obs: Observation) -> dict[str, float]:
         """Channels for the brain this tick (delayed by ``config.delay`` steps)."""

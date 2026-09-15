@@ -71,7 +71,7 @@ uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```bash
 uv sync --all-groups && uv run pre-commit install
 make check                                                   # lint, mypy, 200+ tests
-make benchmark BRAIN=docs/results/brains/worm_evolved_random.json BENCH_ARGS="--planner needs"
+make demo-20                                                 # stage-20 benchmark rows (worm + scripted driver)
 ```
 
 Trained brains live in `docs/results/brains/`; `runs/` is git-ignored scratch.

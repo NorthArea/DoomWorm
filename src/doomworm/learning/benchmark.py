@@ -108,9 +108,9 @@ def run_benchmark(
     for seed in cfg.test_seeds:
         for repeat in range(cfg.repeats):
             world = build_world(seed, cfg.maps, cfg.task, cfg.dangers)
-            suite = None
-            if cfg.sensors != "ideal":
-                suite = SensorSuite(PRESETS[cfg.sensors], seed=seed * 1000 + repeat)
+            # Every preset goes through the suite: "ideal" is noiseless, not sensorless,
+            # so planner-wrapped brains get odometry and bumper channels there too.
+            suite = SensorSuite(PRESETS[cfg.sensors], seed=seed * 1000 + repeat)
             tracker = RewardTracker(reward_config or RewardConfig())
             trace = run_brain_episode(world, brain, cfg.steps, tracker, sensors=suite)
             distance = sum(math.dist((a.x, a.y), (b.x, b.y)) for a, b in pairwise(trace))
