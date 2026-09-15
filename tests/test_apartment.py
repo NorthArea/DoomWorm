@@ -23,12 +23,13 @@ def test_ray_hits_wall_and_collision_blocks() -> None:
     )
     assert world.ray_distance(0.0) == pytest.approx(3.0)
     assert world.ray_distance(math.pi) == pytest.approx(5.0), "left wall of the box"
-    assert world.ray_distance(math.pi / 2) == pytest.approx(15.0)
+    assert world.ray_distance(math.pi / 2) == pytest.approx(10.0), "capped at sensor range"
     obs = world.observe()
     assert obs.sensor_front == pytest.approx(0.7)
     world.speed = 3.0
     world.step(1.0, 1.0)
-    assert world.agent.x == pytest.approx(8.0 - 0.5, abs=1e-9) or world.collisions == 1
+    assert world.collisions == 1, "a 3-unit step would end inside the wall"
+    assert world.agent.x == pytest.approx(5.0)
     world = World(agent=AgentState(x=7.4, y=5.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)], speed=0.5)
     obs = world.step(1.0, 1.0)
     assert obs.collided
