@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demos train train-worm train-worm-random train-worm-danger train-worm-apartment compare play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark compare play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -109,6 +109,9 @@ train-worm-danger: ## Stage 14: continue from the random-map brain on target + d
 
 train-worm-apartment: ## Stage 15: continue from the random-map brain on apartment maps
 	$(UV) doomworm train --scenario worm --maps apartment --init-brain runs/worm_evolved_random.json --out runs/worm_evolved_apartment.json $(TRAIN_ARGS)
+
+benchmark: ## Stage 18: benchmark $(BRAIN) on apartments/clean/vacuum -> runs/benchmark/
+	$(UV) doomworm benchmark --brain $(BRAIN) $(BENCH_ARGS)
 
 compare: ## Stage 11: real vs random vs shuffled vs free -> runs/compare/
 	$(UV) doomworm compare $(COMPARE_ARGS)

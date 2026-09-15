@@ -3,6 +3,7 @@
 doomworm train                     evolve weights (stage 4 small network)
 doomworm train --scenario worm     evolve the connectome weights (stage 10)
 doomworm compare                   real vs random vs shuffled vs free topology (stage 11)
+doomworm benchmark --brain X       run any saved brain through the benchmark (stage 18)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
@@ -51,6 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
     add_compare_args(cmp)
 
+    bench = sub.add_parser("benchmark", help="run a saved brain through the benchmark")
+    bench.add_argument("--brain", type=Path, required=True)
+    bench.add_argument("--name", default=None, help="row name (default: file stem)")
+    bench.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    bench.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    bench.add_argument("--dangers", type=int, default=0)
+    bench.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    bench.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
+    bench.add_argument("--repeats", type=int, default=3)
+    bench.add_argument("--steps", type=int, default=800)
+    bench.add_argument("--out-dir", type=Path, default=Path("runs") / "benchmark")
+
     stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
     stim.add_argument("neurons", nargs="+", help="neuron names, e.g. ASHL ASHR")
     stim.add_argument("--current", type=float, default=1.0)
@@ -62,6 +75,39 @@ def build_parser() -> argparse.ArgumentParser:
     stim.add_argument("--threshold", type=float, default=0.01, help="activity counted as active")
     stim.add_argument("--plot", action="store_true", help="save raster + subgraph PNGs to runs/")
     return parser
+
+
+def run_benchmark_cli(args: argparse.Namespace) -> int:
+    """Benchmark a saved brain (worm JSON) and update the leaderboard."""
+    from doomworm.brains import WormBrain
+    from doomworm.learning import BenchmarkConfig, run_benchmark, save_result, write_leaderboard
+
+    cfg = BenchmarkConfig(
+        maps=args.maps,
+        task=args.task,
+        dangers=args.dangers,
+        sensors=args.sensors,
+        test_seeds=tuple(range(3000, 3000 + args.test_seeds)),
+        steps=args.steps,
+        repeats=args.repeats,
+    )
+    brain = WormBrain.from_file(args.brain, maps=args.maps, task=args.task, dangers=args.dangers)
+    name = args.name or args.brain.stem
+    print(f"benchmark {name}: {cfg.episodes} episodes on {cfg.maps}/{cfg.task}/{cfg.sensors}")
+    result = run_benchmark(
+        brain,
+        name,
+        cfg,
+        on_episode=lambda r: print(
+            f"  seed {r.seed} rep {r.repeat}: reward {r.reward:7.1f}  coverage {r.coverage:.2f}  "
+            f"collisions {r.collisions:3d}  ticks {r.ticks}",
+            flush=True,
+        ),
+    )
+    path = save_result(result, args.out_dir)
+    print(f"\nsaved {path}\n")
+    print(write_leaderboard(args.out_dir))
+    return 0
 
 
 def run_stimulate(args: argparse.Namespace) -> int:
@@ -177,4 +223,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         from doomworm.experiments.compare_topologies import run_compare
 
         return run_compare(args)
+    if args.command == "benchmark":
+        return run_benchmark_cli(args)
     return run_play(args)

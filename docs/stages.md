@@ -22,7 +22,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 15 | Apartment-like maps (rooms, doors) | `tests/test_apartment.py` | `make demo-15 SEED=3002` | done (weak: doors passed on 2/6 unseen maps by the stage-12 brain; apartment training made it worse; see `docs/results/stage15_apartment_eval_2026-09-15.md`) |
 | 16 | A1: dirt map + coverage, battery, dock | `tests/test_vacuum.py` | `make demo-16 SEED=3002` | done (stage-12 brain runs unchanged: coverage 4%, 11 dockings; it treats the dock as food) |
 | 17 | A1: vacuum sensor suite with noise and delay | `tests/test_sensors.py` | `doomworm play --brain runs/worm_evolved_random.json --maps random --sensors noisy --seed 2002` | done (ideal 0 collisions -> vacuum 171, noisy 104; see `docs/results/stage17_sensors_eval_2026-09-15.md`) |
-| 18 | A1: Brain interface, Gymnasium env, benchmark + leaderboard | | | todo |
+| 18 | A1: Brain interface, Gymnasium env, benchmark + leaderboard | `tests/test_brain_interface.py` | `make benchmark BRAIN=runs/worm_evolved_random.json` | done |
 | 19 | A1: occupancy grid, path + coverage planner -> virtual gradient | | | todo |
 | 20 | A1: needs arbitration (battery > call > clean) | | | todo |
 | 21 | A2: bake-off of all candidate brains on the benchmark | | | todo |

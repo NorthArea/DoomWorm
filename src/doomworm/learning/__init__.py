@@ -1,5 +1,13 @@
 """Fitness, evolution, plasticity. Topology is fixed; only weights are trainable."""
 
+from doomworm.learning.benchmark import (
+    BenchmarkConfig,
+    BenchmarkResult,
+    leaderboard,
+    run_benchmark,
+    save_result,
+    write_leaderboard,
+)
 from doomworm.learning.evolution import (
     EvolutionConfig,
     EvolutionResult,
@@ -11,6 +19,8 @@ from doomworm.learning.fitness import Evaluation, Scenario, evaluate
 from doomworm.learning.reward import RewardConfig, RewardTracker
 
 __all__ = [
+    "BenchmarkConfig",
+    "BenchmarkResult",
     "Evaluation",
     "EvolutionConfig",
     "EvolutionResult",
@@ -20,5 +30,9 @@ __all__ = [
     "Scenario",
     "evaluate",
     "evolve",
+    "leaderboard",
+    "run_benchmark",
+    "save_result",
     "seeded_population",
+    "write_leaderboard",
 ]

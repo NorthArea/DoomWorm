@@ -166,3 +166,83 @@ def run_episode(
         if world.dead:
             break
     return trace
+
+
+class BrainLike(Protocol):
+    """Minimal duck type of :class:`doomworm.brains.Brain` (avoids an import cycle)."""
+
+    def reset(self) -> None:
+        """Forget episode state."""
+        ...
+
+    def act(self, channels: Mapping[str, float]) -> tuple[float, float]:
+        """Channels -> wheels."""
+        ...
+
+
+def run_brain_episode(
+    world: World,
+    brain: BrainLike,
+    steps: int,
+    reward: TickScorer | None = None,
+    sensors: SensorSuite | None = None,
+    record_activity: bool = False,
+) -> list[Record]:
+    """Closed loop for any Brain (Plan §3.3): channels -> brain.act -> wheels -> world."""
+    trace: list[Record] = []
+    brain.reset()
+    obs = world.observe()
+    if sensors is not None:
+        sensors.reset(world)
+    for tick in range(steps):
+        channels = obs.as_channels() if sensors is None else sensors.read(world, obs)
+        motors = brain.act(channels)
+        obs = world.step(*motors)
+        tick_reward = 0.0
+        if reward is not None:
+            tick_reward = reward.step(
+                x=world.agent.x,
+                y=world.agent.y,
+                ate=obs.ate,
+                collided=obs.collided,
+                starved=world.starved,
+                reached=obs.reached,
+                damaged=obs.damaged,
+                dead=world.dead,
+                cleaned=obs.cleaned,
+                docked=obs.docked,
+                battery=obs.battery,
+            )
+        activity = getattr(brain, "activity", None) if record_activity else None
+        trace.append(
+            Record(
+                tick=tick,
+                x=world.agent.x,
+                y=world.agent.y,
+                heading=world.agent.heading,
+                obstacle=(obs.sensor_left, obs.sensor_front, obs.sensor_right),
+                food=(obs.food_left, obs.food_front, obs.food_right),
+                hunger=obs.hunger,
+                motors=motors,
+                collided=obs.collided,
+                ate=obs.ate,
+                starved=world.starved,
+                reward=tick_reward,
+                foods=tuple((f.x, f.y) for f in world.foods),
+                target=None if world.target is None else (world.target.x, world.target.y),
+                target_signal=(obs.target_left, obs.target_front, obs.target_right),
+                reached=obs.reached,
+                danger_signal=(obs.danger_left, obs.danger_front, obs.danger_right),
+                health=obs.health,
+                damaged=obs.damaged,
+                dead=world.dead,
+                activity=dict(activity) if activity else None,
+                battery=obs.battery,
+                docked=obs.docked,
+                cleaned=obs.cleaned,
+                coverage=world.coverage,
+            )
+        )
+        if world.dead:
+            break
+    return trace

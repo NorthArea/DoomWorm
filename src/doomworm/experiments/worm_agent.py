@@ -31,23 +31,16 @@ from doomworm.connectome import (
     default_sensory_mapping,
     load_cook2019,
 )
-from doomworm.environments.maze import (
-    ApartmentConfig,
-    MapConfig,
-    apartment_world,
-    random_world,
-    rooms_visited,
-)
+from doomworm.environments.maze import rooms_visited
 from doomworm.environments.sensors import PRESETS, SensorSuite
-from doomworm.environments.simple_2d import AgentState, Dock, Obstacle, World
+from doomworm.environments.simple_2d import World
 from doomworm.episode import Record, run_episode
 from doomworm.experiments.episode import print_trace, render_ascii, save_log, save_plot
 from doomworm.learning import RewardTracker
 from doomworm.visualization import save_debug_gif
+from doomworm.worlds import build_world
 
 SCENARIO_NAME = "worm"
-N_FOOD = 2
-BATTERY_DRAIN = 0.002  # 500 ticks from full to empty (Plan §8 range)
 
 
 class WormScenario:
@@ -129,46 +122,8 @@ class WormScenario:
         return SensorSuite(PRESETS[self.sensors], seed=seed)
 
     def make_world(self, seed: int) -> World:
-        """``fixed``: stage-4 layout with seeded pose and food. ``random``: Plan §18 maps."""
-        if self.maps == "random":
-            world = random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0))
-            return self._apply_task(world)
-        if self.maps == "apartment":
-            world = apartment_world(seed, ApartmentConfig(n_food=N_FOOD))
-            return self._apply_task(world)
-        world = World(
-            width=20.0,
-            height=20.0,
-            obstacles=[Obstacle(x=10.0, y=10.0, radius=1.5)],
-            respawn_food=True,
-            seed=seed,
-        )
-        rng = world.rng
-        while True:
-            x, y = rng.uniform(1.0, 19.0), rng.uniform(1.0, 19.0)
-            heading = rng.uniform(-math.pi, math.pi)
-            clear = all(math.dist((x, y), (o.x, o.y)) > o.radius + 1.0 for o in world.obstacles)
-            if clear:
-                break
-        world.agent = AgentState(x=x, y=y, heading=heading)
-        world.foods = [world.spawn_food() for _ in range(N_FOOD)]
-        return self._apply_task(world)
-
-    def _apply_task(self, world: World) -> World:
-        """Task overlays: ``target`` (come to X), ``clean`` (vacuum: dirt, dock, battery)."""
-        if self.task == "target":
-            world.foods = []
-            world.respawn_target = True
-            world.target = world.spawn_target()
-        elif self.task == "clean":
-            world.foods = []
-            world.hunger_rate = BATTERY_DRAIN
-            spot = world.spawn_food(radius=0.6, margin=1.2)
-            world.dock = Dock(x=spot.x, y=spot.y)
-            world.agent = AgentState(x=spot.x, y=spot.y, heading=world.agent.heading)
-            world.init_dirt()
-        world.dangers = [world.spawn_danger() for _ in range(self.dangers)]
-        return world
+        """See :func:`build_world`."""
+        return build_world(seed, self.maps, self.task, self.dangers)
 
 
 def run_worm(

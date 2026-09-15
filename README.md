@@ -62,6 +62,7 @@ uv run doomworm compare                                    # stage 11: topology 
 uv run doomworm train --scenario worm --maps random          # stage 12: random maps
 make demo-13                                                # stage 13: come to a target
 make train-worm-danger && make demo-14                      # stage 14: avoid a danger zone
+make benchmark BRAIN=runs/worm_evolved_random.json          # stage 18: benchmark + leaderboard
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
