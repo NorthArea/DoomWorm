@@ -25,7 +25,14 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 18 | A1: Brain interface, Gymnasium env, benchmark + leaderboard | `tests/test_brain_interface.py` | `make benchmark BRAIN=runs/worm_evolved_random.json` | done |
 | 19 | A1: occupancy grid, path + coverage planner -> virtual gradient | `tests/test_mapping.py` | `doomworm benchmark --brain runs/worm_evolved_random.json --planner coverage` | done (planner doubles coverage: worm 7% -> 14%, driver 12% -> 24%; nobody docks yet) |
 | 20 | A1: needs arbitration (battery > call > clean) | `tests/test_needs.py` | `make demo-20` | done: on unseen apartments with vacuum sensors the driver recharges and survives 16/18 episodes (reward +12, coverage 28%), the worm 15/18 (reward −5, coverage 16%); calls reach the next room on the vacuum preset; see `docs/results/stage20_needs_eval_2026-09-15.md`. **Phase A1 closed 2026-09-15** (Plan §47 milestone). |
-| 21 | A2: bake-off of all candidate brains on the benchmark | | | todo |
+| 21 | A2: bake-off of all candidate brains on the benchmark | | | in progress, sub-stages below |
+| 21.1 | A2: Roomba-style classical controller (zero learning, the floor) | `tests/test_roomba.py` | `make demo-21` | done: reward −0.1, coverage 19%, survives 13/18 (`docs/results/benchmark_2026-09-15/roomba.csv`) |
+| 21.2 | A2: generic training harness (any weight-trainable Brain under the same layer, same evolution, parallel fitness); retrain worm + controls on the vacuum task | | | todo |
+| 21.3 | A2: small recurrent net from scratch, same evolution | | | todo |
+| 21.4 | A2: PPO via Gymnasium (optional `rl` group) | | | todo |
+| 21.5 | A2: Neural Circuit Policies (optional `rl` group) | | | todo |
+| 21.6 | A2: hybrids | | | todo |
+| 21.7 | A2: leaderboard with >= 3 seeds per candidate, decision for A3 | | | todo |
 | 22 | A3: physical vacuum | | | todo |
 
 Known platform limitation carried into A2: the occupancy grid has no scan matching, so odometry drift (~1 unit per 300 ticks on the vacuum preset) shifts doors on the map; this costs 2-3 of 18 episodes per brain.

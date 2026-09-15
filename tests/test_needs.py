@@ -90,7 +90,17 @@ def test_call_takes_the_robot_to_a_point() -> None:
 def test_benchmark_cli_driver_and_needs_row_name(tmp_path: Path) -> None:
     from doomworm.cli import main
 
-    args = ["benchmark", "--driver", "--planner", "needs", "--test-seeds", "1", "--repeats", "1"]
+    args = [
+        "benchmark",
+        "--scripted",
+        "follower",
+        "--planner",
+        "needs",
+        "--test-seeds",
+        "1",
+        "--repeats",
+        "1",
+    ]
     assert main([*args, "--steps", "20", "--out-dir", str(tmp_path)]) == 0
     assert (tmp_path / "driver_follower+needs.json").exists()
     # the ideal preset is noiseless, not sensorless: the planner still gets odometry

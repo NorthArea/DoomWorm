@@ -55,9 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
     bench = sub.add_parser("benchmark", help="run a saved brain through the benchmark")
     bench.add_argument("--brain", type=Path, default=None, help="worm brain JSON")
     bench.add_argument(
-        "--driver",
-        action="store_true",
-        help="benchmark the scripted GradientFollower test driver instead of --brain",
+        "--scripted",
+        choices=["follower", "roomba"],
+        default=None,
+        help="benchmark a hand-written brain instead of --brain (follower = test driver)",
     )
     bench.add_argument("--name", default=None, help="row name (default: file stem)")
     bench.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
@@ -104,18 +105,23 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
         repeats=args.repeats,
     )
     brain: BrainLike
-    if args.driver:
+    if args.scripted == "follower":
         from doomworm.brains import GradientFollower
 
         brain = GradientFollower()
         name = args.name or "driver_follower"
+    elif args.scripted == "roomba":
+        from doomworm.brains import RoombaBrain
+
+        brain = RoombaBrain()
+        name = args.name or "roomba"
     elif args.brain is not None:
         brain = WormBrain.from_file(
             args.brain, maps=args.maps, task=args.task, dangers=args.dangers
         )
         name = args.name or args.brain.stem
     else:
-        raise SystemExit("benchmark: give --brain <file> or --driver")
+        raise SystemExit("benchmark: give --brain <file> or --scripted <name>")
     if args.planner != "none":
         from doomworm.brains import PlannerLayer
         from doomworm.environments.sensors import PRESETS
