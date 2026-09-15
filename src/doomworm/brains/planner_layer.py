@@ -16,6 +16,7 @@ import math
 from collections.abc import Mapping
 
 from doomworm.brains.base import Wheels
+from doomworm.brains.needs import NeedsArbiter
 from doomworm.environments.sensors import SensorConfig
 from doomworm.episode import BrainLike
 from doomworm.mapping import OccupancyGrid, nearest_unswept, next_waypoint, path_to
@@ -43,7 +44,8 @@ class PlannerLayer:
         sensors: the sensor preset in use (ray angles and range are needed to map).
         width, height: world size (the map frame is the odometry frame).
         mode: ``"coverage"`` (go to the nearest unswept cell), ``"goal"``
-            (go to :attr:`goal`), or ``"passthrough"`` (map only, no gradient).
+            (go to :attr:`goal`), ``"needs"`` (stage 20: :class:`NeedsArbiter`
+            picks dock / call / coverage), or ``"passthrough"`` (map only).
         strength: magnitude of the injected gradient (the worm's target
             neurons need about 0.5 to react).
         brush: sweep radius used to mark cells as done, in world units.
@@ -61,8 +63,8 @@ class PlannerLayer:
         cell: float = 0.5,
         replan_every: int = 5,
     ) -> None:
-        if mode not in ("coverage", "goal", "passthrough"):
-            raise ValueError("mode must be coverage, goal or passthrough")
+        if mode not in ("coverage", "goal", "needs", "passthrough"):
+            raise ValueError("mode must be coverage, goal, needs or passthrough")
         self.inner = inner
         self.sensors = sensors
         self.width, self.height = width, height
@@ -79,6 +81,8 @@ class PlannerLayer:
         self.waypoint: tuple[float, float] | None = None
         self.pose = (0.0, 0.0, 0.0)
         self.tick = 0
+        self.needs = NeedsArbiter()
+        self.battery = 1.0
 
     def reset(self) -> None:
         """New episode: fresh map, fresh inner brain."""
@@ -87,6 +91,8 @@ class PlannerLayer:
         self.path = []
         self.waypoint = None
         self.tick = 0
+        self.needs.reset()
+        self.battery = 1.0
         self.inner.reset()
 
     # --- mapping ----------------------------------------------------------------
@@ -94,10 +100,24 @@ class PlannerLayer:
     def observe(self, channels: Mapping[str, float]) -> None:
         """Update pose, map and swept set from this tick's channels."""
         self.pose = (channels["odom_x"], channels["odom_y"], channels["odom_heading"])
+        self.battery = channels.get("battery", 1.0)
         x, y, _ = self.pose
         readings = [channels.get(f"range_{i}", 0.0) for i in range(len(self.sensors.ray_angles))]
         self.grid.update(self.pose, self.sensors.ray_angles, readings, self.sensors.ray_range)
         self.grid.mark_free_around(x, y, self.brush)
+        if channels.get("bumper_left", 0.0) or channels.get("bumper_right", 0.0):
+            side = 0.0
+            if not channels.get("bumper_left", 0.0):
+                side = -0.5
+            elif not channels.get("bumper_right", 0.0):
+                side = 0.5
+            heading = self.pose[2] + side
+            bx, by = (
+                x + math.cos(heading) * (self.brush + 0.3),
+                y + math.sin(heading) * (self.brush + 0.3),
+            )
+            bi, bj = self.grid.to_cell(bx, by)
+            self.grid.logodds[bi, bj] = self.grid.clamp  # a bump is certain
         i0, j0 = self.grid.to_cell(x - self.brush, y - self.brush)
         i1, j1 = self.grid.to_cell(x + self.brush, y + self.brush)
         for i in range(i0, i1 + 1):
@@ -108,14 +128,22 @@ class PlannerLayer:
     def plan(self) -> None:
         """Choose the next waypoint for the current mode."""
         start = self.grid.to_cell(self.pose[0], self.pose[1])
-        if self.mode == "goal" and self.goal is not None:
-            path = path_to(self.grid, start, self.grid.to_cell(*self.goal))
-        elif self.mode == "coverage":
+        mode, goal = self.mode, self.goal
+        if mode == "needs":
+            _, need_goal = self.needs.decide(self.pose, self.battery)
+            mode, goal = ("goal", need_goal) if need_goal is not None else ("coverage", None)
+        if mode == "goal" and goal is not None:
+            path = path_to(self.grid, start, self.grid.to_cell(*goal))
+        elif mode == "coverage":
             path = nearest_unswept(self.grid, start, self.swept)
         else:
             path = None
         self.path = path or []
         self.waypoint = self.grid.to_world(next_waypoint(path)) if path else None
+
+    def call(self, x: float, y: float) -> None:
+        """Ask the robot to come to a point (needs mode)."""
+        self.needs.request_call(x, y)
 
     def gradient(self) -> dict[str, float]:
         """Virtual target channels pointing at the waypoint (empty if none)."""
@@ -134,8 +162,17 @@ class PlannerLayer:
         if self.tick % self.replan_every == 0 or self.waypoint is None:
             self.plan()
         self.tick += 1
+        if self.parked():
+            return 0.0, 0.0
         merged = dict(channels) | self.gradient()
         return self.inner.act(merged)
+
+    def parked(self) -> bool:
+        """Needs mode, charging and on the dock: hold the wheels, do not ask the brain."""
+        if self.mode != "needs" or self.needs.state != "charge" or self.needs.dock is None:
+            return False
+        x, y, _ = self.pose
+        return math.dist((x, y), self.needs.dock) < 0.4
 
     @property
     def activity(self) -> dict[str, float] | None:

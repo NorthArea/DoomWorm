@@ -93,7 +93,7 @@ def test_goal_mode_reaches_another_room_with_the_follower() -> None:
     world = build_world(3004, "apartment", "target")
     start_room = world.room_index(world.agent.x, world.agent.y)
     assert start_room is not None
-    goal_room = (start_room + 1) % len(world.rooms)
+    goal_room = start_room ^ 1  # horizontal neighbour in the 2x2 grid
     x0, y0, x1, y1 = world.rooms[goal_room]
     world.target = Target(x=(x0 + x1) / 2, y=(y0 + y1) / 2)
     layer = PlannerLayer(GradientFollower(), IDEAL, mode="goal", replan_every=3)

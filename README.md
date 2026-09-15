@@ -66,6 +66,16 @@ make benchmark BRAIN=runs/worm_evolved_random.json          # stage 18: benchmar
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
+## Fresh clone
+
+```bash
+uv sync --all-groups && uv run pre-commit install
+make check                                                   # lint, mypy, 200+ tests
+make benchmark BRAIN=docs/results/brains/worm_evolved_random.json BENCH_ARGS="--planner needs"
+```
+
+Trained brains live in `docs/results/brains/`; `runs/` is git-ignored scratch.
+
 ## Layout
 
 ```text

@@ -1,0 +1,133 @@
+{
+  "format": 1,
+  "neurons": [
+    {
+      "id": "S_LEFT",
+      "threshold": 0.5,
+      "decay": 1.0
+    },
+    {
+      "id": "S_FRONT",
+      "threshold": 0.5,
+      "decay": 1.0
+    },
+    {
+      "id": "S_RIGHT",
+      "threshold": 0.5,
+      "decay": 1.0
+    },
+    {
+      "id": "M_LEFT",
+      "threshold": 1.0,
+      "decay": 1.0
+    },
+    {
+      "id": "M_RIGHT",
+      "threshold": 1.0,
+      "decay": 1.0
+    },
+    {
+      "id": "HUNGRY",
+      "threshold": 0.3,
+      "decay": 1.0
+    },
+    {
+      "id": "F_LEFT",
+      "threshold": 1.0,
+      "decay": 1.0
+    },
+    {
+      "id": "F_FRONT",
+      "threshold": 1.0,
+      "decay": 1.0
+    },
+    {
+      "id": "F_RIGHT",
+      "threshold": 1.0,
+      "decay": 1.0
+    }
+  ],
+  "synapses": [
+    {
+      "source": "S_LEFT",
+      "target": "M_RIGHT",
+      "weight": 0.7901233957077448,
+      "kind": "chemical"
+    },
+    {
+      "source": "S_RIGHT",
+      "target": "M_LEFT",
+      "weight": -0.034116351552659685,
+      "kind": "chemical"
+    },
+    {
+      "source": "S_FRONT",
+      "target": "M_RIGHT",
+      "weight": 1.6368674408555135,
+      "kind": "chemical"
+    },
+    {
+      "source": "S_FRONT",
+      "target": "M_LEFT",
+      "weight": -1.340581736803643,
+      "kind": "chemical"
+    },
+    {
+      "source": "HUNGRY",
+      "target": "F_LEFT",
+      "weight": 0.9645063366597233,
+      "kind": "chemical"
+    },
+    {
+      "source": "HUNGRY",
+      "target": "F_FRONT",
+      "weight": -1.1589028840518156,
+      "kind": "chemical"
+    },
+    {
+      "source": "HUNGRY",
+      "target": "F_RIGHT",
+      "weight": 0.9206937010333933,
+      "kind": "chemical"
+    },
+    {
+      "source": "F_LEFT",
+      "target": "M_LEFT",
+      "weight": -0.44459939599180254,
+      "kind": "chemical"
+    },
+    {
+      "source": "F_RIGHT",
+      "target": "M_RIGHT",
+      "weight": -0.6144498834054114,
+      "kind": "chemical"
+    },
+    {
+      "source": "F_FRONT",
+      "target": "M_LEFT",
+      "weight": -2.0,
+      "kind": "chemical"
+    },
+    {
+      "source": "F_FRONT",
+      "target": "M_RIGHT",
+      "weight": 1.2143485679771404,
+      "kind": "chemical"
+    }
+  ],
+  "meta": {
+    "stage": 4,
+    "scenario": "small_food",
+    "seed": 0,
+    "train_seeds": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "steps": 600,
+    "generations": 30,
+    "population": 60,
+    "fitness": 65.10000000000005
+  }
+}

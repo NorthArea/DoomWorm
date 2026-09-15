@@ -7,6 +7,7 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
+        args: [--maxkb=1000]  # trained brain JSONs in docs/results/brains are ~750 KB
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.7

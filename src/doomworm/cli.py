@@ -64,7 +64,10 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--steps", type=int, default=800)
     bench.add_argument("--out-dir", type=Path, default=Path("runs") / "benchmark")
     bench.add_argument(
-        "--planner", choices=["none", "coverage"], default="none", help="wrap with the map layer"
+        "--planner",
+        choices=["none", "coverage", "needs"],
+        default="none",
+        help="wrap with the map layer",
     )
 
     stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
