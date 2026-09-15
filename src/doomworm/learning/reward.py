@@ -5,8 +5,11 @@ Movement is never rewarded directly. Rewarded events:
     ate food            +food
     reached target      +target
     inside danger       +damage per tick
-    cleaned cells       +clean per cell (vacuum task)
-    docked when low     +dock once per docking with battery <= low_battery
+    cleaned cells       +clean per cell (vacuum task); a cell is a fifth of a food item
+    docked when low     +dock once per discharge cycle: docking with battery <= low_battery
+                        pays only after the battery has been >= recharged since the last
+                        paid docking (or since the start), so shuttling at the dock edge
+                        earns nothing
     died (health 0)     +death once, episode ends
     collision           +collision per tick of contact, capped per episode
     new cell visited    +new_cell (cell_size x cell_size grid)
@@ -27,9 +30,10 @@ class RewardConfig:
     target: float = 10.0
     damage: float = -2.0
     death: float = -20.0
-    clean: float = 0.1
+    clean: float = 0.5
     dock: float = 10.0
     low_battery: float = 0.3
+    recharged: float = 0.9  # battery level that re-arms the docking bonus
     collision: float = -0.5
     max_collision_penalty: float = 20.0
     new_cell: float = 0.1
@@ -60,6 +64,7 @@ class RewardTracker:
     _starved: bool = False
     _dead: bool = False
     _docked: bool = False
+    _dock_armed: bool = True
 
     @property
     def cells_visited(self) -> int:
@@ -93,7 +98,10 @@ class RewardTracker:
             reward += self._add("damage", cfg.damage)
         if cleaned:
             reward += self._add("clean", cfg.clean * cleaned)
-        if docked and not self._docked and battery <= cfg.low_battery:
+        if battery >= cfg.recharged:
+            self._dock_armed = True
+        if docked and not self._docked and battery <= cfg.low_battery and self._dock_armed:
+            self._dock_armed = False
             reward += self._add("dock", cfg.dock)
         self._docked = docked
         if dead and not starved and not self._dead:

@@ -64,7 +64,7 @@ def test_docking_counted_once_per_visit() -> None:
 def test_reward_clean_and_dock() -> None:
     t = RewardTracker(RewardConfig(new_cell=0.0))
     r = t.step(x=0, y=0, ate=False, collided=False, starved=False, cleaned=3)
-    assert r == pytest.approx(0.3)
+    assert r == pytest.approx(1.5), "a cell is a fifth of a food item"
     r = t.step(x=0, y=0, ate=False, collided=False, starved=False, docked=True, battery=0.2)
     assert r == 10.0
     r = t.step(x=0, y=0, ate=False, collided=False, starved=False, docked=True, battery=0.3)
@@ -73,6 +73,26 @@ def test_reward_clean_and_dock() -> None:
     r = t.step(x=0, y=0, ate=False, collided=False, starved=False, docked=True, battery=0.9)
     assert r == 0.0, "docking with a full battery earns nothing"
     assert t.breakdown["dock"] == 10.0
+
+
+def test_dock_bonus_once_per_discharge_cycle() -> None:
+    t = RewardTracker(RewardConfig(new_cell=0.0))
+
+    def tick(docked: bool, battery: float) -> float:
+        return t.step(
+            x=0, y=0, ate=False, collided=False, starved=False, docked=docked, battery=battery
+        )
+
+    assert tick(True, 0.25) == 10.0
+    # jitter at the dock edge while still low: leave, re-enter, leave, re-enter
+    for _ in range(3):
+        tick(False, 0.26)
+        assert tick(True, 0.26) == 0.0, "not re-armed"
+    # a full charge re-arms the bonus, the next low docking pays again
+    tick(True, 0.95)
+    tick(False, 0.5)
+    assert tick(True, 0.3) == 10.0
+    assert t.breakdown["dock"] == 20.0
 
 
 def test_mapping_routes_dock_to_food_neurons() -> None:
