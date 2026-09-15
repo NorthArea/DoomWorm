@@ -27,6 +27,10 @@ def test_ncp_is_a_trainable_brain_with_sparse_wiring() -> None:
     brain.reset()
     assert brain.act({"sensor_front": 0.9}) == a
     assert all(-1.0 <= w <= 1.0 for w in a)
+    brain.reset()
+    left, right = brain.act({})
+    assert left > 0.2
+    assert right > 0.2, "untrained: drives forward (tonic bias)"
 
 
 def test_ncp_round_trips_and_trains(tmp_path: Path) -> None:

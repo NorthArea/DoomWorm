@@ -5,6 +5,9 @@ inter, command and motor neurons sparsely by rule (Lechner et al. 2020), the
 cell is a closed-form continuous-time (CfC) neuron. Here it is trained by the
 same evolution as every other candidate: the brain exposes its torch
 parameters as the flat weight vector. One CfC step per environment step.
+The two motor outputs carry a trainable forward bias (``forward``, default
+0.5), the analogue of the worm's tonic AVB drive: an untrained CfC outputs
+about zero and the robot never moves (stage 21.10).
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ class NCPBrain:
         inputs: Sequence[str],
         units: int = 32,
         seed: int = 0,
+        forward: float = 0.5,
         name: str = "ncp",
         meta: dict[str, Any] | None = None,
     ) -> None:
@@ -46,6 +50,7 @@ class NCPBrain:
         self.model = CfC(len(self.inputs), self.wiring, batch_first=True)
         self.model.eval()
         self._torch = torch
+        self.bias_out = np.array([forward, forward])
         self.hidden: Any = None
         self.activity_vector = np.zeros(units)
 
@@ -63,7 +68,7 @@ class NCPBrain:
         with torch.no_grad():
             out, self.hidden = self.model(x, self.hidden)
         self.activity_vector = self.hidden[0].numpy().astype(float)
-        left, right = np.clip(out[0, 0].numpy().astype(float), -1.0, 1.0)
+        left, right = np.clip(out[0, 0].numpy().astype(float) + self.bias_out, -1.0, 1.0)
         return float(left), float(right)
 
     @property
@@ -75,14 +80,14 @@ class NCPBrain:
 
     @property
     def n_weights(self) -> int:
-        """Every torch parameter of the cell."""
-        return sum(p.numel() for p in self.model.parameters())
+        """Every torch parameter of the cell plus the two output biases."""
+        return int(sum(p.numel() for p in self.model.parameters())) + 2
 
     def get_weights(self) -> list[float]:
         """Flat parameter vector (parameters in module order)."""
         torch = self._torch
         flat = torch.cat([p.detach().reshape(-1) for p in self.model.parameters()])
-        return [float(v) for v in flat]
+        return [float(v) for v in flat] + [float(v) for v in self.bias_out]
 
     def set_weights(self, weights: Sequence[float]) -> None:
         """Load a flat parameter vector."""
@@ -96,6 +101,7 @@ class NCPBrain:
                 chunk = self._torch.tensor(w[cut : cut + n], dtype=p.dtype).reshape(p.shape)
                 p.copy_(chunk)
                 cut += n
+        self.bias_out = w[cut : cut + 2].copy()
 
     # --- persistence ---------------------------------------------------------------
 

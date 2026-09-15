@@ -24,6 +24,10 @@ def test_rnn_is_a_small_trainable_brain_on_bounded_channels() -> None:
     b = brain.act({"sensor_front": 0.9})
     assert a == b, "deterministic"
     assert all(-1.0 <= w <= 1.0 for w in a)
+    brain.reset()
+    left, right = brain.act({})
+    assert left > 0.2
+    assert right > 0.2, "untrained: drives forward (tonic bias), does not stand still"
 
 
 def test_weights_round_trip_and_change_behaviour(tmp_path: Path) -> None:

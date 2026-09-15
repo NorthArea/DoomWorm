@@ -10,6 +10,7 @@ readout to two wheels, all weights random at birth. It answers the question
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -30,7 +31,8 @@ class RNNBrain:
         hidden: int = 32,
         brain_steps: int = 5,
         decay: float = 0.5,
-        init_scale: float = 0.1,
+        init_scale: float = 0.3,
+        forward: float = 0.5,
         seed: int = 0,
         name: str = "rnn",
         meta: dict[str, Any] | None = None,
@@ -46,7 +48,9 @@ class RNNBrain:
         self.w_in = rng.normal(0.0, init_scale, size=(hidden, n_in))
         self.w_rec = rng.normal(0.0, init_scale, size=(hidden, hidden))
         self.bias = np.zeros(hidden)
-        self.w_out = rng.normal(0.0, init_scale, size=(2, hidden))
+        # readout scaled by 1/sqrt(hidden) so the forward bias is not swamped at birth
+        self.w_out = rng.normal(0.0, init_scale / math.sqrt(hidden), size=(2, hidden))
+        self.bias_out = np.array([forward, forward])
         self.potential = np.zeros(hidden)
         self.activity_vector = np.zeros(hidden)
 
@@ -67,7 +71,7 @@ class RNNBrain:
             self.activity_vector = np.clip(self.potential, 0.0, 1.0)
             window += self.activity_vector
         mean = window / self.brain_steps
-        left, right = np.clip(self.w_out @ mean, -1.0, 1.0)
+        left, right = np.clip(self.w_out @ mean + self.bias_out, -1.0, 1.0)
         return float(left), float(right)
 
     @property
@@ -79,12 +83,12 @@ class RNNBrain:
 
     @property
     def n_weights(self) -> int:
-        """Input, recurrent, bias and readout weights."""
-        return self.w_in.size + self.w_rec.size + self.bias.size + self.w_out.size
+        """Input, recurrent, bias, readout and output-bias weights."""
+        return self.w_in.size + self.w_rec.size + self.bias.size + self.w_out.size + 2
 
     def get_weights(self) -> list[float]:
         """Flat genome in a fixed order."""
-        parts = (self.w_in, self.w_rec, self.bias, self.w_out)
+        parts = (self.w_in, self.w_rec, self.bias, self.w_out, self.bias_out)
         return [float(v) for v in np.concatenate([p.ravel() for p in parts])]
 
     def set_weights(self, weights: Sequence[float]) -> None:
@@ -93,7 +97,7 @@ class RNNBrain:
         if w.size != self.n_weights:
             raise ValueError(f"expected {self.n_weights} weights, got {w.size}")
         cut = 0
-        for name in ("w_in", "w_rec", "bias", "w_out"):
+        for name in ("w_in", "w_rec", "bias", "w_out", "bias_out"):
             arr = getattr(self, name)
             setattr(self, name, w[cut : cut + arr.size].reshape(arr.shape))
             cut += arr.size
