@@ -93,8 +93,12 @@ def train_ppo(cfg: PPOConfig, out: Path, verbose: int = 0) -> Path:
         device="cpu",
         verbose=verbose,
     )
-    model.learn(total_timesteps=cfg.timesteps)
+    from stable_baselines3.common.callbacks import CheckpointCallback
+
     out.parent.mkdir(parents=True, exist_ok=True)
+    every = max(cfg.n_steps, cfg.timesteps // 10)
+    ckpt = CheckpointCallback(every, str(out.parent / f"{out.stem}_ckpt"), name_prefix=out.stem)
+    model.learn(total_timesteps=cfg.timesteps, callback=ckpt)
     model.save(out.with_suffix(".zip"))
     data = {
         "kind": "ppo",

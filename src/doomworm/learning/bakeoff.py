@@ -120,10 +120,32 @@ def train_candidate(
     fitness = partial(fitness_of, spec, cfg)
     history: list[GenerationStats] = []
 
-    def record(stats: GenerationStats) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    def checkpoint(stats: GenerationStats, best: np.ndarray, best_fitness: float) -> None:
+        # Save the best genome so far after every generation: a killed run keeps its progress.
+        brain.set_weights([float(w) for w in best])
+        brain.meta.update(
+            {
+                "candidate": spec.kind,
+                "layer": cfg.layer,
+                "train": asdict(cfg) | {"spec": asdict(spec)},
+                "fitness": best_fitness,
+                "generations": stats.generation + 1,
+            }
+        )
+        brain.save(out)
+
+    def record(stats: GenerationStats, best: np.ndarray, best_fitness: float) -> None:
         history.append(stats)
+        checkpoint(stats, best, best_fitness)
+        with out.with_suffix(".csv").open("a", newline="") as f:
+            csv.writer(f).writerow([stats.generation, stats.best, stats.mean, stats.worst])
         if on_generation is not None:
             on_generation(stats)
+
+    with out.with_suffix(".csv").open("w", newline="") as f:
+        csv.writer(f).writerow(["generation", "best", "mean", "worst"])
 
     kwargs: dict[str, Any] = {}
     if cfg.workers > 1:
@@ -135,7 +157,7 @@ def train_candidate(
             brain.n_weights,
             cfg.evolution(),
             seed=cfg.seed,
-            on_generation=record,
+            on_generation_best=record,
             initial=initial,
             initial_sigma=cfg.init_sigma,
             **kwargs,
@@ -145,22 +167,6 @@ def train_candidate(
             pool.close()
             pool.join()
 
-    brain.set_weights([float(w) for w in result.best_weights])
-    brain.meta.update(
-        {
-            "candidate": spec.kind,
-            "layer": cfg.layer,
-            "train": asdict(cfg) | {"spec": asdict(spec)},
-            "fitness": result.best_fitness,
-            "generations": len(result.history),
-        }
-    )
-    out.parent.mkdir(parents=True, exist_ok=True)
-    brain.save(out)
-    with out.with_suffix(".csv").open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["generation", "best", "mean", "worst"])
-        for g in result.history:
-            writer.writerow([g.generation, g.best, g.mean, g.worst])
+    checkpoint(result.history[-1], result.best_weights, result.best_fitness)
     out.with_suffix(".meta.json").write_text(json.dumps(brain.meta, indent=2) + "\n")
     return result

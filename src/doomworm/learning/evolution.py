@@ -73,6 +73,7 @@ def evolve(
     initial: np.ndarray | None = None,
     initial_sigma: float | None = None,
     map_fn: Callable[[Fitness, Iterable[np.ndarray]], Iterable[float]] = map,
+    on_generation_best: Callable[[GenerationStats, np.ndarray, float], None] | None = None,
 ) -> EvolutionResult:
     """Run truncation selection with Gaussian mutation; deterministic for a seed.
 
@@ -118,6 +119,8 @@ def evolve(
         history.append(stats)
         if on_generation is not None:
             on_generation(stats)
+        if on_generation_best is not None:
+            on_generation_best(stats, best_weights, best_fitness)
 
         elites = population[: cfg.n_elite]
         n_children = cfg.population - cfg.n_elite

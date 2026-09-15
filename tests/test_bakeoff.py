@@ -46,9 +46,13 @@ def test_fitness_is_deterministic_and_depends_on_weights() -> None:
 def test_train_saves_a_brain_the_benchmark_loads(tmp_path: Path) -> None:
     out = tmp_path / "worm.json"
     spec = CandidateSpec("worm_random", variant_seed=1)
-    result = train_candidate(spec, TINY, out)
+    seen: list[bool] = []
+    result = train_candidate(spec, TINY, out, on_generation=lambda _: seen.append(out.exists()))
+    assert seen == [True, True], "a checkpoint is written after every generation"
     assert len(result.history) == 2
-    assert out.with_suffix(".csv").read_text().startswith("generation,best")
+    lines = out.with_suffix(".csv").read_text().splitlines()
+    assert lines[0] == "generation,best,mean,worst"
+    assert len(lines) == 3
     loaded = WormBrain.from_file(out)
     assert loaded.n_weights == build_candidate(spec).n_weights, "control topology restored"
     assert loaded.get_weights() == pytest.approx(list(result.best_weights))

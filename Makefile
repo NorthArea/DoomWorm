@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark compare evolve-a2 play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -136,6 +136,12 @@ WORKERS ?= 4
 
 evolve-a2: ## Stage 21.2: train $(CANDIDATE) (worm|worm_random|worm_shuffled|worm_dense) under the needs layer -> runs/a2/
 	$(UV) doomworm evolve --candidate $(CANDIDATE) --workers $(WORKERS) $(EVOLVE_ARGS)
+
+benchmark-a2: ## Stage 21: every trained candidate in runs/a2/ plus the scripted floors -> runs/benchmark_a2/
+	$(UV) doomworm benchmark --scripted roomba --out-dir runs/benchmark_a2
+	$(UV) doomworm benchmark --scripted follower --planner needs --out-dir runs/benchmark_a2
+	for b in runs/a2/*.json; do case $$b in *.meta.json) ;; *) \
+	  $(UV) doomworm benchmark --brain $$b --planner needs --out-dir runs/benchmark_a2 || exit 1 ;; esac; done
 
 compare: ## Stage 11: real vs random vs shuffled vs free -> runs/compare/
 	$(UV) doomworm compare $(COMPARE_ARGS)
