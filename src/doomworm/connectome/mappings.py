@@ -11,6 +11,8 @@ ventral head bends. ``front`` drives both members of every pair.
     food_right      -> AWAR, AWCR, ASER
     food_front      -> all six
     hunger          -> NSML, NSMR, ASIL, ASIR
+    target_*        -> same neurons as food_* (Plan §19: the target is the
+                       new attractive signal; the worm cannot tell them apart)
     danger_*        -> ASHL / ASHR / both  (nociceptive; used from stage 14)
 
 Mappings serialise to JSON so an experiment can ship its own table.
@@ -31,6 +33,7 @@ from doomworm.connectome.model import Connectome
 OBSTACLE = {"left": "sensor_left", "front": "sensor_front", "right": "sensor_right"}
 FOOD = {"left": "food_left", "front": "food_front", "right": "food_right"}
 DANGER = {"left": "danger_left", "front": "danger_front", "right": "danger_right"}
+TARGET = {"left": "target_left", "front": "target_front", "right": "target_right"}
 
 
 @dataclass(frozen=True)
@@ -215,6 +218,9 @@ def default_sensory_mapping() -> SensoryMapping:
     m.add(FOOD["right"], ["AWAR", "AWCR", "ASER"])
     m.add(FOOD["front"], ["AWAL", "AWCL", "ASEL", "AWAR", "AWCR", "ASER"])
     m.add("hunger", ["NSML", "NSMR", "ASIL", "ASIR"])
+    m.add(TARGET["left"], ["AWAL", "AWCL", "ASEL"])
+    m.add(TARGET["right"], ["AWAR", "AWCR", "ASER"])
+    m.add(TARGET["front"], ["AWAL", "AWCL", "ASEL", "AWAR", "AWCR", "ASER"])
     m.add(DANGER["left"], ["ASHL"])
     m.add(DANGER["right"], ["ASHR"])
     m.add(DANGER["front"], ["ASHL", "ASHR"])

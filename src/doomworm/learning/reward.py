@@ -3,6 +3,9 @@
 Movement is never rewarded directly. Rewarded events:
 
     ate food            +food
+    reached target      +target
+    inside danger       +damage per tick
+    died (health 0)     +death once, episode ends
     collision           +collision per tick of contact, capped per episode
     new cell visited    +new_cell (cell_size x cell_size grid)
     starved             +starvation once, episode ends
@@ -19,6 +22,9 @@ class RewardConfig:
     """Reward scale. Single source of numbers for reward and fitness."""
 
     food: float = 10.0
+    target: float = 10.0
+    damage: float = -2.0
+    death: float = -20.0
     collision: float = -0.5
     max_collision_penalty: float = 20.0
     new_cell: float = 0.1
@@ -33,23 +39,50 @@ class RewardTracker:
     config: RewardConfig = field(default_factory=RewardConfig)
     total: float = 0.0
     breakdown: dict[str, float] = field(
-        default_factory=lambda: {"food": 0.0, "collision": 0.0, "explore": 0.0, "starvation": 0.0}
+        default_factory=lambda: {
+            "food": 0.0,
+            "target": 0.0,
+            "damage": 0.0,
+            "death": 0.0,
+            "collision": 0.0,
+            "explore": 0.0,
+            "starvation": 0.0,
+        }
     )
     _visited: set[tuple[int, int]] = field(default_factory=set)
     _starved: bool = False
+    _dead: bool = False
 
     @property
     def cells_visited(self) -> int:
         """Number of distinct grid cells the agent has entered."""
         return len(self._visited)
 
-    def step(self, *, x: float, y: float, ate: bool, collided: bool, starved: bool) -> float:
+    def step(
+        self,
+        *,
+        x: float,
+        y: float,
+        ate: bool,
+        collided: bool,
+        starved: bool,
+        reached: bool = False,
+        damaged: bool = False,
+        dead: bool = False,
+    ) -> float:
         """Score one tick and return its reward."""
         reward = 0.0
         cfg = self.config
 
         if ate:
             reward += self._add("food", cfg.food)
+        if reached:
+            reward += self._add("target", cfg.target)
+        if damaged:
+            reward += self._add("damage", cfg.damage)
+        if dead and not starved and not self._dead:
+            self._dead = True
+            reward += self._add("death", cfg.death)
 
         if collided:
             room = cfg.max_collision_penalty + self.breakdown["collision"]  # penalty left

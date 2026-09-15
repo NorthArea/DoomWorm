@@ -60,6 +60,8 @@ class WormScenario:
         gain_turn: float = 6.0,
         brain_steps: int = 5,
         maps: str = "fixed",
+        task: str = "food",
+        dangers: int = 0,
     ) -> None:
         self.connectome = connectome or load_cook2019()
         self.sensory_mapping = sensory_mapping or default_sensory_mapping()
@@ -78,6 +80,10 @@ class WormScenario:
         if maps not in ("fixed", "random"):
             raise ValueError("maps must be 'fixed' or 'random'")
         self.maps = maps
+        if task not in ("food", "target"):
+            raise ValueError("task must be 'food' or 'target'")
+        self.task = task
+        self.dangers = dangers
         self.params = {
             "tonic_avb": tonic_avb,
             "obstacle_gain": obstacle_gain,
@@ -88,6 +94,8 @@ class WormScenario:
             "gain_turn": gain_turn,
             "brain_steps": brain_steps,
             "maps": maps,
+            "task": task,
+            "dangers": dangers,
         }
 
     @property
@@ -104,7 +112,8 @@ class WormScenario:
     def make_world(self, seed: int) -> World:
         """``fixed``: stage-4 layout with seeded pose and food. ``random``: Plan §18 maps."""
         if self.maps == "random":
-            return random_world(seed, MapConfig(n_food=N_FOOD))
+            world = random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0))
+            return self._apply_task(world)
         world = World(
             width=20.0,
             height=20.0,
@@ -121,6 +130,15 @@ class WormScenario:
                 break
         world.agent = AgentState(x=x, y=y, heading=heading)
         world.foods = [world.spawn_food() for _ in range(N_FOOD)]
+        return self._apply_task(world)
+
+    def _apply_task(self, world: World) -> World:
+        """``target`` task: no food, one respawning target ("come to X"); then dangers."""
+        if self.task == "target":
+            world.foods = []
+            world.respawn_target = True
+            world.target = world.spawn_target()
+        world.dangers = [world.spawn_danger() for _ in range(self.dangers)]
         return world
 
 
@@ -151,6 +169,8 @@ def summarise(trace: list[Record], world: World) -> dict[str, float]:
         "ticks": len(trace),
         "distance": distance,
         "food": world.food_eaten,
+        "targets": world.targets_reached,
+        "damage": world.damage_taken,
         "collisions": world.collisions,
         "reward": sum(r.reward for r in trace),
         "mean_left": float(np.mean([r.motors[0] for r in trace])),
@@ -168,12 +188,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tonic-avb", type=float, default=0.1)
     parser.add_argument("--obstacle-gain", type=float, default=3.0)
     parser.add_argument("--maps", choices=["fixed", "random"], default="fixed")
+    parser.add_argument("--task", choices=["food", "target"], default="food")
+    parser.add_argument("--dangers", type=int, default=0)
     parser.add_argument("--plot", action="store_true", help="save runs/stage9_worm_<seed>.png")
     parser.add_argument("--gif", action="store_true", help="save runs/stage9_worm_<seed>.gif")
     args = parser.parse_args(argv)
 
     scenario = WormScenario(
-        tonic_avb=args.tonic_avb, obstacle_gain=args.obstacle_gain, maps=args.maps
+        tonic_avb=args.tonic_avb,
+        obstacle_gain=args.obstacle_gain,
+        maps=args.maps,
+        task=args.task,
+        dangers=args.dangers,
     )
     world, trace, tracker = run_worm(scenario, args.seed, args.steps)
     print_trace(trace, args.every)

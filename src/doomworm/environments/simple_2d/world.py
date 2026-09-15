@@ -45,6 +45,24 @@ class Food:
 
 
 @dataclass(frozen=True)
+class Target:
+    """Goal position ("come to X", Plan §19); sensed like food, reached on contact."""
+
+    x: float
+    y: float
+    radius: float = 0.3
+
+
+@dataclass(frozen=True)
+class Danger:
+    """Hazard zone (Plan §20): sensed like food, not solid; every tick inside costs health."""
+
+    x: float
+    y: float
+    radius: float = 1.0
+
+
+@dataclass(frozen=True)
 class AgentState:
     """Pose of the agent."""
 
@@ -64,8 +82,17 @@ class Observation:
     food_front: float = 0.0
     food_right: float = 0.0
     hunger: float = 0.0
+    target_left: float = 0.0
+    target_front: float = 0.0
+    target_right: float = 0.0
+    danger_left: float = 0.0
+    danger_front: float = 0.0
+    danger_right: float = 0.0
+    health: float = 1.0
     collided: bool = False
     ate: bool = False
+    reached: bool = False
+    damaged: bool = False
 
     def as_channels(self) -> dict[str, float]:
         """Numeric channels for the sensory adapter."""
@@ -77,6 +104,13 @@ class Observation:
             "food_front": self.food_front,
             "food_right": self.food_right,
             "hunger": self.hunger,
+            "target_left": self.target_left,
+            "target_front": self.target_front,
+            "target_right": self.target_right,
+            "danger_left": self.danger_left,
+            "danger_front": self.danger_front,
+            "danger_right": self.danger_right,
+            "health": self.health,
         }
 
 
@@ -105,6 +139,10 @@ class World:
         foods: Sequence[Food] = (),
         hunger_rate: float = 0.004,
         respawn_food: bool = False,
+        target: Target | None = None,
+        respawn_target: bool = False,
+        dangers: Sequence[Danger] = (),
+        damage_rate: float = 0.25,
         seed: int | None = None,
         agent_radius: float = 0.5,
         sensor_range: float = 4.0,
@@ -118,6 +156,13 @@ class World:
         self.obstacles = list(obstacles)
         self.foods = list(foods)
         self.respawn_food = respawn_food
+        self.target = target
+        self.respawn_target = respawn_target
+        self.targets_reached = 0
+        self.dangers = list(dangers)
+        self.damage_rate = damage_rate
+        self.health = 1.0
+        self.damage_taken = 0
         self.rng = random.Random(seed)
         self.hunger_rate = hunger_rate
         self.hunger = 0.0
@@ -133,6 +178,11 @@ class World:
     def starved(self) -> bool:
         """True once hunger has saturated."""
         return self.hunger >= 1.0
+
+    @property
+    def dead(self) -> bool:
+        """True once health is gone (danger) or hunger has saturated."""
+        return self.health <= 0.0 or self.starved
 
     # --- dynamics -----------------------------------------------------------
 
@@ -157,7 +207,50 @@ class World:
 
         self.hunger = _clamp(self.hunger + self.hunger_rate, 0.0, 1.0)
         ate = self._eat()
-        return replace(self.observe(), collided=collided, ate=ate)
+        reached = self._reach()
+        damaged = self._take_damage()
+        return replace(self.observe(), collided=collided, ate=ate, reached=reached, damaged=damaged)
+
+    def _take_damage(self) -> bool:
+        ax, ay = self.agent.x, self.agent.y
+        inside = any(
+            math.dist((ax, ay), (d.x, d.y)) < d.radius + self.agent_radius for d in self.dangers
+        )
+        if not inside:
+            return False
+        self.health = _clamp(self.health - self.damage_rate, 0.0, 1.0)
+        self.damage_taken += 1
+        return True
+
+    def spawn_danger(self, radius: float = 1.0, margin: float = 1.0, tries: int = 100) -> Danger:
+        """Draw a danger zone clear of walls, obstacles, the agent and the target."""
+        for _ in range(tries):
+            x = self.rng.uniform(radius + margin, self.width - radius - margin)
+            y = self.rng.uniform(radius + margin, self.height - radius - margin)
+            near_obstacle = any(
+                math.dist((x, y), (o.x, o.y)) <= radius + o.radius + margin for o in self.obstacles
+            )
+            near_agent = math.dist((x, y), (self.agent.x, self.agent.y)) <= radius + 2.0
+            t = self.target
+            near_target = t is not None and math.dist((x, y), (t.x, t.y)) <= radius + margin
+            if not (near_obstacle or near_agent or near_target):
+                return Danger(x=x, y=y, radius=radius)
+        raise RuntimeError("could not place danger after many tries")
+
+    def _reach(self) -> bool:
+        t = self.target
+        if t is None:
+            return False
+        if math.dist((self.agent.x, self.agent.y), (t.x, t.y)) >= self.agent_radius + t.radius:
+            return False
+        self.targets_reached += 1
+        self.target = self.spawn_target(t.radius) if self.respawn_target else None
+        return True
+
+    def spawn_target(self, radius: float = 0.3, margin: float = 1.0, tries: int = 100) -> Target:
+        """Draw a target position clear of walls, obstacles and the agent."""
+        f = self.spawn_food(radius=radius, margin=margin, tries=tries)
+        return Target(x=f.x, y=f.y, radius=radius)
 
     def _eat(self) -> bool:
         reach = self.agent_radius
@@ -202,6 +295,8 @@ class World:
         """Read obstacle sensors, food sensors and hunger."""
         left, front, right = (self._sense(offset) for offset in self.sensor_angles)
         f_left, f_front, f_right = self._sense_food()
+        t_left, t_front, t_right = self._sense_target()
+        d_left, d_front, d_right = self._sense_danger()
         return Observation(
             sensor_left=left,
             sensor_front=front,
@@ -210,14 +305,38 @@ class World:
             food_front=f_front,
             food_right=f_right,
             hunger=self.hunger,
+            target_left=t_left,
+            target_front=t_front,
+            target_right=t_right,
+            danger_left=d_left,
+            danger_front=d_front,
+            danger_right=d_right,
+            health=self.health,
         )
+
+    def _sense_danger(self) -> tuple[float, float, float]:
+        if not self.dangers:
+            return 0.0, 0.0, 0.0
+        ax, ay = self.agent.x, self.agent.y
+        nearest = min(self.dangers, key=lambda d: math.dist((ax, ay), (d.x, d.y)))
+        return self._sector_signal(nearest.x, nearest.y)
 
     def _sense_food(self) -> tuple[float, float, float]:
         if not self.foods:
             return 0.0, 0.0, 0.0
         ax, ay = self.agent.x, self.agent.y
         nearest = min(self.foods, key=lambda f: math.dist((ax, ay), (f.x, f.y)))
-        dx, dy = nearest.x - ax, nearest.y - ay
+        return self._sector_signal(nearest.x, nearest.y)
+
+    def _sense_target(self) -> tuple[float, float, float]:
+        if self.target is None:
+            return 0.0, 0.0, 0.0
+        return self._sector_signal(self.target.x, self.target.y)
+
+    def _sector_signal(self, x: float, y: float) -> tuple[float, float, float]:
+        """1/distance gradient of a point source routed to (left, front, right)."""
+        ax, ay = self.agent.x, self.agent.y
+        dx, dy = x - ax, y - ay
         distance = math.hypot(dx, dy)
         signal = 1.0 if distance <= 1.0 else 1.0 / distance
         bearing = _wrap_angle(math.atan2(dy, dx) - self.agent.heading)

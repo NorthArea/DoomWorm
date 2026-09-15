@@ -16,8 +16,8 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 9 | C. elegans controls 2D agent | `tests/test_worm_agent.py` | `make demo-9 SEED=1001` | done (untrained: drives, slows on touch, no reversal, no steering) |
 | 10 | Train weights | `tests/test_evolve_worm.py`, `tests/test_simulator_vectorised.py` | `make train-worm` then `make play BRAIN=runs/worm_evolved.json SEED=1003` | done |
 | 11 | Real vs random vs shuffled topology | `tests/test_variants.py` | `make compare` (see `docs/comparison.md`) | done: Real ~= Random; worm stays primary, controls kept |
-| 12 | Random maps | | | todo |
-| 13 | Target instead of food ("come to X") | | | todo |
+| 12 | Random maps | `tests/test_random_maps.py` | `make train-worm-random`, `make demo-12 SEED=2002` | done (weak: ~1 food per unseen map, no collisions; see `docs/results/stage12_13_eval_2026-09-15.md`) |
+| 13 | Target instead of food ("come to X") | `tests/test_target.py` | `make demo-13 SEED=2004` | done (partial transfer: 3 targets on 6 unseen maps without retraining) |
 | 14 | Danger zone | | | todo |
 | 15 | Apartment-like maps (rooms, doors) | | | todo |
 | 16 | Battery + dock | | | todo |

@@ -166,6 +166,13 @@ def test_observation_channels_include_food_and_hunger() -> None:
         "food_front",
         "food_right",
         "hunger",
+        "target_left",
+        "target_front",
+        "target_right",
+        "danger_left",
+        "danger_front",
+        "danger_right",
+        "health",
     }
 
 

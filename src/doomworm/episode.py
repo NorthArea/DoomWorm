@@ -27,7 +27,18 @@ class MotorLike(Protocol):
 class TickScorer(Protocol):
     """Anything that turns one tick's events into a reward (see ``learning.reward``)."""
 
-    def step(self, *, x: float, y: float, ate: bool, collided: bool, starved: bool) -> float:
+    def step(
+        self,
+        *,
+        x: float,
+        y: float,
+        ate: bool,
+        collided: bool,
+        starved: bool,
+        reached: bool,
+        damaged: bool,
+        dead: bool,
+    ) -> float:
         """Score one tick."""
         ...
 
@@ -49,6 +60,13 @@ class Record:
     starved: bool = False
     reward: float = 0.0
     foods: tuple[tuple[float, float], ...] = ()
+    target: tuple[float, float] | None = None
+    target_signal: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    reached: bool = False
+    danger_signal: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    health: float = 1.0
+    damaged: bool = False
+    dead: bool = False
     activity: dict[str, float] | None = None
 
 
@@ -72,6 +90,7 @@ def run_episode(
 ) -> list[Record]:
     """Step the closed loop until ``steps`` ticks or starvation; return the trace.
 
+    The episode ends early when the agent is dead (starved or out of health).
     ``reward``, when given, scores every tick (Plan §9) and the per-tick value
     lands in :attr:`Record.reward`. ``record_activity`` stores every neuron's
     activity per tick for the debug screen (Plan §41). ``brain_steps`` runs
@@ -96,6 +115,9 @@ def run_episode(
                 ate=obs.ate,
                 collided=obs.collided,
                 starved=world.starved,
+                reached=obs.reached,
+                damaged=obs.damaged,
+                dead=world.dead,
             )
         trace.append(
             Record(
@@ -112,9 +134,16 @@ def run_episode(
                 starved=world.starved,
                 reward=tick_reward,
                 foods=tuple((f.x, f.y) for f in world.foods),
+                target=None if world.target is None else (world.target.x, world.target.y),
+                target_signal=(obs.target_left, obs.target_front, obs.target_right),
+                reached=obs.reached,
+                danger_signal=(obs.danger_left, obs.danger_front, obs.danger_right),
+                health=obs.health,
+                damaged=obs.damaged,
+                dead=world.dead,
                 activity=dict(activity) if record_activity else None,
             )
         )
-        if world.starved:
+        if world.dead:
             break
     return trace

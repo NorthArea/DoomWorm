@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos train train-worm train-worm-random compare play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demos train train-worm train-worm-random train-worm-danger compare play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -76,6 +76,15 @@ demo-8: ## Stage 8: motor mapping, wheel commands per channel
 demo-9: ## Stage 9: untrained worm drives the 2D agent (PNG + GIF + JSONL log)
 	$(UV) python -m doomworm.experiments.worm_agent --seed $(SEED) --plot --gif
 
+demo-12: ## Stage 12: brain trained on random maps, played on an unseen random map
+	$(UV) doomworm play --brain runs/worm_evolved_random.json --seed $(SEED) --plot
+
+demo-13: ## Stage 13: the same brain sent to a target ("come to X") instead of food
+	$(UV) doomworm play --brain runs/worm_evolved_random.json --task target --seed $(SEED) --plot
+
+demo-14: ## Stage 14: target task with a danger zone (runs/worm_evolved_danger.json)
+	$(UV) doomworm play --brain runs/worm_evolved_danger.json --seed $(SEED) --plot
+
 demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every stage demo
 
 # --- training and connectome -------------------------------------------------
@@ -88,6 +97,9 @@ train-worm: ## Stage 10: evolve the connectome weights -> runs/worm_evolved.json
 
 train-worm-random: ## Stage 12: evolve the connectome on random maps -> runs/worm_evolved_random.json
 	$(UV) doomworm train --scenario worm --maps random --out runs/worm_evolved_random.json $(TRAIN_ARGS)
+
+train-worm-danger: ## Stage 14: continue from the random-map brain on target + danger
+	$(UV) doomworm train --scenario worm --maps random --task target --dangers 1 --init-brain runs/worm_evolved_random.json --out runs/worm_evolved_danger.json $(TRAIN_ARGS)
 
 compare: ## Stage 11: real vs random vs shuffled vs free -> runs/compare/
 	$(UV) doomworm compare $(COMPARE_ARGS)

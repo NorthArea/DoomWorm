@@ -38,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--every", type=int, default=50)
     play.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
     play.add_argument("--maps", choices=["fixed", "random"], default=None, help="override brain")
+    play.add_argument("--task", choices=["food", "target"], default=None, help="override brain")
+    play.add_argument("--dangers", type=int, default=None, help="override brain")
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
     add_compare_args(cmp)
@@ -109,6 +111,10 @@ def run_play(args: argparse.Namespace) -> int:
         params = dict(meta.get("params", {}))
         if args.maps is not None:
             params["maps"] = args.maps
+        if args.task is not None:
+            params["task"] = args.task
+        if args.dangers is not None:
+            params["dangers"] = args.dangers
         scenario = WormScenario(**params)
     else:
         raise SystemExit(f"unknown scenario {scenario_name!r}")

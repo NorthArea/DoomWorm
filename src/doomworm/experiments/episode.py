@@ -57,6 +57,15 @@ def render_ascii(world: World, trace: list[Record], cols: int = 60, rows: int = 
     for f in world.foods:
         r, c = cell(f.x, f.y)
         grid[r][c] = "F"
+    if world.target is not None:
+        r, c = cell(world.target.x, world.target.y)
+        grid[r][c] = "X"
+    for d in world.dangers:
+        for r in range(rows):
+            for c in range(cols):
+                wx, wy = (c + 0.5) / sx, (rows - r - 0.5) / sy
+                if (wx - d.x) ** 2 + (wy - d.y) ** 2 <= d.radius**2 and grid[r][c] == " ":
+                    grid[r][c] = "!"
     r, c = cell(trace[0].x, trace[0].y)
     grid[r][c] = "S"
     r, c = cell(trace[-1].x, trace[-1].y)
@@ -78,6 +87,10 @@ def save_plot(world: World, trace: list[Record], path: Path, title: str) -> None
         ax.add_patch(Circle((o.x, o.y), o.radius, color="tab:red", alpha=0.6))
     for f in world.foods:
         ax.add_patch(Circle((f.x, f.y), f.radius, color="tab:green"))
+    if world.target is not None:
+        ax.plot(world.target.x, world.target.y, "X", color="tab:orange", ms=12, label="target")
+    for d in world.dangers:
+        ax.add_patch(Circle((d.x, d.y), d.radius, color="tab:purple", alpha=0.3, hatch="//"))
     xs, ys = [r.x for r in trace], [r.y for r in trace]
     ax.plot(xs, ys, "-", color="tab:blue", lw=1)
     eaten = [r for r in trace if r.ate]
@@ -107,6 +120,9 @@ def print_trace(trace: list[Record], every: int) -> None:
         f_l, f_f, f_r = rec.food
         m_l, m_r = rec.motors
         event = ("X" if rec.collided else "") + ("EAT" if rec.ate else "")
+        event += "GOAL" if rec.reached else ""
+        event += "DMG" if rec.damaged else ""
+        event += "DEAD" if rec.dead and not rec.starved else ""
         event += "DEAD" if rec.starved else ""
         print(
             f"{rec.tick:>4} {rec.x:>6.2f} {rec.y:>6.2f} {rec.heading:>6.2f} | "

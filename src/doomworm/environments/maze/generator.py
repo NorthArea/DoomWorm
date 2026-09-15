@@ -18,6 +18,8 @@ class MapConfig:
     n_obstacles: int = 5
     obstacle_radius: tuple[float, float] = (0.8, 2.0)
     n_food: int = 2
+    n_dangers: int = 0
+    danger_radius: float = 1.0
     margin: float = 1.0  # keep obstacles and the agent this far from walls / each other
     respawn_food: bool = True
     tries: int = 500
@@ -57,4 +59,5 @@ def random_world(seed: int, config: MapConfig | None = None) -> World:
         seed=rng.randrange(2**31),
     )
     world.foods = [world.spawn_food() for _ in range(cfg.n_food)]
+    world.dangers = [world.spawn_danger(cfg.danger_radius) for _ in range(cfg.n_dangers)]
     return world

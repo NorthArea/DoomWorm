@@ -59,3 +59,20 @@ def test_train_worm_small_budget(tmp_path: Path) -> None:
         not np.allclose(net.get_weights(), initial) or result.best_fitness == result.history[0].best
     )
     assert out.with_suffix(".csv").read_text().startswith("generation,best,mean")
+
+
+def test_train_worm_from_saved_brain(tmp_path: Path) -> None:
+    scenario = WormScenario(connectome=load_cook2019())
+    first = tmp_path / "first.json"
+    cfg = EvolutionConfig(population=4, generations=1, mutation_sigma=0.02, weight_range=(-1, 1))
+    train_worm(scenario, cfg, train_seeds=(1001,), steps=30, seed=0, out=first)
+    net, _ = load_brain(first)
+
+    again = WormScenario(connectome=load_cook2019(), maps="random")
+    second = tmp_path / "second.json"
+    result = train_worm(again, cfg, (1,), 30, 1, second, init_brain=first)
+    assert result.history[0].best >= -100
+    _, meta = load_brain(second)
+    assert meta["init_brain"] == str(first)
+    assert meta["params"]["maps"] == "random"
+    assert len(net.get_weights()) == again.n_weights

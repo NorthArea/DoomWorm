@@ -57,6 +57,10 @@ uv run python -m doomworm.experiments.motor_mapping_demo   # stage 8: motor mapp
 uv run python -m doomworm.experiments.worm_agent --plot --gif # stage 9: untrained worm drives
 uv run doomworm train --scenario worm                      # stage 10: evolve connectome weights
 uv run doomworm play --brain runs/worm_evolved.json --seed 1003 --plot
+uv run doomworm compare                                    # stage 11: topology comparison
+uv run doomworm train --scenario worm --maps random          # stage 12: random maps
+make demo-13                                                # stage 13: come to a target
+make train-worm-danger && make demo-14                      # stage 14: avoid a danger zone
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 

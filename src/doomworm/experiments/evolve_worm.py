@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from doomworm.brain import save_brain
+from doomworm.brain import load_brain, save_brain
 from doomworm.experiments.worm_agent import SCENARIO_NAME, WormScenario
 from doomworm.learning import EvolutionConfig, EvolutionResult, GenerationStats, evaluate, evolve
 
@@ -33,8 +33,14 @@ def train_worm(
     initial_sigma: float | None = None,
     metrics: Path | None = None,
     verbose: bool = False,
+    init_brain: Path | None = None,
 ) -> EvolutionResult:
-    """Evolve the connectome weights from their dataset initialisation; save the best."""
+    """Evolve the connectome weights; start from the dataset or from ``init_brain`` (curriculum)."""
+    if init_brain is not None:
+        net, _ = load_brain(init_brain)
+        if len(net.synapses) != scenario.n_weights:
+            raise ValueError("init brain does not match the scenario topology")
+        scenario.template.set_weights(net.get_weights())
     initial = np.array(scenario.template.get_weights())
     rows: list[dict[str, float]] = []
 
@@ -73,6 +79,7 @@ def train_worm(
             "generations": config.generations,
             "population": config.population,
             "mutation_sigma": config.mutation_sigma,
+            "init_brain": None if init_brain is None else str(init_brain),
             "fitness": result.best_fitness,
         },
     )
@@ -90,11 +97,14 @@ def add_worm_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--sigma", type=float, default=0.02, help="mutation sigma (weights)")
     parser.add_argument("--init-sigma", type=float, default=None, help="first-generation spread")
     parser.add_argument("--maps", choices=["fixed", "random"], default="fixed")
+    parser.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
+    parser.add_argument("--task", choices=["food", "target"], default="food")
+    parser.add_argument("--dangers", type=int, default=0)
 
 
 def run_train(args: argparse.Namespace) -> int:
     """Train from parsed CLI args and report held-out results."""
-    scenario = WormScenario(maps=args.maps)
+    scenario = WormScenario(maps=args.maps, task=args.task, dangers=args.dangers)
     cfg = EvolutionConfig(
         population=args.population,
         generations=args.generations,
@@ -112,7 +122,7 @@ def run_train(args: argparse.Namespace) -> int:
     )
     result = train_worm(
         scenario, cfg, train_seeds, args.steps, args.seed, out,
-        initial_sigma=args.init_sigma, metrics=metrics, verbose=True,
+        initial_sigma=args.init_sigma, metrics=metrics, verbose=True, init_brain=args.init_brain,
     )  # fmt: skip
 
     test_seeds = tuple(range(1000, 1004))
