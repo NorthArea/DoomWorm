@@ -1,10 +1,11 @@
 # DoomWorm
 
-Experimental project: the **C. elegans connectome** (302 neurons) used as a trainable
-controller, moving step by step from a 3-neuron network to a 2D agent and finally to a
-small car that explores an apartment on its own needs. The worm is the reactive and
-motivational layer; map building and planning are an engineered layer outside the brain.
-Doom is an optional stress-test track.
+Experimental project: the **C. elegans connectome** (302 neurons) as a trainable
+controller, built up from a 3-neuron network to a simulated home vacuum robot, and
+compared on one benchmark against a Roomba-style controller, networks trained from
+scratch, PPO, Neural Circuit Policies and hybrids. Two tracks share the platform:
+A = home vacuum (first), B = Doom player. Map building and planning are an engineered
+layer outside the brain.
 
 ```text
 Environment -> Sensory Adapter -> Brain Simulator -> Motor Adapter -> Environment

@@ -2,10 +2,12 @@
 
 Source of truth: `Plan.md`. Read it before any implementation work.
 
-End goal: a physical differential-drive car that explores an apartment, keeps a map and
-moves on its own needs (battery, call, curiosity). The worm is the reactive/motivational
-layer; map and planner are an engineered layer outside the brain (Plan §3.2). Doom is an
-optional track B, never the main line.
+Two tracks on one platform: A = home vacuum robot (first), B = Doom player (after A1).
+In both, the platform (world, sensor emulation, battery/dock, Brain interface, Gymnasium
+env, benchmark) is finished before any new brain is written; then every candidate brain
+(Roomba-style controller, worm, controls, net from scratch, PPO, NCP, hybrids) is compared
+only through the benchmark (Plan §3.3, §20.4). Map and planner are an engineered layer
+outside the brain (Plan §3.2). Torch-based candidates live in an optional uv group.
 
 ## Workflow
 - Implement stages strictly in the order of Plan §44. Never start stage N+1 until stage N

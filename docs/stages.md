@@ -20,24 +20,27 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 13 | Target instead of food ("come to X") | `tests/test_target.py` | `make demo-13 SEED=2004` | done (partial transfer: 3 targets on 6 unseen maps without retraining) |
 | 14 | Danger zone | `tests/test_danger.py` | `make train-worm-danger`, `make demo-14 SEED=2003` | done (avoidance learned: 0 damage, 0 deaths; target attraction weak; see `docs/results/stage14_danger_eval_2026-09-15.md`) |
 | 15 | Apartment-like maps (rooms, doors) | | | todo |
-| 16 | Battery + dock | | | todo |
-| 17 | Sensor noise, delay, hardware-like config | | | todo |
-| 18 | External occupancy-grid map | | | todo |
-| 19 | Planner -> virtual gradient, "come to X" on unseen map | | | todo |
-| 20 | Needs arbitration: battery > call > curiosity | | | todo |
-| 21 | Physical platform | | | todo |
+| 16 | A1: dirt map + coverage, battery, dock | | | todo |
+| 17 | A1: vacuum sensor suite with noise and delay | | | todo |
+| 18 | A1: Brain interface, Gymnasium env, benchmark + leaderboard | | | todo |
+| 19 | A1: occupancy grid, path + coverage planner -> virtual gradient | | | todo |
+| 20 | A1: needs arbitration (battery > call > clean) | | | todo |
+| 21 | A2: bake-off of all candidate brains on the benchmark | | | todo |
+| 22 | A3: physical vacuum | | | todo |
+
+Candidate brains for stage 21 (Plan §20.4): Roomba-style classical controller,
+worm (connectome + evolution), worm controls (random / shuffled / dense),
+small recurrent net from scratch, PPO via Gymnasium, Neural Circuit Policies,
+hybrids.
 
 Decision gate after stage 11 (Plan §17.1): recorded in `docs/comparison.md` on
 2026-09-15. Decision: the connectome stays the primary brain; random, shuffled
 and dense variants are trained as controls in every later run.
 
-## Track B: Doom (optional, after the decision gate)
+## Track B: Doom player (after phase A1)
 
 | # | Stage | Status |
 |---|-------|--------|
-| B1 | Mini-Doom (2D) | todo |
-| B2 | FIRE action | todo |
-| B3 | Mini-Doom combat | todo |
-| B4 | ViZDoom integration | todo |
-| B5-B11 | Doom levels 1-7 | todo |
-| B12 | Visual input | todo |
+| B1 | ViZDoom platform: Gymnasium env, structured observations, scenarios (Plan §21-33) | todo |
+| B2 | Candidate brains on the Doom benchmark | todo |
+| B3 | Visual input (Plan §34) | todo |
