@@ -122,3 +122,22 @@ def test_call_works_with_drifting_odometry() -> None:
     trace = run_brain_episode(world, layer, 500, sensors=SensorSuite(VACUUM, seed=3))
     assert (start_room ^ 1) in {world.room_index(r.x, r.y) for r in trace}
     assert layer.needs.call is None, "call cleared on arrival"
+
+
+def test_dock_autopilot_brings_a_bad_driver_home() -> None:
+    """Stage 21.8: the return to dock is the layer's routine, whatever the brain does."""
+    from doomworm.brains import ScriptedBrain
+
+    world = build_world(3001, "apartment", "clean")
+    world.hunger_rate = 0.003
+    straight = ScriptedBrain(lambda _c: (1.0, 1.0), "straight")  # drives into walls forever
+    layer = PlannerLayer(straight, VACUUM, mode="needs")
+    trace = run_brain_episode(world, layer, 700, sensors=SensorSuite(VACUUM, seed=7))
+    assert len(trace) == 700, "discharged"
+    assert world.dockings >= 2
+    assert max(r.battery for r in trace[300:]) > 0.9, "recharged"
+    off = PlannerLayer(straight, VACUUM, mode="needs", dock_autopilot=False)
+    world2 = build_world(3001, "apartment", "clean")
+    world2.hunger_rate = 0.003
+    trace2 = run_brain_episode(world2, off, 700, sensors=SensorSuite(VACUUM, seed=7))
+    assert len(trace2) < 700, "without the autopilot the straight driver dies"

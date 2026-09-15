@@ -17,6 +17,7 @@ from collections.abc import Mapping
 
 from doomworm.brains.base import Wheels
 from doomworm.brains.needs import NeedsArbiter
+from doomworm.brains.simple import GradientFollower
 from doomworm.environments.sensors import SensorConfig
 from doomworm.episode import BrainLike
 from doomworm.mapping import OccupancyGrid, nearest_unswept, next_waypoint, path_to
@@ -55,6 +56,9 @@ class PlannerLayer:
         cost_per_cell: battery the inner brain spends per path cell (measured on the
             scripted driver: ~4 ticks per 0.5 cell at drain 0.002), used to decide
             when to leave for the dock.
+        dock_autopilot: in needs mode, drive the trip to the dock with the layer's
+            own gradient follower instead of the inner brain (stage 21.8): return
+            to dock is a safety routine of the platform, the brain only cleans.
     """
 
     def __init__(
@@ -70,6 +74,7 @@ class PlannerLayer:
         replan_every: int = 5,
         beacon_homing: float = 0.5,
         cost_per_cell: float = 0.008,
+        dock_autopilot: bool = True,
     ) -> None:
         if mode not in ("coverage", "goal", "needs", "passthrough"):
             raise ValueError("mode must be coverage, goal, needs or passthrough")
@@ -83,6 +88,8 @@ class PlannerLayer:
         self.replan_every = replan_every
         self.beacon_homing = beacon_homing
         self.cost_per_cell = cost_per_cell
+        self.dock_autopilot = dock_autopilot
+        self.autopilot = GradientFollower(name="autopilot")
         self.name = f"planner[{getattr(inner, 'name', 'brain')}]"
         self.goal: tuple[float, float] | None = None
         self.grid = OccupancyGrid(width, height, cell)
@@ -109,6 +116,7 @@ class PlannerLayer:
         self._last_battery = None
         self.charging = False
         self.beacon = (0.0, 0.0, 0.0)
+        self.autopilot.reset()
         self.inner.reset()
 
     # --- mapping ----------------------------------------------------------------
@@ -214,7 +222,13 @@ class PlannerLayer:
         if self.parked():
             return 0.0, 0.0
         merged = dict(channels) | self.gradient()
+        if self.autopiloting():
+            return self.autopilot.act(merged)
         return self.inner.act(merged)
+
+    def autopiloting(self) -> bool:
+        """Needs mode, heading for the dock, autopilot on: the layer drives."""
+        return self.dock_autopilot and self.mode == "needs" and self.needs.state == "charge"
 
     def homing(self) -> bool:
         """Needs mode, heading for the dock, beacon strong enough to trust its bearing."""
