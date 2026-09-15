@@ -35,6 +35,10 @@ class SmallFoodScenario:
         _, _, self.sensory, self.motor = food_agent.build_scenario()
         self.brain_steps = 1
 
+    def make_sensors(self, seed: int) -> None:
+        """Ideal sensing only."""
+        return None
+
     @property
     def n_weights(self) -> int:
         """Genome length."""

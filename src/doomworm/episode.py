@@ -13,6 +13,7 @@ from typing import Protocol
 
 from doomworm.adapters import SensoryAdapter
 from doomworm.brain import Simulator
+from doomworm.environments.sensors import SensorSuite
 from doomworm.environments.simple_2d import World
 
 
@@ -94,6 +95,7 @@ def run_episode(
     reward: TickScorer | None = None,
     record_activity: bool = False,
     brain_steps: int = 1,
+    sensors: SensorSuite | None = None,
 ) -> list[Record]:
     """Step the closed loop until ``steps`` ticks or starvation; return the trace.
 
@@ -108,8 +110,11 @@ def run_episode(
         raise ValueError("brain_steps must be >= 1")
     trace: list[Record] = []
     obs = world.observe()
+    if sensors is not None:
+        sensors.reset(world)
     for tick in range(steps):
-        currents = sensory(obs.as_channels())
+        channels = obs.as_channels() if sensors is None else sensors.read(world, obs)
+        currents = sensory(channels)
         window = [sim.step(currents) for _ in range(brain_steps)]
         activity = average_activity(window)
         motors = motor(activity)

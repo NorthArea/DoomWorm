@@ -100,11 +100,14 @@ def add_worm_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
     parser.add_argument("--task", choices=["food", "target", "clean"], default="food")
     parser.add_argument("--dangers", type=int, default=0)
+    parser.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="ideal")
 
 
 def run_train(args: argparse.Namespace) -> int:
     """Train from parsed CLI args and report held-out results."""
-    scenario = WormScenario(maps=args.maps, task=args.task, dangers=args.dangers)
+    scenario = WormScenario(
+        maps=args.maps, task=args.task, dangers=args.dangers, sensors=args.sensors
+    )
     cfg = EvolutionConfig(
         population=args.population,
         generations=args.generations,

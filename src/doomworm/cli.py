@@ -44,6 +44,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--task", choices=["food", "target", "clean"], default=None, help="override brain"
     )
     play.add_argument("--dangers", type=int, default=None, help="override brain")
+    play.add_argument(
+        "--sensors", choices=["ideal", "vacuum", "noisy"], default=None, help="override brain"
+    )
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
     add_compare_args(cmp)
@@ -119,6 +122,8 @@ def run_play(args: argparse.Namespace) -> int:
             params["task"] = args.task
         if args.dangers is not None:
             params["dangers"] = args.dangers
+        if args.sensors is not None:
+            params["sensors"] = args.sensors
         scenario = WormScenario(**params)
     else:
         raise SystemExit(f"unknown scenario {scenario_name!r}")
@@ -132,6 +137,7 @@ def run_play(args: argparse.Namespace) -> int:
         args.steps,
         tracker,
         brain_steps=scenario.brain_steps,
+        sensors=scenario.make_sensors(args.seed),
     )
 
     from doomworm.experiments.worm_agent import summarise

@@ -38,6 +38,7 @@ from doomworm.environments.maze import (
     random_world,
     rooms_visited,
 )
+from doomworm.environments.sensors import PRESETS, SensorSuite
 from doomworm.environments.simple_2d import AgentState, Dock, Obstacle, World
 from doomworm.episode import Record, run_episode
 from doomworm.experiments.episode import print_trace, render_ascii, save_log, save_plot
@@ -69,6 +70,7 @@ class WormScenario:
         maps: str = "fixed",
         task: str = "food",
         dangers: int = 0,
+        sensors: str = "ideal",
     ) -> None:
         self.connectome = connectome or load_cook2019()
         self.sensory_mapping = sensory_mapping or default_sensory_mapping()
@@ -91,6 +93,9 @@ class WormScenario:
             raise ValueError("task must be 'food', 'target' or 'clean'")
         self.task = task
         self.dangers = dangers
+        if sensors not in PRESETS:
+            raise ValueError(f"sensors must be one of {list(PRESETS)}")
+        self.sensors = sensors
         self.params = {
             "tonic_avb": tonic_avb,
             "obstacle_gain": obstacle_gain,
@@ -103,6 +108,7 @@ class WormScenario:
             "maps": maps,
             "task": task,
             "dangers": dangers,
+            "sensors": sensors,
         }
 
     @property
@@ -115,6 +121,12 @@ class WormScenario:
         base = np.array(self.template.get_weights())
         rng = np.random.default_rng(seed)
         return np.asarray(rng.uniform(-1.0, 1.0, size=base.size) * np.abs(base).max())
+
+    def make_sensors(self, seed: int) -> SensorSuite | None:
+        """A fresh sensor suite for an episode (None for the ideal preset)."""
+        if self.sensors == "ideal":
+            return None
+        return SensorSuite(PRESETS[self.sensors], seed=seed)
 
     def make_world(self, seed: int) -> World:
         """``fixed``: stage-4 layout with seeded pose and food. ``random``: Plan §18 maps."""
@@ -175,6 +187,7 @@ def run_worm(
         tracker,
         record_activity=record_activity,
         brain_steps=scenario.brain_steps,
+        sensors=scenario.make_sensors(seed),
     )
     return world, trace, tracker
 
@@ -211,6 +224,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="fixed")
     parser.add_argument("--task", choices=["food", "target", "clean"], default="food")
     parser.add_argument("--dangers", type=int, default=0)
+    parser.add_argument("--sensors", choices=list(PRESETS), default="ideal")
     parser.add_argument("--plot", action="store_true", help="save runs/stage9_worm_<seed>.png")
     parser.add_argument("--gif", action="store_true", help="save runs/stage9_worm_<seed>.gif")
     args = parser.parse_args(argv)
@@ -221,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
         maps=args.maps,
         task=args.task,
         dangers=args.dangers,
+        sensors=args.sensors,
     )
     world, trace, tracker = run_worm(scenario, args.seed, args.steps)
     print_trace(trace, args.every)

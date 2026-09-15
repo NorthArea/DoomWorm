@@ -10,6 +10,7 @@ import numpy as np
 
 from doomworm.adapters import SensoryAdapter
 from doomworm.brain import Network, Simulator
+from doomworm.environments.sensors import SensorSuite
 from doomworm.environments.simple_2d import World
 from doomworm.episode import MotorLike, run_episode
 from doomworm.learning.reward import RewardConfig, RewardTracker
@@ -21,6 +22,10 @@ class Scenario(Protocol):
     template: Network
     sensory: SensoryAdapter
     brain_steps: int
+
+    def make_sensors(self, seed: int) -> SensorSuite | None:
+        """Per-episode sensor emulation, or None for ideal sensing."""
+        ...
 
     @property
     def motor(self) -> MotorLike:
@@ -66,6 +71,7 @@ def evaluate(
             steps,
             tracker,
             brain_steps=scenario.brain_steps,
+            sensors=scenario.make_sensors(seed),
         )
         totals.append(tracker.total)
         food += world.food_eaten
