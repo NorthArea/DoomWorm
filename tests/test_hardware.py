@@ -1,0 +1,260 @@
+"""Stage 22.1: one robot link for the simulator and the machine, teleop, record, compare."""
+
+from __future__ import annotations
+
+import io
+import json
+import math
+import socket
+import threading
+from pathlib import Path
+
+import pytest
+
+from doomworm.brains import GradientFollower, PlannerLayer, ScriptedBrain
+from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
+from doomworm.episode import run_brain_episode
+from doomworm.hardware import (
+    Calibration,
+    FakeRobot,
+    LineLink,
+    SimLink,
+    Teleop,
+    compare_logs,
+    drive,
+    read_drive_log,
+    replay_in_sim,
+)
+from doomworm.hardware.calibration import RawReading
+from doomworm.worlds import build_world
+
+# --- calibration -----------------------------------------------------------------
+
+
+def test_calibration_units_round_trip() -> None:
+    cal = Calibration(sensors=VACUUM)
+    assert cal.ray_range_m == pytest.approx(VACUUM.ray_range * cal.unit_m)
+    # proximity is 1 - d / range, clipped; None = no echo = nothing in range
+    assert cal.proximity(0.0, cal.ray_range_m) == 1.0
+    assert cal.proximity(cal.ray_range_m, cal.ray_range_m) == 0.0
+    assert cal.proximity(None, cal.ray_range_m) == 0.0
+    assert cal.proximity(cal.ray_range_m / 2, cal.ray_range_m) == pytest.approx(0.5)
+    # metres <-> world units
+    assert cal.to_units(cal.unit_m * 3.0) == pytest.approx(3.0)
+    assert cal.to_metres(3.0) == pytest.approx(cal.unit_m * 3.0)
+
+
+def test_calibration_raw_to_channels_matches_the_suite_layout() -> None:
+    cal = Calibration(sensors=VACUUM)
+    raw = RawReading(
+        ranges_m=[cal.ray_range_m / 2, None, 0.0, cal.ray_range_m, 0.25 * cal.ray_range_m],
+        bumper=(1, 0),
+        cliff=(0, 1),
+        wall_m=cal.wall_range_m / 4,
+        odom_m=(cal.unit_m * 2.0, cal.unit_m * -1.0),
+        odom_rad=0.5,
+        gyro_rad=0.4,
+        battery=0.8,
+        charging=0,
+        dock=(0.0, 0.3, 0.0),
+    )
+    ch = cal.channels(raw)
+    suite = SensorSuite(VACUUM)
+    assert list(ch) == suite.channel_names, "same channels, same order as the simulator"
+    assert ch["range_0"] == pytest.approx(0.5)
+    assert ch["range_1"] == 0.0
+    assert ch["range_2"] == 1.0
+    assert ch["range_3"] == 0.0
+    assert ch["range_4"] == pytest.approx(0.75)
+    # sectors: rays at 60, 30 (left), 0 (front), -30, -60 (right)
+    assert ch["sensor_left"] == pytest.approx(0.5)
+    assert ch["sensor_front"] == 1.0
+    assert ch["sensor_right"] == pytest.approx(0.75)
+    assert (ch["bumper_left"], ch["bumper_right"]) == (1.0, 0.0)
+    assert (ch["cliff_left"], ch["cliff_right"]) == (0.0, 1.0)
+    assert ch["wall_right"] == pytest.approx(0.75)
+    assert (ch["odom_x"], ch["odom_y"]) == pytest.approx((2.0, -1.0))
+    assert ch["odom_heading"] == 0.5
+    assert ch["gyro_heading"] == 0.4
+    assert ch["battery"] == pytest.approx(0.8)
+    assert ch["hunger"] == pytest.approx(0.2)
+    assert ch["health"] == 1.0
+    assert ch["dock_front"] == pytest.approx(0.3)
+    assert ch["food_front"] == 0.0
+
+
+def test_calibration_rejects_wrong_ray_count() -> None:
+    cal = Calibration(sensors=VACUUM)
+    raw = RawReading(ranges_m=[1.0, 1.0, 1.0])
+    with pytest.raises(ValueError, match="5 rays"):
+        cal.channels(raw)
+
+
+# --- simulator behind the link -----------------------------------------------------
+
+
+def test_sim_link_reproduces_the_episode_loop() -> None:
+    """Driving a brain through SimLink is the same closed loop as run_brain_episode."""
+    brain = PlannerLayer(GradientFollower(), VACUUM, mode="needs")
+    world_a = build_world(3000, "apartment", "clean")
+    trace = run_brain_episode(world_a, brain, 60, sensors=SensorSuite(VACUUM, seed=7))
+
+    link = SimLink(build_world(3000, "apartment", "clean"), VACUUM, sensor_seed=7)
+    rows = drive(link, brain, steps=60)
+    assert len(rows) == len(trace)
+    assert [r.wheels for r in rows] == pytest.approx([t.motors for t in trace])
+    assert rows[-1].truth is not None, "the simulator link knows the true pose"
+    assert link.truth()[:2] == pytest.approx((trace[-1].x, trace[-1].y))
+
+
+def test_sim_link_first_reading_is_at_rest_and_warm() -> None:
+    link = SimLink(build_world(3000, "apartment", "clean"), VACUUM, sensor_seed=1)
+    first = link.reset()
+    assert set(first) == set(SensorSuite(VACUUM).channel_names)
+    assert first["battery"] == 1.0
+    assert first["odom_x"] == pytest.approx(link.world.agent.x)
+    assert first["range_2"] >= 0.0
+
+
+# --- the wire: JSON lines between host and robot --------------------------------------
+
+
+def _serve_fake_robot(robot: FakeRobot) -> tuple[LineLink, threading.Thread]:
+    host_sock, robot_sock = socket.socketpair()
+    robot_file = robot_sock.makefile("rw", encoding="utf-8", newline="\n")
+    thread = threading.Thread(target=robot.serve, args=(robot_file, robot_file), daemon=True)
+    thread.start()
+    host_file = host_sock.makefile("rw", encoding="utf-8", newline="\n")
+    link = LineLink(host_file, host_file, robot.calibration, name="socketpair", transport=host_sock)
+    robot_sock.close()  # the robot side lives on in its file object
+    return link, thread
+
+
+def test_line_link_talks_to_the_fake_robot_like_the_simulator() -> None:
+    """Same brain, same seed: the wire protocol changes nothing but the transport."""
+    cal = Calibration(sensors=VACUUM)
+    brain = PlannerLayer(GradientFollower(), VACUUM, mode="needs")
+
+    direct = SimLink(build_world(3001, "apartment", "clean"), VACUUM, sensor_seed=3)
+    rows_direct = drive(direct, brain, steps=40)
+
+    robot = FakeRobot(SimLink(build_world(3001, "apartment", "clean"), VACUUM, sensor_seed=3), cal)
+    link, thread = _serve_fake_robot(robot)
+    rows_wire = drive(link, brain, steps=40)
+    link.close()
+    thread.join(timeout=5)
+
+    assert [r.wheels for r in rows_wire] == pytest.approx([r.wheels for r in rows_direct])
+    for a, b in zip(rows_wire, rows_direct, strict=True):
+        for key, value in b.channels.items():
+            assert a.channels[key] == pytest.approx(value, abs=1e-6), key
+        assert a.raw is not None
+        assert "ranges_m" in a.raw
+
+
+def test_line_link_checks_the_handshake() -> None:
+    reader = io.StringIO(json.dumps({"hello": "not a reading"}) + "\n")
+    writer = io.StringIO()
+    link = LineLink(reader, writer, Calibration(sensors=VACUUM))
+    with pytest.raises(ValueError, match="reading"):
+        link.reset()
+    assert json.loads(writer.getvalue().splitlines()[0]) == {"cmd": "reset"}
+
+
+def test_line_link_sends_clipped_wheel_commands() -> None:
+    cal = Calibration(sensors=VACUUM)
+    reading = json.dumps(RawReading(ranges_m=[None] * 5).to_dict()) + "\n"
+    reader = io.StringIO(reading * 2)
+    writer = io.StringIO()
+    link = LineLink(reader, writer, cal)
+    link.reset()
+    link.step(2.0, -3.0)
+    lines = [json.loads(line) for line in writer.getvalue().splitlines()]
+    assert lines == [{"cmd": "reset"}, {"cmd": "drive", "left": 1.0, "right": -1.0}]
+
+
+# --- teleop and the drive log -------------------------------------------------------------
+
+
+def test_teleop_parses_keys_and_pairs_and_stops_on_q() -> None:
+    tele = Teleop(io.StringIO("w\na\n0.3 -0.3\n\nx\nq\nw\n"))
+    tele.reset()
+    assert tele.act({}) == (1.0, 1.0)
+    assert tele.act({}) == (-0.6, 0.6)
+    assert tele.act({}) == (0.3, -0.3)
+    assert tele.act({}) == (0.3, -0.3), "blank line repeats the last command"
+    assert tele.act({}) == (0.0, 0.0)
+    assert tele.act({}) == (0.0, 0.0)
+    assert tele.stopped
+
+
+def test_drive_records_a_replayable_log(tmp_path: Path) -> None:
+    link = SimLink(build_world(3002, "apartment", "clean"), VACUUM, sensor_seed=5)
+    log = tmp_path / "drive.jsonl"
+    rows = drive(link, Teleop(io.StringIO("w\nw\nd\nw\n")), steps=50, log=log, meta={"who": "t"})
+    assert len(rows) == 4, "teleop ends the drive when its input runs out"
+    meta, rows_back = read_drive_log(log)
+    assert meta["who"] == "t"
+    assert (meta["link"], meta["sensors"]) == ("sim", "vacuum")
+    assert [r.wheels for r in rows_back] == [r.wheels for r in rows]
+    assert rows_back[2].channels == rows[2].channels
+    assert rows_back[0].truth == pytest.approx(rows[0].truth)
+
+
+def test_replay_of_a_sim_log_is_exact_and_a_preset_change_is_visible(tmp_path: Path) -> None:
+    """The sim-vs-real check: replay the recorded wheels in the simulator, compare channels."""
+    link = SimLink(build_world(3003, "apartment", "clean"), VACUUM, sensor_seed=9, seed=3003)
+    log = tmp_path / "drive.jsonl"
+    drive(link, ScriptedBrain(lambda _: (1.0, 0.8)), steps=80, log=log)
+    meta, rows = read_drive_log(log)
+
+    same = replay_in_sim(meta, rows)
+    report = compare_logs(rows, same)
+    assert report.ticks == 80
+    assert report.max_abs("range_2") == 0.0
+    assert report.rmse("odom_x") == 0.0
+    assert report.bumper_agreement == 1.0
+    assert report.pose_error_m(Calibration(sensors=VACUUM)) == 0.0
+
+    ideal = replay_in_sim(meta | {"sensors": "ideal"}, rows)
+    report_ideal = compare_logs(rows, ideal)
+    assert report_ideal.rmse("odom_x") > 0.0, "odometry noise of the vacuum preset shows up"
+    assert report_ideal.rmse("range_2") > 0.0
+    text = report_ideal.markdown()
+    assert "range_2" in text
+    assert "odom_x" in text
+    assert set(report_ideal.channels) < set(rows[0].channels), "only common channels"
+    assert "range_3" not in report_ideal.channels, "the ideal preset has three rays"
+
+
+def test_compare_handles_different_lengths_and_missing_truth() -> None:
+    link = SimLink(build_world(3003, "apartment", "clean"), IDEAL, sensor_seed=0)
+    rows = drive(link, ScriptedBrain(lambda _: (0.5, 0.5)), steps=30)
+    short = [r.__class__(r.tick, r.wheels, r.channels, None, None) for r in rows[:20]]
+    report = compare_logs(rows, short)
+    assert report.ticks == 20
+    assert report.pose_error_m(Calibration()) is None
+    assert math.isfinite(report.rmse("odom_heading"))
+
+
+# --- CLI ---------------------------------------------------------------------------------
+
+
+def test_cli_drive_and_compare_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from doomworm.cli import main
+
+    log = tmp_path / "drive.jsonl"
+    monkeypatch.setattr("sys.stdin", io.StringIO("w\nw\nw\na\nw\n"))
+    assert main(["drive", "--teleop", "--seed", "3004", "--steps", "10", "--record", str(log)]) == 0
+    meta, rows = read_drive_log(log)
+    assert len(rows) == 5
+    assert meta["seed"] == 3004
+    out = tmp_path / "compare.md"
+    assert main(["compare-log", "--log", str(log), "--out", str(out)]) == 0
+    assert "bumper agreement" in out.read_text()
+
+    brain = Path("docs/results/brains_a2/worm_from_worm_evolved_random.json")
+    args = ["drive", "--brain", str(brain), "--planner", "needs", "--seed", "3004", "--steps", "5"]
+    assert main([*args, "--record", str(tmp_path / "brain.jsonl")]) == 0
+    with pytest.raises(SystemExit):
+        main(["drive", "--seed", "1"])

@@ -7,6 +7,8 @@ doomworm benchmark --brain X       run any saved brain through the benchmark (st
 doomworm evolve --candidate worm   train a bake-off candidate on the benchmark world (stage 21)
 doomworm ppo                       train the PPO candidate (optional rl group, stage 21.4)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
+doomworm drive --teleop            drive the simulator or the machine, record sensors (stage 22)
+doomworm compare-log --log X       replay a drive log in the simulator, compare channels
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
 
@@ -122,7 +124,140 @@ def build_parser() -> argparse.ArgumentParser:
     stim.add_argument("--top", type=int, default=15)
     stim.add_argument("--threshold", type=float, default=0.01, help="activity counted as active")
     stim.add_argument("--plot", action="store_true", help="save raster + subgraph PNGs to runs/")
+
+    drv = sub.add_parser("drive", help="drive the simulator or the machine through one link")
+    drv.add_argument("--link", choices=["sim", "tcp"], default="sim")
+    drv.add_argument("--host", default="192.168.4.1", help="robot address for --link tcp")
+    drv.add_argument("--port", type=int, default=5000)
+    drv.add_argument("--unit-m", type=float, default=0.33, help="metres per world unit")
+    drv.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
+    drv.add_argument("--scripted", choices=["follower", "roomba"], default=None)
+    drv.add_argument("--teleop", action="store_true", help="wasd / 'l r' pairs from stdin")
+    drv.add_argument("--planner", choices=["none", "coverage", "needs"], default="none")
+    drv.add_argument("--seed", type=int, default=3000, help="world seed (sim link)")
+    drv.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    drv.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    drv.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    drv.add_argument("--sensor-seed", type=int, default=0)
+    drv.add_argument("--steps", type=int, default=800)
+    drv.add_argument("--every", type=int, default=25, help="print a line every N ticks")
+    drv.add_argument("--record", type=Path, default=None, help="drive log (JSON lines)")
+
+    cmp_log = sub.add_parser("compare-log", help="replay a drive log in the simulator, compare")
+    cmp_log.add_argument("--log", type=Path, required=True)
+    cmp_log.add_argument(
+        "--against", type=Path, default=None, help="another log instead of a replay"
+    )
+    cmp_log.add_argument("--seed", type=int, default=None, help="override the log's world seed")
+    cmp_log.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default=None)
+    cmp_log.add_argument("--sensor-seed", type=int, default=None)
+    cmp_log.add_argument("--out", type=Path, default=None, help="write the markdown report here")
     return parser
+
+
+def run_drive_cli(args: argparse.Namespace) -> int:
+    """Stage 22: one loop for the simulator and the machine, with recording."""
+    import sys
+
+    from doomworm.episode import BrainLike
+    from doomworm.hardware import Calibration, SimLink, Teleop, connect_tcp, drive, raw_keys
+    from doomworm.hardware.link import RobotLink
+
+    controller: BrainLike
+    if args.teleop:
+        stream = raw_keys() if sys.stdin.isatty() else sys.stdin
+        controller = Teleop(stream)
+    elif args.scripted == "follower":
+        from doomworm.brains import GradientFollower
+
+        controller = GradientFollower()
+    elif args.scripted == "roomba":
+        from doomworm.brains import RoombaBrain
+
+        controller = RoombaBrain()
+    elif args.brain is not None:
+        from doomworm.brains import load_candidate
+
+        controller = load_candidate(args.brain, maps=args.maps, task=args.task)
+    else:
+        raise SystemExit("drive: give --teleop, --brain <file> or --scripted <name>")
+    if args.planner != "none":
+        from doomworm.brains import PlannerLayer
+        from doomworm.environments.sensors import PRESETS
+
+        controller = PlannerLayer(controller, PRESETS[args.sensors], mode=args.planner)
+
+    link: RobotLink
+    if args.link == "tcp":
+        from doomworm.environments.sensors import PRESETS
+
+        cal = Calibration(unit_m=args.unit_m, sensors=PRESETS[args.sensors])
+        link = connect_tcp(args.host, args.port, cal)
+    else:
+        from doomworm.worlds import build_world
+
+        world = build_world(args.seed, args.maps, args.task)
+        link = SimLink(world, args.sensors, args.sensor_seed, args.seed, args.maps, args.task)
+    name = getattr(controller, "name", "?")
+    print(f"drive {name} over {link.name} ({args.sensors}), {args.steps} ticks", flush=True)
+
+    def show(row: object) -> None:
+        from doomworm.hardware import DriveRow
+
+        assert isinstance(row, DriveRow)
+        if row.tick % args.every:
+            return
+        ch = row.channels
+        pose = "" if row.truth is None else f"  true ({row.truth[0]:.1f}, {row.truth[1]:.1f})"
+        print(
+            f"  t={row.tick:4d} wheels ({row.wheels[0]:+.2f}, {row.wheels[1]:+.2f})  "
+            f"front {ch.get('sensor_front', 0.0):.2f}  bump {ch.get('bumper_left', 0.0):.0f}"
+            f"{ch.get('bumper_right', 0.0):.0f}  odom ({ch.get('odom_x', 0.0):.1f}, "
+            f"{ch.get('odom_y', 0.0):.1f})  battery {ch.get('battery', 0.0):.2f}{pose}",
+            flush=True,
+        )
+
+    try:
+        rows = drive(link, controller, args.steps, log=args.record, on_tick=show)
+    finally:
+        link.close()
+        stream_close = getattr(getattr(controller, "stream", None), "close", None)
+        if args.teleop and sys.stdin.isatty() and stream_close is not None:
+            stream_close()
+    print(f"{len(rows)} ticks driven" + (f", log {args.record}" if args.record else ""))
+    return 0
+
+
+def run_compare_log_cli(args: argparse.Namespace) -> int:
+    """Stage 22: replay a drive log in the simulator (or against another log) and report."""
+    from doomworm.environments.sensors import PRESETS
+    from doomworm.hardware import Calibration, compare_logs, read_drive_log, replay_in_sim
+
+    meta, rows = read_drive_log(args.log)
+    if not rows:
+        raise SystemExit(f"compare-log: {args.log} has no rows")
+    if args.against is not None:
+        other_meta, other = read_drive_log(args.against)
+        label = f"{args.log} vs {args.against}"
+    else:
+        other_meta = dict(meta)
+        for key in ("seed", "sensors", "sensor_seed"):
+            value = getattr(args, key.replace("-", "_"))
+            if value is not None:
+                other_meta[key] = value
+        other = replay_in_sim(other_meta, rows)
+        label = f"{args.log} vs replay ({other_meta.get('sensors')}, seed {other_meta.get('seed')})"
+    report = compare_logs(rows, other)
+    sensors = str(meta.get("sensors") or "vacuum")
+    unit_m = float((meta.get("calibration") or {}).get("unit_m", 0.33))
+    cal = Calibration(unit_m=unit_m, sensors=PRESETS[sensors])
+    text = f"# {label}\n\n" + report.markdown(cal)
+    print(text)
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(text, encoding="utf-8")
+        print(f"saved {args.out}")
+    return 0
 
 
 def run_benchmark_cli(args: argparse.Namespace) -> int:
@@ -364,4 +499,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_evolve_cli(args)
     if args.command == "ppo":
         return run_ppo_cli(args)
+    if args.command == "drive":
+        return run_drive_cli(args)
+    if args.command == "compare-log":
+        return run_compare_log_cli(args)
     return run_play(args)

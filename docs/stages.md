@@ -36,7 +36,12 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 21.9 | A2: bumper reflex in the planner layer; map footprint fixed to the body radius | `tests/test_needs.py` | `make benchmark-a2` | done: PPO 61.9 ± 0.2 with 8 collisions; curriculum worm 44.0 ± 7.6; real 32.1 > random 15.9; final table in `docs/results/a2_bakeoff_2026-09-15.md` |
 | 21.10 | A2: forward bias for rnn / ncp (untrained nets stood still or spun) | `tests/test_rnn.py`, `tests/test_ncp.py` | `make evolve-a2 CANDIDATE=rnn` | done: both learn from generation 0; rnn 34.5 ± 6.4, ncp 28.8 ± 2.8 |
 | 21.7 | A2: leaderboard with >= 3 seeds per candidate, decision for A3 | | `make benchmark-a2` | done: 3 seeds for the six main rows; final (21.9-21.10): PPO 61.9 ± 0.2 > worm-curriculum 44.0 ± 7.6 > shuffled 40.4 > rnn 34.5 > real 32.1 > Roomba 29.5 > ncp 28.8 > dense 26.2 > random 15.9; decision for A3 = engineered layer + PPO, worm stays the control (`docs/results/a2_bakeoff_2026-09-15.md`). **Phase A2 closed 2026-09-15** (second milestone, Plan §47). |
-| 22 | A3: physical vacuum | | | todo |
+| 22 | A3: physical vacuum (Plan §20.5) | | | in progress, sub-stages below; no hardware in hand yet |
+| 22.1 | A3: robot link (simulator and machine behind one loop), units contract, wire protocol, teleop + sensor recording, log replay against the simulator | `tests/test_hardware.py` | `make demo-22` | done (software side; `docs/hardware.md`, `docs/results/stage22_drive_2026-09-15/`) |
+| 22.2 | A3: firmware on the machine (ESP32 / RPi) speaking the protocol; first real teleop log; sim-vs-real report | | `doomworm drive --link tcp --teleop --record ...` | todo: needs the machine |
+| 22.3 | A3: obstacle avoidance with the A2 brain under the layer | | | todo |
+| 22.4 | A3: real dock (beacon homing, charging) | | | todo |
+| 22.5 | A3: cleaning, map, call on the machine (acceptance of Plan §20.5) | | | todo |
 
 Known platform limitation carried into A2: the occupancy grid has no scan matching, so odometry drift (~1 unit per 300 ticks on the vacuum preset) shifts doors on the map; this costs 2-3 of 18 episodes per brain.
 

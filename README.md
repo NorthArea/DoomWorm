@@ -63,6 +63,8 @@ uv run doomworm train --scenario worm --maps random          # stage 12: random 
 make demo-13                                                # stage 13: come to a target
 make train-worm-danger && make demo-14                      # stage 14: avoid a danger zone
 make benchmark BRAIN=runs/worm_evolved_random.json          # stage 18: benchmark + leaderboard
+make benchmark-a2                                           # stage 21: A2 bake-off of every candidate
+make demo-22                                                # stage 22.1: drive over the robot link, replay the log
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
@@ -84,11 +86,14 @@ src/doomworm/
   connectome/      loader, internal graph model, name mappings
   environments/    simple_2d, maze, doom
   adapters/        sensory (obs -> stimulation), motor (activity -> actions)
-  learning/        fitness, evolution, plasticity
+  learning/        fitness, evolution, reward, benchmark, bake-off harness, PPO
+  mapping/         occupancy grid, BFS / coverage planner (engineered layer)
+  brains/          Brain interface and candidates: worm, rnn, ncp, roomba, planner layer, needs
+  hardware/        stage 22: robot link (sim | machine), units, wire protocol, teleop, log compare
   experiments/     baseline, random_network, real_connectome
   visualization/   brain activity, metrics, debug screen
 tests/             pytest suite (one test module per layer)
-docs/              assumptions, stage checklist
+docs/              assumptions, stage checklist, hardware contract (docs/hardware.md), results
 data/connectome/   Cook 2019 connectome CSVs (see its README for source and citation)
 scripts/           cross-cutting utilities
 runs/              experiment outputs (git-ignored)

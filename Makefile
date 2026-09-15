@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-22 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -92,6 +92,7 @@ demo-14: ## Stage 14: target task with a danger zone (runs/worm_evolved_danger.j
 	$(UV) doomworm play --brain runs/worm_evolved_danger.json --seed $(SEED) --plot
 
 WORM_BRAIN ?= docs/results/brains/worm_evolved_random.json
+A2_WORM ?= docs/results/brains_a2/worm_from_worm_evolved_random.json
 
 demo-17: ## Stage 17: stage-12 brain under the noisy vacuum sensor suite
 	$(UV) doomworm play --brain $(WORM_BRAIN) --maps random --sensors noisy --seed $(SEED) --plot
@@ -108,6 +109,12 @@ demo-20: ## Stage 20: needs arbitration (battery > call > clean), worm and scrip
 
 demo-21: ## Stage 21.1: the Roomba-style classical controller, zero learning, on the benchmark
 	$(UV) doomworm benchmark --scripted roomba
+
+demo-22: ## Stage 22.1: A2 worm over the simulator link with recording, then the log replayed and compared
+	$(UV) doomworm drive --brain $(A2_WORM) --planner needs --seed 3002 --steps 300 --every 50 --record runs/drive/worm_sim_3002.jsonl
+	$(UV) doomworm compare-log --log runs/drive/worm_sim_3002.jsonl --out runs/drive/worm_sim_3002_vs_replay.md
+	$(UV) doomworm compare-log --log runs/drive/worm_sim_3002.jsonl --sensors noisy --out runs/drive/worm_sim_3002_vs_noisy.md
+	printf 'w\nw\nw\nd\nd\nw\nw\n' | $(UV) doomworm drive --teleop --seed 3002 --every 1 --record runs/drive/teleop_3002.jsonl
 
 demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every stage demo
 
