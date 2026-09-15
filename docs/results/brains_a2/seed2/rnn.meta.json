@@ -1,5 +1,5 @@
 {
-  "candidate": "ncp",
+  "candidate": "rnn",
   "layer": "needs",
   "train": {
     "layer": "needs",
@@ -18,12 +18,12 @@
       1.0
     ],
     "mutation_fraction": 1.0,
-    "seed": 0,
+    "seed": 2,
     "workers": 2,
     "spec": {
-      "kind": "ncp",
+      "kind": "rnn",
       "init": null,
-      "variant_seed": 0,
+      "variant_seed": 2,
       "maps": "apartment",
       "task": "clean",
       "sensors": "vacuum",
@@ -31,6 +31,6 @@
       "params": {}
     }
   },
-  "fitness": 47.366666666666724,
+  "fitness": 54.76666666666671,
   "generations": 25
 }
