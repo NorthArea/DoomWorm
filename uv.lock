@@ -389,6 +389,7 @@ dev = [
     { name = "ruff" },
 ]
 rl = [
+    { name = "ncps" },
     { name = "stable-baselines3" },
     { name = "torch" },
 ]
@@ -410,6 +411,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16" },
 ]
 rl = [
+    { name = "ncps", specifier = ">=1.0" },
     { name = "stable-baselines3", specifier = ">=2.3" },
     { name = "torch", specifier = ">=2.2" },
 ]
@@ -496,6 +498,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/00/78/f34251dadb8f3921264a1d9b8946f5e542014ee2614b285261b4e40e6775/fsspec-2026.7.0.tar.gz", hash = "sha256:c803c40f4cf860b49dea58ee3e1c33cb9c790520e233537e1340049f89b82a88", size = 317040, upload-time = "2026-07-28T16:34:51.052Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/3c/6a2bf344106328fd04963664a60b9bb6496fc25df8e962fcdc1367285fb9/fsspec-2026.7.0-py3-none-any.whl", hash = "sha256:b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279", size = 206583, upload-time = "2026-07-28T16:34:49.538Z" },
+]
+
+[[package]]
+name = "future"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a66432916b26158687e821ba631a4c9273c474343badf84d3ba/future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05", size = 1228490, upload-time = "2024-02-21T11:52:38.461Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326, upload-time = "2024-02-21T11:52:35.956Z" },
 ]
 
 [[package]]
@@ -948,6 +959,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
+]
+
+[[package]]
+name = "ncps"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "future" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/23/dded6d24dee306f89794a6d17dacbe18d9b9394e161ba80a6759abfeb4da/ncps-1.0.1.tar.gz", hash = "sha256:fd791104318201de3b0e2e524577e3222435706d0e5368009b8ae2a9f3d1618f", size = 38115, upload-time = "2024-08-14T13:38:30.892Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/cb/3e7c0b5f0d1dfeea92dbe99a77d4831ac8e871a985c779479cc804aa665f/ncps-1.0.1-py3-none-any.whl", hash = "sha256:249b2a62c38608df62d454fe20f4e880f74c27ef97ea3a45e101d47b1b273fb5", size = 60299, upload-time = "2024-08-14T13:38:29.456Z" },
 ]
 
 [[package]]

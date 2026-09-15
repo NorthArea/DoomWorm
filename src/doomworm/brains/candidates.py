@@ -7,17 +7,39 @@ weight vector. Adding a candidate means adding a name here.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, cast
 
+from doomworm.brains.base import Trainable
 from doomworm.brains.rnn import RNNBrain
 from doomworm.brains.worm import WormBrain
 from doomworm.episode import BrainLike
 
+
+class TrainableBrain(Trainable, Protocol):
+    """A candidate: acts like a Brain, trains like a weight vector, carries meta."""
+
+    name: str
+    meta: dict[str, Any]
+
+    def reset(self) -> None:
+        """Forget episode state."""
+        ...
+
+    def act(self, channels: Mapping[str, float]) -> tuple[float, float]:
+        """Channels in, wheels out."""
+        ...
+
+    def save(self, path: Path | str) -> None:
+        """Persist weights and meta."""
+        ...
+
+
 WORM_VARIANTS = ("worm", "worm_random", "worm_shuffled", "worm_dense")
-CANDIDATES = (*WORM_VARIANTS, "rnn")
-Candidate = WormBrain | RNNBrain
+OPTIONAL = ("ncp",)  # need the rl dependency group
+CANDIDATES = (*WORM_VARIANTS, "rnn", *OPTIONAL)
 
 
 @dataclass(frozen=True)
@@ -43,6 +65,10 @@ def load_candidate(path: Path | str, **world: Any) -> BrainLike:
     head = Path(path).read_text(encoding="utf-8")[:200]
     if '"kind": "rnn"' in head:
         return RNNBrain.from_file(path)
+    if '"kind": "ncp"' in head:
+        from doomworm.brains.ncp import NCPBrain
+
+        return NCPBrain.from_file(path)
     if '"kind": "ppo"' in head:
         try:
             from doomworm.learning.rl import PPOBrain
@@ -52,7 +78,7 @@ def load_candidate(path: Path | str, **world: Any) -> BrainLike:
     return WormBrain.from_file(path, **world)
 
 
-def build_candidate(spec: CandidateSpec) -> Candidate:
+def build_candidate(spec: CandidateSpec) -> TrainableBrain:
     """Instantiate a candidate; the saved brain (if any) supplies the weights."""
     if spec.kind not in CANDIDATES:
         raise ValueError(f"unknown candidate {spec.kind!r}, choose from {CANDIDATES}")
@@ -60,15 +86,24 @@ def build_candidate(spec: CandidateSpec) -> Candidate:
         brain = load_candidate(
             spec.init, maps=spec.maps, task=spec.task, sensors=spec.sensors, dangers=spec.dangers
         )
-        if not isinstance(brain, WormBrain | RNNBrain):
+        if not isinstance(brain, Trainable):
             raise ValueError(f"{spec.init} is not a trainable candidate")
-        brain.meta["candidate"] = spec.kind
-        return brain
-    if spec.kind == "rnn":
+        trainable = cast(TrainableBrain, brain)
+        trainable.meta["candidate"] = spec.kind
+        return trainable
+    if spec.kind in ("rnn", "ncp"):
         from doomworm.environments.sensors import PRESETS, SensorSuite
 
         inputs = SensorSuite(PRESETS[spec.sensors]).channel_names
-        return RNNBrain(inputs, seed=spec.variant_seed, **spec.params)
+        if spec.kind == "rnn":
+            return RNNBrain(inputs, seed=spec.variant_seed, **spec.params)
+        try:
+            from doomworm.brains.ncp import NCPBrain
+        except ImportError as e:  # pragma: no cover - depends on the optional group
+            raise ImportError(
+                "the ncp candidate needs the optional rl group: uv sync --group rl"
+            ) from e
+        return NCPBrain(inputs, seed=spec.variant_seed, **spec.params)
     from doomworm.experiments.worm_agent import WormScenario
 
     connectome = None

@@ -80,7 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     ev = sub.add_parser("evolve", help="train a bake-off candidate on the benchmark world")
     ev.add_argument(
-        "--candidate", required=True, help="worm, worm_random, worm_shuffled, worm_dense, rnn"
+        "--candidate",
+        required=True,
+        help="worm, worm_random, worm_shuffled, worm_dense, rnn, ncp (rl group)",
     )
     ev.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
     ev.add_argument("--variant-seed", type=int, default=0, help="seed of a control topology")

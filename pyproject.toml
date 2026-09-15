@@ -33,6 +33,7 @@ dev = [
     "pre-commit>=4.0",
 ]
 rl = [  # optional: PPO / NCP candidates of the A2 bake-off (Plan §20.4), torch-based
+    "ncps>=1.0",
     "stable-baselines3>=2.3",
     "torch>=2.2",
 ]
@@ -89,7 +90,7 @@ warn_unreachable = true
 pretty = true
 
 [[tool.mypy.overrides]]
-module = ["networkx.*", "matplotlib.*", "stable_baselines3.*", "torch.*"]
+module = ["networkx.*", "matplotlib.*", "stable_baselines3.*", "torch.*", "ncps.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------

@@ -14,6 +14,8 @@ TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, wo
 
 @pytest.mark.parametrize("kind", CANDIDATES)
 def test_every_candidate_is_a_trainable_brain(kind: str) -> None:
+    if kind == "ncp":
+        pytest.importorskip("ncps")
     brain = build_candidate(CandidateSpec(kind))
     assert isinstance(brain, Trainable)
     assert brain.n_weights == len(brain.get_weights()) > 1000
