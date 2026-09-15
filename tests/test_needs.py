@@ -136,8 +136,45 @@ def test_dock_autopilot_brings_a_bad_driver_home() -> None:
     assert len(trace) == 700, "discharged"
     assert world.dockings >= 2
     assert max(r.battery for r in trace[300:]) > 0.9, "recharged"
-    off = PlannerLayer(straight, VACUUM, mode="needs", dock_autopilot=False)
+    off = PlannerLayer(straight, VACUUM, mode="needs", dock_autopilot=False, bumper_reflex=False)
     world2 = build_world(3001, "apartment", "clean")
     world2.hunger_rate = 0.003
     trace2 = run_brain_episode(world2, off, 700, sensors=SensorSuite(VACUUM, seed=7))
     assert len(trace2) < 700, "without the autopilot the straight driver dies"
+
+
+def test_bumper_reflex_backs_off_and_turns_away() -> None:
+    """Stage 21.9: contact is handled by the layer before the brain sees anything."""
+    from doomworm.brains import ScriptedBrain
+
+    calls: list[int] = []
+
+    def straight(_c: object) -> tuple[float, float]:
+        calls.append(1)
+        return 1.0, 1.0
+
+    layer = PlannerLayer(ScriptedBrain(straight, "straight"), IDEAL, mode="coverage")
+    layer.reset()
+    base = {"odom_x": 5.0, "odom_y": 5.0, "odom_heading": 0.0, "battery": 1.0}
+    assert layer.act(base) == (1.0, 1.0)
+    first = layer.act(base | {"bumper_left": 1.0})
+    assert first == (-0.6, -0.6), "backs off"
+    n = len(calls)
+    wheels = [layer.act(base) for _ in range(8)]
+    assert len(calls) == n, "the brain is not consulted during the manoeuvre"
+    assert wheels[:2] == [(-0.6, -0.6)] * 2
+    assert all(w == (1.0, -1.0) for w in wheels[2:8]), "spins right, away from a left bump"
+    assert layer.act(base) == (1.0, 1.0), "manoeuvre over, the brain drives again"
+
+
+def test_bumper_reflex_cuts_collisions_of_a_bad_driver() -> None:
+    from doomworm.brains import ScriptedBrain
+
+    def run(reflex: bool) -> int:
+        world = build_world(3002, "apartment", "clean")
+        brain = ScriptedBrain(lambda _c: (1.0, 1.0), "straight")
+        layer = PlannerLayer(brain, VACUUM, mode="needs", bumper_reflex=reflex)
+        run_brain_episode(world, layer, 400, sensors=SensorSuite(VACUUM, seed=5))
+        return world.collisions
+
+    assert run(True) < run(False) / 3

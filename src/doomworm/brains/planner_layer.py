@@ -50,6 +50,9 @@ class PlannerLayer:
         strength: magnitude of the injected gradient (the worm's target
             neurons need about 0.5 to react).
         brush: sweep radius used to mark cells as done, in world units.
+        footprint: body radius (the world's ``agent_radius``) marked free on the map
+            every tick; larger than the body, and walls the robot drives up to are
+            erased from the map.
         beacon_homing: dock beacon strength (1/distance) from which the beacon bearing
             replaces the planned path on the final approach; 0.5 = within 2 units.
             Further out the beacon may point through a wall.
@@ -59,6 +62,9 @@ class PlannerLayer:
         dock_autopilot: in needs mode, drive the trip to the dock with the layer's
             own gradient follower instead of the inner brain (stage 21.8): return
             to dock is a safety routine of the platform, the brain only cleans.
+        bumper_reflex: on bumper or cliff contact the layer backs off for 3 ticks
+            and spins away from the contact side, longer with every repeated bump
+            (stage 21.9); the brain is not consulted during the manoeuvre.
     """
 
     def __init__(
@@ -70,11 +76,13 @@ class PlannerLayer:
         mode: str = "coverage",
         strength: float = 0.6,
         brush: float = 1.0,
+        footprint: float = 0.5,
         cell: float = 0.5,
         replan_every: int = 5,
         beacon_homing: float = 0.5,
         cost_per_cell: float = 0.008,
         dock_autopilot: bool = True,
+        bumper_reflex: bool = True,
     ) -> None:
         if mode not in ("coverage", "goal", "needs", "passthrough"):
             raise ValueError("mode must be coverage, goal, needs or passthrough")
@@ -84,12 +92,16 @@ class PlannerLayer:
         self.mode = mode
         self.strength = strength
         self.brush = brush
+        self.footprint = footprint
         self.cell = cell
         self.replan_every = replan_every
         self.beacon_homing = beacon_homing
         self.cost_per_cell = cost_per_cell
         self.dock_autopilot = dock_autopilot
         self.autopilot = GradientFollower(name="autopilot")
+        self.bumper_reflex = bumper_reflex
+        self.escape: list[Wheels] = []
+        self.bumps = 0
         self.name = f"planner[{getattr(inner, 'name', 'brain')}]"
         self.goal: tuple[float, float] | None = None
         self.grid = OccupancyGrid(width, height, cell)
@@ -117,6 +129,8 @@ class PlannerLayer:
         self.charging = False
         self.beacon = (0.0, 0.0, 0.0)
         self.autopilot.reset()
+        self.escape = []
+        self.bumps = 0
         self.inner.reset()
 
     # --- mapping ----------------------------------------------------------------
@@ -139,7 +153,7 @@ class PlannerLayer:
             self.needs.dock = (x, y)
         readings = [channels.get(f"range_{i}", 0.0) for i in range(len(self.sensors.ray_angles))]
         self.grid.update(self.pose, self.sensors.ray_angles, readings, self.sensors.ray_range)
-        self.grid.mark_free_around(x, y, self.brush)
+        self.grid.mark_free_around(x, y, self.footprint)
         if channels.get("bumper_left", 0.0) or channels.get("bumper_right", 0.0):
             side = 0.0
             if not channels.get("bumper_left", 0.0):
@@ -223,8 +237,26 @@ class PlannerLayer:
             return 0.0, 0.0
         merged = dict(channels) | self.gradient()
         if self.autopiloting():
-            return self.autopilot.act(merged)
+            return self.autopilot.act(merged)  # the autopilot has its own escape
+        if self.bumper_reflex:
+            self._reflex(channels)
+            if self.escape:
+                return self.escape.pop(0)
         return self.inner.act(merged)
+
+    def _reflex(self, channels: Mapping[str, float]) -> None:
+        """Queue an escape manoeuvre on a fresh contact; nothing while one is running."""
+        if self.escape:
+            return
+        left = channels.get("bumper_left", 0.0) or channels.get("cliff_left", 0.0)
+        right = channels.get("bumper_right", 0.0) or channels.get("cliff_right", 0.0)
+        if not (left or right):
+            self.bumps = max(0, self.bumps - 1) if self.tick % 50 == 0 else self.bumps
+            return
+        self.bumps += 1
+        turn = 4 + 2 * (self.bumps % 4)
+        spin: Wheels = (1.0, -1.0) if left and not right else (-1.0, 1.0)
+        self.escape = [(-0.6, -0.6)] * 3 + [spin] * turn
 
     def autopiloting(self) -> bool:
         """Needs mode, heading for the dock, autopilot on: the layer drives."""
