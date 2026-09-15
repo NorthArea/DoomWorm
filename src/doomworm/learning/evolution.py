@@ -7,7 +7,7 @@ Topology is never touched: a genome is the weight vector of a fixed network.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -72,12 +72,15 @@ def evolve(
     on_generation: Callable[[GenerationStats], None] | None = None,
     initial: np.ndarray | None = None,
     initial_sigma: float | None = None,
+    map_fn: Callable[[Fitness, Iterable[np.ndarray]], Iterable[float]] = map,
 ) -> EvolutionResult:
     """Run truncation selection with Gaussian mutation; deterministic for a seed.
 
     With ``initial`` the first generation is that genome plus perturbations of
     scale ``initial_sigma`` (default: the mutation sigma) instead of uniform
     random genomes: this is how a connectome's weights are trained in place.
+    ``map_fn`` evaluates a generation (``multiprocessing.Pool.map`` for parallel
+    fitness); the search itself stays deterministic for a seed.
     """
     cfg = config or EvolutionConfig()
     rng = np.random.default_rng(seed)
@@ -97,7 +100,7 @@ def evolve(
     history: list[GenerationStats] = []
 
     for generation in range(cfg.generations):
-        scores = np.array([fitness(genome) for genome in population])
+        scores = np.array(list(map_fn(fitness, population)))
         order = np.argsort(-scores)
         population = population[order]
         scores = scores[order]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +46,22 @@ class WormBrain:
         self.activity = average_activity(window)
         return self.motor(self.activity)
 
+    # --- Trainable ----------------------------------------------------------------
+
+    @property
+    def n_weights(self) -> int:
+        """One gene per synapse; topology is fixed."""
+        return len(self.network.synapses)
+
+    def get_weights(self) -> list[float]:
+        """Synaptic weights in insertion order."""
+        return self.network.get_weights()
+
+    def set_weights(self, weights: Sequence[float]) -> None:
+        """Overwrite synaptic weights; the simulator picks them up on the next reset."""
+        self.network.set_weights([float(w) for w in weights])
+        self.sim = Simulator(self.network)
+
     # --- persistence -----------------------------------------------------------
 
     def save(self, path: Path | str) -> None:
@@ -72,12 +88,14 @@ class WormBrain:
         net, meta = load_brain(path)
         params = dict(meta.get("params", {})) | overrides
         scenario = WormScenario(**params)
-        scenario.template.set_weights(net.get_weights())
+        # The saved network is used as is (a control topology differs from the
+        # connectome); the scenario only contributes the named-neuron adapters.
+        keep = {k: meta[k] for k in ("variant", "candidate", "layer", "train") if k in meta}
         return cls(
-            scenario.template,
+            net,
             scenario.sensory,
             scenario.motor,
             scenario.brain_steps,
             name=Path(path).stem,
-            meta={"scenario": "worm", "params": scenario.params} | {"source": str(path)},
+            meta={"scenario": "worm", "params": scenario.params, "source": str(path)} | keep,
         )

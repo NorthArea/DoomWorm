@@ -4,6 +4,7 @@ doomworm train                     evolve weights (stage 4 small network)
 doomworm train --scenario worm     evolve the connectome weights (stage 10)
 doomworm compare                   real vs random vs shuffled vs free topology (stage 11)
 doomworm benchmark --brain X       run any saved brain through the benchmark (stage 18)
+doomworm evolve --candidate worm   train a bake-off candidate on the benchmark world (stage 21)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
@@ -76,6 +77,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="wrap with the map layer",
     )
 
+    ev = sub.add_parser("evolve", help="train a bake-off candidate on the benchmark world")
+    ev.add_argument(
+        "--candidate", required=True, help="worm, worm_random, worm_shuffled, worm_dense, rnn"
+    )
+    ev.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
+    ev.add_argument("--variant-seed", type=int, default=0, help="seed of a control topology")
+    ev.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
+    ev.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    ev.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    ev.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    ev.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
+    ev.add_argument("--steps", type=int, default=800)
+    ev.add_argument("--population", type=int, default=40)
+    ev.add_argument("--generations", type=int, default=25)
+    ev.add_argument("--sigma", type=float, default=0.02)
+    ev.add_argument("--init-sigma", type=float, default=None)
+    ev.add_argument("--seed", type=int, default=0, help="evolution seed")
+    ev.add_argument("--workers", type=int, default=1, help="processes for fitness evaluation")
+    ev.add_argument("--out", type=Path, default=None, help="default runs/a2/<candidate>.json")
+
     stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
     stim.add_argument("neurons", nargs="+", help="neuron names, e.g. ASHL ASHR")
     stim.add_argument("--current", type=float, default=1.0)
@@ -91,7 +112,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run_benchmark_cli(args: argparse.Namespace) -> int:
     """Benchmark a saved brain (worm JSON) and update the leaderboard."""
-    from doomworm.brains import WormBrain
     from doomworm.episode import BrainLike
     from doomworm.learning import BenchmarkConfig, run_benchmark, save_result, write_leaderboard
 
@@ -116,9 +136,9 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
         brain = RoombaBrain()
         name = args.name or "roomba"
     elif args.brain is not None:
-        brain = WormBrain.from_file(
-            args.brain, maps=args.maps, task=args.task, dangers=args.dangers
-        )
+        from doomworm.brains import load_candidate
+
+        brain = load_candidate(args.brain, maps=args.maps, task=args.task, dangers=args.dangers)
         name = args.name or args.brain.stem
     else:
         raise SystemExit("benchmark: give --brain <file> or --scripted <name>")
@@ -143,6 +163,49 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
     path = save_result(result, args.out_dir)
     print(f"\nsaved {path}\n")
     print(write_leaderboard(args.out_dir))
+    return 0
+
+
+def run_evolve_cli(args: argparse.Namespace) -> int:
+    """Train one candidate with the shared harness (stage 21.2)."""
+    from doomworm.brains import CandidateSpec
+    from doomworm.learning import TrainConfig, train_candidate
+
+    spec = CandidateSpec(
+        kind=args.candidate,
+        init=None if args.init_brain is None else str(args.init_brain),
+        variant_seed=args.variant_seed,
+        maps=args.maps,
+        task=args.task,
+        sensors=args.sensors,
+    )
+    cfg = TrainConfig(
+        layer=args.layer,
+        train_seeds=tuple(range(100, 100 + args.train_seeds)),
+        steps=args.steps,
+        population=args.population,
+        generations=args.generations,
+        sigma=args.sigma,
+        init_sigma=args.init_sigma,
+        mutation_fraction=0.05 if args.candidate == "worm_dense" else 1.0,
+        seed=args.seed,
+        workers=args.workers,
+    )
+    out = args.out or Path("runs") / "a2" / f"{spec.label()}.json"
+    print(
+        f"evolve {spec.label()} under layer {cfg.layer}: {cfg.population} x {cfg.generations} "
+        f"on maps {cfg.train_seeds}, {cfg.workers} workers -> {out}"
+    )
+    result = train_candidate(
+        spec,
+        cfg,
+        out,
+        on_generation=lambda g: print(
+            f"  gen {g.generation:3d}  best {g.best:8.2f}  mean {g.mean:8.2f}", flush=True
+        ),
+    )
+    print(f"best train fitness {result.best_fitness:.2f}; saved {out}")
+    print(f"benchmark: doomworm benchmark --brain {out} --planner {cfg.layer}")
     return 0
 
 
@@ -261,4 +324,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_compare(args)
     if args.command == "benchmark":
         return run_benchmark_cli(args)
+    if args.command == "evolve":
+        return run_evolve_cli(args)
     return run_play(args)

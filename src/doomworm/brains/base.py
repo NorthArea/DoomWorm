@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol, runtime_checkable
 
 Wheels = tuple[float, float]
@@ -20,6 +20,24 @@ class Brain(Protocol):
 
     def act(self, channels: Mapping[str, float]) -> Wheels:
         """Return ``(wheel_left, wheel_right)`` in [-1, 1] for this environment step."""
+        ...
+
+
+@runtime_checkable
+class Trainable(Protocol):
+    """A Brain whose behaviour is a flat weight vector (evolution trains it in place)."""
+
+    @property
+    def n_weights(self) -> int:
+        """Genome length."""
+        ...
+
+    def get_weights(self) -> list[float]:
+        """Current genome."""
+        ...
+
+    def set_weights(self, weights: Sequence[float]) -> None:
+        """Load a genome."""
         ...
 
 

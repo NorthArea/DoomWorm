@@ -27,8 +27,8 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 20 | A1: needs arbitration (battery > call > clean) | `tests/test_needs.py` | `make demo-20` | done: on unseen apartments with vacuum sensors the driver recharges and survives 16/18 episodes (reward +12, coverage 28%), the worm 15/18 (reward −5, coverage 16%); calls reach the next room on the vacuum preset; see `docs/results/stage20_needs_eval_2026-09-15.md`. **Phase A1 closed 2026-09-15** (Plan §47 milestone). |
 | 21 | A2: bake-off of all candidate brains on the benchmark | | | in progress, sub-stages below |
 | 21.1 | A2: Roomba-style classical controller (zero learning, the floor) | `tests/test_roomba.py` | `make demo-21` | done: reward −0.1, coverage 19%, survives 13/18 (`docs/results/benchmark_2026-09-15/roomba.csv`) |
-| 21.2 | A2: generic training harness (any weight-trainable Brain under the same layer, same evolution, parallel fitness); retrain worm + controls on the vacuum task | | | todo |
-| 21.3 | A2: small recurrent net from scratch, same evolution | | | todo |
+| 21.2 | A2: generic training harness (any weight-trainable Brain under the same layer, same evolution, parallel fitness); retrain worm + controls on the vacuum task | `tests/test_bakeoff.py` | `make evolve-a2 CANDIDATE=worm` then `doomworm benchmark --brain runs/a2/worm.json --planner needs` | harness done; training runs of worm, worm-from-stage-12, random, shuffled, dense in progress |
+| 21.3 | A2: small recurrent net from scratch, same evolution | `tests/test_rnn.py` | `make evolve-a2 CANDIDATE=rnn` then `doomworm benchmark --brain runs/a2/rnn.json --planner needs` | code done; training run pending |
 | 21.4 | A2: PPO via Gymnasium (optional `rl` group) | | | todo |
 | 21.5 | A2: Neural Circuit Policies (optional `rl` group) | | | todo |
 | 21.6 | A2: hybrids | | | todo |
