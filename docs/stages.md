@@ -32,7 +32,7 @@ A stage is done only when it works, is covered by tests, and has an observable d
 | 21.4 | A2: PPO via Gymnasium (optional `rl` group) | `tests/test_rl.py` (skipped without the group) | `uv sync --group rl` then `doomworm ppo` and `doomworm benchmark --brain runs/a2/ppo.json --planner needs` | done: best learned brain, reward 49.7, coverage 0.31, survives 9/18 |
 | 21.5 | A2: Neural Circuit Policies (optional `rl` group) | `tests/test_ncp.py` (skipped without the group) | `make evolve-a2 CANDIDATE=ncp` then `doomworm benchmark --brain runs/a2/ncp.json --planner needs` | done (did not learn to drive at this budget: reward −6.2, coverage 0.02) |
 | 21.6 | A2: hybrids | | | worm under the planner (hybrid 1 of Plan §20.4) is every `+needs` row; other hybrids not built |
-| 21.8 | A2: dock autopilot in the planner layer (the layer drives the trip to the dock, the brain only cleans) | `tests/test_needs.py` | `make benchmark-a2` | code done; re-benchmark of every needs row over 3 seeds in progress |
+| 21.8 | A2: dock autopilot in the planner layer (the layer drives the trip to the dock, the brain only cleans) | `tests/test_needs.py` | `make benchmark-a2` | done: survival 0.93-0.98 for every brain; PPO 61.8 ± 4.4, survives 50/54; final table in `docs/results/a2_bakeoff_2026-09-15.md` |
 | 21.7 | A2: leaderboard with >= 3 seeds per candidate, decision for A3 | | `make benchmark-a2` | done: 3 seeds for the six main rows; PPO 55.8 ± 11.6 > Roomba 29.5 > worm-curriculum 27.5 ± 0.7 > worm family 10-16; decision for A3 = engineered layer + PPO, worm stays the control (`docs/results/a2_bakeoff_2026-09-15.md`). **Phase A2 closed 2026-09-15** (second milestone, Plan §47). |
 | 22 | A3: physical vacuum | | | todo |
 
