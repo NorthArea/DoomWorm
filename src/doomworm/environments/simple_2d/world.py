@@ -270,6 +270,7 @@ class World:
         self.speed = speed
         self.wheel_base = wheel_base
         self.collisions = 0
+        self.last_command: tuple[float, float] = (0.0, 0.0)  # what the motors were told
 
     @property
     def starved(self) -> bool:
@@ -307,6 +308,7 @@ class World:
         """Apply motor commands in [-1, 1] (negative = reverse) for one tick."""
         left = _clamp(motor_left, -1.0, 1.0)
         right = _clamp(motor_right, -1.0, 1.0)
+        self.last_command = (left, right)
         linear = (left + right) / 2.0 * self.speed
         angular = (right - left) / self.wheel_base * self.speed
 

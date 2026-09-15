@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 import socket
+from dataclasses import replace
 from typing import Any, Protocol, TextIO, runtime_checkable
 
 from doomworm.environments.sensors import PRESETS, SensorConfig, SensorSuite
@@ -142,6 +144,8 @@ class LineLink:
         self.name = name
         self.raw_last: RawReading | None = None
         self._names = SensorSuite(self.calibration.sensors).channel_names
+        self._pose = [0.0, 0.0, 0.0]  # open-loop odometry (units) when the robot has no encoders
+        self._command = (0.0, 0.0)
 
     @property
     def channel_names(self) -> list[str]:
@@ -158,15 +162,36 @@ class LineLink:
         if not isinstance(data, dict) or "ranges_m" not in data:
             raise ValueError(f"{self.name}: expected a reading with ranges_m, got {line.strip()!r}")
         self.raw_last = RawReading.from_dict(data)
+        if self.raw_last.odom_m is None:
+            self._integrate_command()
+            cal = self.calibration
+            self.raw_last = replace(
+                self.raw_last,
+                odom_m=(cal.to_metres(self._pose[0]), cal.to_metres(self._pose[1])),
+                odom_rad=self._pose[2],
+                gyro_rad=self.raw_last.gyro_rad if cal.sensors.gyro else self._pose[2],
+            )
         return self.calibration.channels(self.raw_last)
+
+    def _integrate_command(self) -> None:
+        """No encoders on the machine: dead reckoning from the last wheel command."""
+        cal = self.calibration
+        left, right = self._command
+        dist = (left + right) / 2.0 * cal.speed
+        self._pose[2] += (right - left) / cal.wheel_base * cal.speed
+        self._pose[0] += dist * math.cos(self._pose[2])
+        self._pose[1] += dist * math.sin(self._pose[2])
 
     def reset(self) -> dict[str, float]:
         """Ask the robot to zero its odometry and send the frame at rest."""
+        self._pose = [0.0, 0.0, 0.0]
+        self._command = (0.0, 0.0)
         return self._exchange({"cmd": "reset"})
 
     def step(self, left: float, right: float) -> dict[str, float]:
         """Send wheels for one tick, get the next frame."""
-        return self._exchange({"cmd": "drive", "left": _clip(left), "right": _clip(right)})
+        self._command = (_clip(left), _clip(right))
+        return self._exchange({"cmd": "drive", "left": self._command[0], "right": self._command[1]})
 
     def truth(self) -> None:
         """A real machine has no ground truth."""

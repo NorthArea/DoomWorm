@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-22 demos train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-22 demos benchmark-car evolve-car train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -115,6 +115,17 @@ demo-22: ## Stage 22.1: A2 worm over the simulator link with recording, then the
 	$(UV) doomworm compare-log --log runs/drive/worm_sim_3002.jsonl --out runs/drive/worm_sim_3002_vs_replay.md
 	$(UV) doomworm compare-log --log runs/drive/worm_sim_3002.jsonl --sensors noisy --out runs/drive/worm_sim_3002_vs_noisy.md
 	printf 'w\nw\nw\nd\nd\nw\nw\n' | $(UV) doomworm drive --teleop --seed 3002 --every 1 --record runs/drive/teleop_3002.jsonl
+
+benchmark-car: ## Stage 22: every A2 candidate plus the scripted floors on the car sensor preset -> runs/benchmark_car/
+	$(UV) doomworm benchmark --scripted roomba --sensors car --out-dir runs/benchmark_car
+	$(UV) doomworm benchmark --scripted follower --planner needs --sensors car --out-dir runs/benchmark_car
+	for b in worm worm_from_worm_evolved_random rnn ppo; do \
+	  $(UV) doomworm benchmark --brain docs/results/brains_a2/$$b.json --planner needs --sensors car --out-dir runs/benchmark_car; done
+	for b in $(wildcard runs/a2_car/*.json); do \
+	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --name $$(basename $$b .json)_car --planner needs --sensors car --out-dir runs/benchmark_car;; esac; done
+
+evolve-car: ## Stage 22: retrain $(CANDIDATE) on the car preset -> runs/a2_car/ (PPO: doomworm ppo --sensors car)
+	$(UV) doomworm evolve --candidate $(CANDIDATE) --sensors car --workers 4 --out runs/a2_car/$(CANDIDATE).json
 
 demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every stage demo
 

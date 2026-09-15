@@ -94,6 +94,7 @@ src/doomworm/
   visualization/   brain activity, metrics, debug screen
 tests/             pytest suite (one test module per layer)
 docs/              assumptions, stage checklist, hardware contract (docs/hardware.md), results
+firmware/          stage 22: ESP32 sketch speaking the robot protocol (not compiled yet)
 data/connectome/   Cook 2019 connectome CSVs (see its README for source and citation)
 scripts/           cross-cutting utilities
 runs/              experiment outputs (git-ignored)

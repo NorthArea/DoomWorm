@@ -141,4 +141,107 @@ def test_episode_runs_with_a_suite_and_scenario_param() -> None:
     assert WormScenario().make_sensors(1) is None
     with pytest.raises(ValueError, match="sensors"):
         WormScenario(sensors="lidar")
-    assert set(PRESETS) == {"ideal", "vacuum", "noisy"}
+    assert set(PRESETS) == {"ideal", "vacuum", "noisy", "car"}
+
+
+# --- stage 22: the kit car preset ------------------------------------------------------
+
+
+def test_car_preset_has_the_vacuum_channel_layout_with_three_rays() -> None:
+    from doomworm.environments.sensors import CAR
+
+    names = SensorSuite(CAR).channel_names
+    assert [n for n in names if n.startswith("range_")] == ["range_0", "range_1", "range_2"]
+    for key in ("bumper_left", "cliff_right", "wall_right", "odom_x", "gyro_heading", "dock_front"):
+        assert key in names
+
+
+def test_car_sweep_refreshes_one_ray_per_tick() -> None:
+    from doomworm.environments.sensors import CAR
+
+    cfg = SensorConfig(name="sweep", ray_angles=CAR.ray_angles, sweep=True)
+    w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
+    suite = SensorSuite(cfg)
+    suite.reset(w)
+    first = suite.read(w, w.observe())
+    # spin 90 degrees in one go: only the ray measured this tick sees the new geometry
+    w.agent = AgentState(x=5.0, y=10.0, heading=math.pi / 2)
+    second = suite.read(w, w.observe())
+    changed = [i for i in range(3) if second[f"range_{i}"] != first[f"range_{i}"]]
+    assert len(changed) == 1, "one servo position per tick"
+    for _ in range(2):
+        second = suite.read(w, w.observe())
+    exact = [
+        max(0.0, 1.0 - w.ray_distance(w.agent.heading + a) / cfg.ray_range) for a in cfg.ray_angles
+    ]
+    assert [second[f"range_{i}"] for i in range(3)] == pytest.approx(exact), "a full sweep later"
+
+
+def test_car_proximity_bumper_fires_before_contact_and_ignores_real_collisions() -> None:
+    from dataclasses import replace
+
+    from doomworm.environments.sensors import CAR
+
+    cfg = SensorConfig(name="pb", ray_angles=CAR.ray_angles, proximity_bumper=0.7)
+    w = World(agent=AgentState(x=7.0, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
+    suite = SensorSuite(cfg)
+    suite.reset(w)
+    far = suite.read(w, w.observe())
+    assert (far["bumper_left"], far["bumper_right"]) == (0.0, 0.0), "1.0 away: no hit"
+    w.agent = AgentState(x=7.4, y=10.0, heading=0.0)
+    near = suite.read(w, w.observe())
+    assert (near["bumper_left"], near["bumper_right"]) == (1.0, 1.0), "front ray under 0.7"
+    # a real collision from the side is invisible to a ray-based bumper
+    w.agent = AgentState(x=5.0, y=10.0, heading=math.pi / 2)
+    side = suite.read(w, replace(w.observe(), collided=True))
+    assert (side["bumper_left"], side["bumper_right"]) == (0.0, 0.0)
+
+
+def test_car_command_odometry_keeps_moving_against_a_wall_and_gyro_follows_it() -> None:
+    from doomworm.environments.sensors import CAR
+
+    cfg = SensorConfig(
+        name="ol", ray_angles=CAR.ray_angles, odometry=True, odom_source="commands", gyro=False
+    )
+    w = World(agent=AgentState(x=7.4, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
+    suite = SensorSuite(cfg)
+    suite.reset(w)
+    for _ in range(10):
+        obs = w.step(1.0, 1.0)  # pushing into the wall: the body does not move
+        ch = suite.read(w, obs)
+    assert w.agent.x == pytest.approx(7.4, abs=0.15)
+    assert ch["odom_x"] == pytest.approx(7.4 + 10 * w.speed), "open loop believes it drove on"
+    assert ch["gyro_heading"] == ch["odom_heading"], "no IMU: the gyro channel is the odometry"
+
+
+def test_car_binary_wall_sensor_and_camera_beacon() -> None:
+    from doomworm.environments.sensors import CAR
+    from doomworm.environments.simple_2d import Dock
+
+    cfg = SensorConfig(
+        name="cam",
+        ray_angles=CAR.ray_angles,
+        wall_sensor=True,
+        wall_binary=0.75,
+        beacon_fov=math.radians(30.0),
+        beacon_range=5.0,
+    )
+    w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(0.0, 9.0, 20.0, 0.4)])
+    w.dock = Dock(x=8.0, y=10.0)
+    suite = SensorSuite(cfg)
+    suite.reset(w)
+    ch = suite.read(w, w.observe())
+    assert ch["wall_right"] == 1.0, "wall 0.6 to the right: the IR module is on"
+    assert ch["dock_front"] == pytest.approx(1.0 / 3.0), "marker straight ahead, 3 away"
+    w.agent = AgentState(x=5.0, y=10.0, heading=math.pi / 2)  # marker now at -90: out of view
+    ch = suite.read(w, w.observe())
+    assert (ch["dock_left"], ch["dock_front"], ch["dock_right"]) == (0.0, 0.0, 0.0)
+    w.agent = AgentState(x=5.0, y=10.0, heading=-math.radians(20.0))  # marker 20 deg left
+    ch = suite.read(w, w.observe())
+    assert ch["dock_left"] > 0.0
+    w.agent = AgentState(x=1.0, y=10.0, heading=0.0)  # 7 away: beyond the marker range
+    ch = suite.read(w, w.observe())
+    assert ch["dock_front"] == 0.0
+    w.agent = AgentState(x=5.0, y=11.0, heading=0.0)  # wall 1.6 to the right: module off
+    ch = suite.read(w, w.observe())
+    assert ch["wall_right"] == 0.0

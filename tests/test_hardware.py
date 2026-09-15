@@ -258,3 +258,44 @@ def test_cli_drive_and_compare_log(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert main([*args, "--record", str(tmp_path / "brain.jsonl")]) == 0
     with pytest.raises(SystemExit):
         main(["drive", "--seed", "1"])
+
+
+# --- stage 22 car platform --------------------------------------------------------------
+
+
+def test_car_calibration_scale_and_speed() -> None:
+    cal = Calibration.for_preset("car")
+    assert cal.sensors.name == "car"
+    assert cal.unit_m == pytest.approx(0.2)
+    assert cal.speed_mps == pytest.approx(0.4)
+    assert Calibration.for_preset("vacuum").unit_m == pytest.approx(0.33)
+
+
+def test_line_link_integrates_odometry_when_the_machine_has_no_encoders() -> None:
+    cal = Calibration.for_preset("car")
+    frame = json.dumps(RawReading(ranges_m=[None] * 3, odom_m=None).to_dict()) + "\n"
+    link = LineLink(io.StringIO(frame * 12), io.StringIO(), cal)
+    first = link.reset()
+    assert (first["odom_x"], first["odom_y"]) == (0.0, 0.0)
+    ch = first
+    for _ in range(10):
+        ch = link.step(1.0, 1.0)
+    assert ch["odom_x"] == pytest.approx(10 * cal.speed)
+    assert ch["gyro_heading"] == ch["odom_heading"], "no IMU on the car"
+    ch = link.step(-1.0, 1.0)
+    assert ch["odom_heading"] == pytest.approx(2.0 / cal.wheel_base * cal.speed)
+
+
+def test_fake_robot_serves_the_car_preset() -> None:
+    from doomworm.environments.sensors import CAR
+
+    cal = Calibration.for_preset("car")
+    brain = PlannerLayer(GradientFollower(), CAR, mode="needs")
+    direct = SimLink(build_world(3001, "apartment", "clean"), CAR, sensor_seed=3)
+    rows_direct = drive(direct, brain, steps=30)
+    robot = FakeRobot(SimLink(build_world(3001, "apartment", "clean"), CAR, sensor_seed=3), cal)
+    link, thread = _serve_fake_robot(robot)
+    rows_wire = drive(link, brain, steps=30)
+    link.close()
+    thread.join(timeout=5)
+    assert [r.wheels for r in rows_wire] == pytest.approx([r.wheels for r in rows_direct])

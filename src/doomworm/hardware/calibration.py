@@ -17,7 +17,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from doomworm.environments.sensors import PASSTHROUGH, VACUUM, SensorConfig
+from doomworm.environments.sensors import PASSTHROUGH, PRESETS, VACUUM, SensorConfig
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class RawReading:
     bumper: tuple[int, int] = (0, 0)
     cliff: tuple[int, int] = (0, 0)
     wall_m: float | None = None
-    odom_m: tuple[float, float] = (0.0, 0.0)
+    odom_m: tuple[float, float] | None = (0.0, 0.0)  # None = no encoders, the host integrates
     odom_rad: float = 0.0
     gyro_rad: float = 0.0
     battery: float = 1.0
@@ -53,7 +53,7 @@ class RawReading:
         """Parse a wire message; unknown keys are ignored, missing ones take defaults."""
         known = {k: data[k] for k in cls.__dataclass_fields__ if k in data}
         for key in ("bumper", "cliff", "odom_m", "dock"):
-            if key in known:
+            if known.get(key) is not None:
                 known[key] = tuple(known[key])
         return cls(**known)
 
@@ -65,6 +65,21 @@ class Calibration:
     unit_m: float = 0.33  # metres per world unit: body radius 0.5 u = 0.165 m, a 33 cm vacuum
     tick_s: float = 0.1  # seconds per environment step
     sensors: SensorConfig = VACUUM
+    speed: float = 0.2  # world units per tick at full wheel command (World.speed)
+    wheel_base: float = 1.0  # world units (World.wheel_base)
+
+    @classmethod
+    def for_preset(cls, name: str) -> Calibration:
+        """The calibration of a known platform: ``vacuum``/``noisy``/``ideal`` or ``car``."""
+        if name == "car":
+            # ACEBOTT QD001: ~20 cm long, body radius 0.5 u = 0.1 m; 0.2 u/tick = 0.4 m/s
+            return cls(unit_m=0.2, sensors=PRESETS[name])
+        return cls(sensors=PRESETS[name])
+
+    @property
+    def speed_mps(self) -> float:
+        """Top speed implied by the scale, metres per second."""
+        return self.speed * self.unit_m / self.tick_s
 
     # --- derived physical ranges ----------------------------------------------------
 
@@ -122,10 +137,11 @@ class Calibration:
         if cfg.wall_sensor:
             out["wall_right"] = self.proximity(raw.wall_m, self.wall_range_m)
         if cfg.odometry:
-            out["odom_x"] = self.to_units(raw.odom_m[0])
-            out["odom_y"] = self.to_units(raw.odom_m[1])
+            odom = raw.odom_m if raw.odom_m is not None else (0.0, 0.0)
+            out["odom_x"] = self.to_units(odom[0])
+            out["odom_y"] = self.to_units(odom[1])
             out["odom_heading"] = raw.odom_rad
-            out["gyro_heading"] = raw.gyro_rad
+            out["gyro_heading"] = raw.gyro_rad if cfg.gyro else raw.odom_rad
         battery = max(0.0, min(1.0, raw.battery))
         beacon = {"dock_left": raw.dock[0], "dock_front": raw.dock[1], "dock_right": raw.dock[2]}
         for key in PASSTHROUGH:
@@ -181,4 +197,5 @@ class Calibration:
             "ray_angles_deg": [round(math.degrees(a), 1) for a in self.sensors.ray_angles],
             "ray_range_m": self.ray_range_m,
             "wall_range_m": self.wall_range_m,
+            "speed_mps": self.speed_mps,
         }

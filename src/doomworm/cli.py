@@ -20,6 +20,8 @@ from pathlib import Path
 
 from doomworm import __version__
 
+SENSOR_PRESETS = ("ideal", "vacuum", "noisy", "car")
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser."""
@@ -49,9 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--task", choices=["food", "target", "clean"], default=None, help="override brain"
     )
     play.add_argument("--dangers", type=int, default=None, help="override brain")
-    play.add_argument(
-        "--sensors", choices=["ideal", "vacuum", "noisy"], default=None, help="override brain"
-    )
+    play.add_argument("--sensors", choices=SENSOR_PRESETS, default=None, help="override brain")
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
     add_compare_args(cmp)
@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
     bench.add_argument("--task", choices=["food", "target", "clean"], default="clean")
     bench.add_argument("--dangers", type=int, default=0)
-    bench.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    bench.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     bench.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
     bench.add_argument("--repeats", type=int, default=3)
     bench.add_argument("--steps", type=int, default=800)
@@ -91,7 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
     ev.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
     ev.add_argument("--task", choices=["food", "target", "clean"], default="clean")
-    ev.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    ev.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     ev.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
     ev.add_argument("--steps", type=int, default=800)
     ev.add_argument("--population", type=int, default=40)
@@ -106,7 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     ppo.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
     ppo.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
     ppo.add_argument("--task", choices=["food", "target", "clean"], default="clean")
-    ppo.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    ppo.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     ppo.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
     ppo.add_argument("--steps", type=int, default=800)
     ppo.add_argument("--timesteps", type=int, default=300_000)
@@ -129,7 +129,9 @@ def build_parser() -> argparse.ArgumentParser:
     drv.add_argument("--link", choices=["sim", "tcp"], default="sim")
     drv.add_argument("--host", default="192.168.4.1", help="robot address for --link tcp")
     drv.add_argument("--port", type=int, default=5000)
-    drv.add_argument("--unit-m", type=float, default=0.33, help="metres per world unit")
+    drv.add_argument(
+        "--unit-m", type=float, default=None, help="metres per world unit (default: preset)"
+    )
     drv.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
     drv.add_argument("--scripted", choices=["follower", "roomba"], default=None)
     drv.add_argument("--teleop", action="store_true", help="wasd / 'l r' pairs from stdin")
@@ -137,7 +139,7 @@ def build_parser() -> argparse.ArgumentParser:
     drv.add_argument("--seed", type=int, default=3000, help="world seed (sim link)")
     drv.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
     drv.add_argument("--task", choices=["food", "target", "clean"], default="clean")
-    drv.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default="vacuum")
+    drv.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     drv.add_argument("--sensor-seed", type=int, default=0)
     drv.add_argument("--steps", type=int, default=800)
     drv.add_argument("--every", type=int, default=25, help="print a line every N ticks")
@@ -149,7 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--against", type=Path, default=None, help="another log instead of a replay"
     )
     cmp_log.add_argument("--seed", type=int, default=None, help="override the log's world seed")
-    cmp_log.add_argument("--sensors", choices=["ideal", "vacuum", "noisy"], default=None)
+    cmp_log.add_argument("--sensors", choices=SENSOR_PRESETS, default=None)
     cmp_log.add_argument("--sensor-seed", type=int, default=None)
     cmp_log.add_argument("--out", type=Path, default=None, help="write the markdown report here")
     return parser
@@ -158,6 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
 def run_drive_cli(args: argparse.Namespace) -> int:
     """Stage 22: one loop for the simulator and the machine, with recording."""
     import sys
+    from dataclasses import replace
 
     from doomworm.episode import BrainLike
     from doomworm.hardware import Calibration, SimLink, Teleop, connect_tcp, drive, raw_keys
@@ -189,9 +192,9 @@ def run_drive_cli(args: argparse.Namespace) -> int:
 
     link: RobotLink
     if args.link == "tcp":
-        from doomworm.environments.sensors import PRESETS
-
-        cal = Calibration(unit_m=args.unit_m, sensors=PRESETS[args.sensors])
+        cal = Calibration.for_preset(args.sensors)
+        if args.unit_m is not None:
+            cal = replace(cal, unit_m=args.unit_m)
         link = connect_tcp(args.host, args.port, cal)
     else:
         from doomworm.worlds import build_world
@@ -230,7 +233,8 @@ def run_drive_cli(args: argparse.Namespace) -> int:
 
 def run_compare_log_cli(args: argparse.Namespace) -> int:
     """Stage 22: replay a drive log in the simulator (or against another log) and report."""
-    from doomworm.environments.sensors import PRESETS
+    from dataclasses import replace
+
     from doomworm.hardware import Calibration, compare_logs, read_drive_log, replay_in_sim
 
     meta, rows = read_drive_log(args.log)
@@ -249,8 +253,9 @@ def run_compare_log_cli(args: argparse.Namespace) -> int:
         label = f"{args.log} vs replay ({other_meta.get('sensors')}, seed {other_meta.get('seed')})"
     report = compare_logs(rows, other)
     sensors = str(meta.get("sensors") or "vacuum")
-    unit_m = float((meta.get("calibration") or {}).get("unit_m", 0.33))
-    cal = Calibration(unit_m=unit_m, sensors=PRESETS[sensors])
+    cal = Calibration.for_preset(sensors)
+    if "unit_m" in (meta.get("calibration") or {}):
+        cal = replace(cal, unit_m=float(meta["calibration"]["unit_m"]))
     text = f"# {label}\n\n" + report.markdown(cal)
     print(text)
     if args.out is not None:

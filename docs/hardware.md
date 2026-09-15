@@ -1,106 +1,126 @@
-# Hardware (phase A3, Plan §20.5)
+# Hardware (phase A3, Plan §20.5 and §20.5.1)
 
 Stage 22 moves the chosen brain onto a machine. Only the Environment and the
 adapters change; the brain is the same saved file, wrapped in the same
 engineered layer (map, planner, needs arbitration, dock autopilot, bumper
-reflex). This page is the contract between the simulator and the robot, and
-the procedure that checks it. It is written before any hardware exists, so
-every number under "assumed" is a working value to be replaced by a
-measurement.
+reflex). This page is the contract between the simulator and the machine,
+and the procedure that checks it. Every number under "assumed" is a working
+value to be replaced by a measurement on the real car.
 
-## What the robot must provide
+## The machine (decision 2026-09-15): a kit car, not a vacuum yet
 
-The channels of the `vacuum` sensor preset (`environments/sensors.py`), in
-physical units, once per environment tick:
+ACEBOTT QD001 (ESP32, 4WD mecanum, one ultrasonic rangefinder, line-tracking
+module, IR remote) with the QD003 expansion (K210 vision module) and one or
+two basic sensors from Arduino starter kits. The simulator preset `car`
+(`environments/sensors.py`) models exactly this, nothing more convenient:
 
-| Channel(s) | Sensor | Simulator model | Assumed part |
+| Channel(s) | On the car | Simulator model (`CAR`) | Assumed / to verify |
 |---|---|---|---|
-| `range_0..4` | 5 rangefinders at +60, +30, 0, -30, -60 degrees | proximity `1 - d / 4 u`, 5 % relative noise, 2 % dropout, 1 tick delay | ToF (VL53L1X class) or ultrasonic, reach >= 1.3 m |
-| `bumper_left/right` | two-zone front bumper | contact this tick, side by nearest ray | microswitches |
-| `cliff_left/right` | two downward IR sensors, 0.7 u ahead at +-30 degrees | edge of a danger zone | IR reflectance pair |
-| `wall_right` | right-side IR | proximity `1 - d / 1 u` | IR distance sensor, reach ~0.3 m |
-| `odom_x/y/heading` | wheel encoders, dead reckoning | 5 % multiplicative noise per displacement | quadrature encoders on both wheels |
-| `gyro_heading` | IMU yaw | random-walk bias 0.002 rad/tick | MPU-6050 class IMU |
-| `battery` | state of charge in [0, 1] | drains 0.002/tick, 500 ticks full to empty | cell voltage -> SoC table |
-| `dock_left/front/right` | IR beacon receivers, three sectors | exact bearing within 8 u, `>= 0.5` within 2 u | 3 IR receivers + dock emitter |
-| (`charging`) | dock contacts | "battery rising" is what the layer uses | contact flag, informational |
+| `range_0..2` | one HC-SR04 on a servo, swept over +30 / 0 / -30 degrees | `sweep=True`: one ray refreshed per tick, the other two hold their last value; 5 % noise, 5 % dropout, 1 tick delay | the stock sensor sits on a servo (verify on unboxing; if fixed, one ray) |
+| `bumper_left/right` | none | `proximity_bumper=0.7 u`: a ray closer than 0.7 u from the centre (4 cm from the body) reads as contact on its side; side collisions are invisible | |
+| `cliff_left/right` | outer channels of the line-tracking module | edge of a danger zone 0.7 u ahead at +-30 degrees | polarity of the module |
+| `wall_right` | IR obstacle module on the right side | binary: 1 within 0.75 u (5 cm from the body), else 0 | trim pot distance |
+| `odom_x/y/heading` | no encoders | commanded wheels integrated (`odom_source="commands"`), 10 % noise; blind to slip and to pushing against a wall | mecanum slip is probably worse |
+| `gyro_heading` | no IMU | equals the odometry heading | |
+| `battery` | voltage divider if the board has one | the world's battery (0.002 per tick) | may be constant 1.0 on the real car |
+| `dock_left/front/right` | K210 recognises a marker on the "dock" | visible within +-30 degrees and 5 u; sector by bearing thirds; strength 1/d | K210 message format |
+| (`charging`) | none: the "dock" is the start spot | rising battery = docked, in the simulator only | |
 
-Actuators: differential drive, wheel commands in [-1, 1] as a fraction of the
-maximum wheel speed. Controller: ESP32 or Raspberry Pi running the JSON-lines
-protocol below; the brain runs on the host (laptop) during A3 (Plan §20.5
-"controller class Raspberry Pi / ESP32"; on-board inference is a later step).
+Actuators: four TT motors driven as two pairs (left, right) from wheel commands
+in [-1, 1]; mecanum wheels under tank steering behave like a differential drive.
+
+The camera is never an input of the brain (Plan §2.1, §34): it feeds the
+engineered layer's dock beacon only.
 
 ## Units (assumed, not measured)
 
-The simulator uses abstract world units (u) and ticks. `Calibration`
-(`hardware/calibration.py`) is the one place they meet metres and seconds:
+`Calibration.for_preset("car")` (`hardware/calibration.py`):
 
 | Quantity | Simulator | Assumed physical value | Source of the assumption |
 |---|---|---|---|
-| world unit | 1 u | 0.33 m | body radius 0.5 u = 0.165 m, a 33 cm vacuum |
-| tick | 1 | 0.1 s | 10 Hz control loop |
-| max wheel speed | 0.2 u/tick | 0.66 m/s | follows from the two above; a Roomba drives ~0.3 m/s, so the real tick or scale will change |
-| body radius | 0.5 u | 0.165 m | |
-| wheel base | 1.0 u | 0.33 m | wider than a real 0.23 m base; affects turn rate only |
-| rangefinder reach | 4 u | 1.32 m | |
-| wall IR reach | 1 u | 0.33 m | |
-| cliff probe | 0.7 u ahead | 0.23 m | |
-| door width (apartment maps) | 2.4 u | 0.79 m | |
-| dock beacon range | 8 u | 2.6 m | |
+| world unit | 1 u | 0.20 m | body radius 0.5 u = 0.10 m, a ~20 cm car |
+| tick | 1 | 0.1 s | 10 Hz loop; one servo position and one ping per tick |
+| max wheel speed | 0.2 u/tick | 0.40 m/s | TT motors at 1:48 do roughly this; to measure |
+| wheel base | 1.0 u | 0.20 m | |
+| rangefinder reach | 4 u | 0.80 m | HC-SR04 does 4 m; capped so a ping fits in a tick |
+| proximity bumper | 0.7 u | 0.14 m from the centre | |
+| wall IR trip point | 0.75 u | 0.15 m from the centre | |
+| door width (apartment maps) | 2.4 u | 0.48 m | narrow: a room with furniture, not a flat |
+| marker recognition range | 5 u | 1.0 m | to measure with the K210 |
 
-Every value is a `Calibration` field or derived from one; `doomworm drive
---unit-m` overrides the scale. Nothing in a saved brain depends on these
-numbers: the brain sees normalised channels only.
+For the final vacuum platform the scale is 0.33 m per unit
+(`Calibration.for_preset("vacuum")`); see the table at the end.
 
 ## Wire protocol
 
 One JSON object per line, host -> robot, then robot -> host, one exchange per
-tick. Transport: TCP (`doomworm drive --link tcp --host --port`), or any
-text stream (a serial port wrapped as a text file works without new
-dependencies).
+tick. Transport: TCP (`doomworm drive --link tcp --host 192.168.4.1 --port 5000`,
+the car is a Wi-Fi access point), or any text stream.
 
 ```text
-host  -> {"cmd": "reset"}                                  zero odometry, reply with the frame at rest
+host  -> {"cmd": "reset"}                                  stop, full sweep, reply with the frame at rest
 host  -> {"cmd": "drive", "left": 0.6, "right": -0.6}      wheels for one tick, reply with the next frame
-robot -> {"tick": 12, "ranges_m": [0.41, null, 0.9, 1.2, null], "bumper": [0, 0], "cliff": [0, 0],
-          "wall_m": 0.12, "odom_m": [1.02, -0.3], "odom_rad": 0.52, "gyro_rad": 0.5,
+robot -> {"tick": 12, "ranges_m": [0.41, null, 0.30], "bumper": [0, 0], "cliff": [0, 0],
+          "wall_m": 0.10, "odom_m": null, "odom_rad": 0, "gyro_rad": 0,
           "battery": 0.83, "charging": 0, "dock": [0.0, 0.0, 0.0]}
 ```
 
-`null` in `ranges_m` / `wall_m` means no echo (nothing within reach). The
-host converts this with `Calibration.channels()` into exactly the channel
-dict the simulator's suite emits, same keys, same order.
-`hardware/fake_robot.py` is the reference implementation of the robot side
-(it serves the protocol from the simulator); the firmware imitates it.
+`null` in `ranges_m` / `wall_m` means no echo. `"odom_m": null` means the
+machine has no encoders: the host integrates the commands it sent
+(`LineLink._integrate_command`), the same dead reckoning the `car` preset
+uses. `Calibration.channels()` turns the reading into exactly the channel
+dict of the preset, same keys, same order.
+
+Reference implementations: the robot side in Python is
+`hardware/fake_robot.py` (serves the protocol from the simulator; the tests
+drive a brain through it); the ESP32 sketch is `firmware/esp32_car/` (written
+before unboxing, not compiled, pins are placeholders).
 
 ## Procedure (Plan §20.5 order)
 
-1. **Manual control and sensor recording** (stage 22.1, software side done):
-   `doomworm drive --teleop --record runs/drive/<name>.jsonl` drives the
-   simulator (`--link sim`) or the machine (`--link tcp`) with `w a s d x`
-   keys or `left right` pairs from stdin and records every tick: wheels,
-   channels, the raw physical reading, and the true pose when known.
-2. **Comparison against the simulator** (stage 22.2):
-   `doomworm compare-log --log <real log> --seed <map>` replays the recorded
-   wheel sequence in a simulator map that mirrors the real room and reports
-   per-channel RMSE, bumper agreement and (sim vs sim) the final pose error.
-   The stage-22.1 demo shows the tool on two simulator logs: same preset ->
-   zero error; a different preset -> the noise and geometry differences appear.
-   Compare logs of the same preset only: ray indices differ between presets.
-3. **Obstacle avoidance** (22.3): the A2 brain over `--link tcp` with
-   `--planner needs`, in a room with walls and furniture.
-4. **Dock** (22.4): beacon homing and charging on the real dock.
-5. **Cleaning, map, call** (22.5): the acceptance of Plan §20.5.
+1. **Manual control and sensor recording** (22.1, done on the simulator):
+   `doomworm drive --teleop --sensors car --record runs/drive/<name>.jsonl`
+   over `--link sim` or `--link tcp`.
+2. **Comparison against the simulator** (22.2, needs the car): `doomworm
+   compare-log --log <real log> --seed <map>` replays the recorded wheels in a
+   simulator map that mirrors the room and reports per-channel RMSE, bumper
+   agreement and (sim vs sim) the final pose error. Compare same-preset logs
+   only: ray indices differ between presets.
+3. **Obstacle avoidance** (22.3): the best `car`-preset brain over `--link tcp`
+   with `--planner needs`, in a room with furniture.
+4. **Marker "dock"** (22.4): K210 beacon into the layer, return to the start spot.
+5. **Coverage, map, call** (22.5): the acceptance of Plan §20.5.1.
+
+Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
+`make evolve-car CANDIDATE=...`); results in `docs/results/stage22_car_2026-09-15.md`.
 
 ## Commands
 
 ```bash
+make benchmark-car                             # every candidate on the car preset -> runs/benchmark_car/
+make evolve-car CANDIDATE=rnn                  # retrain a candidate on the car preset -> runs/a2_car/
 make demo-22                                   # brain over the sim link + log replay comparison
-printf 'w\nw\nd\nw\n' | uv run doomworm drive --teleop --seed 3002 --record runs/drive/teleop.jsonl
-uv run doomworm drive --teleop --link tcp --host 192.168.4.1 --port 5000 --record runs/drive/real.jsonl
+printf 'w\nw\nd\nw\n' | uv run doomworm drive --teleop --sensors car --seed 3002 --record runs/drive/teleop.jsonl
+uv run doomworm drive --teleop --link tcp --sensors car --record runs/drive/real.jsonl
 uv run doomworm compare-log --log runs/drive/real.jsonl --seed 3002
-uv run doomworm compare-log --log a.jsonl --against b.jsonl
 ```
 
-The demo log and its report from the day the stage was written are under
-`docs/results/stage22_drive_2026-09-15/`.
+## The vacuum (the project's target platform, Plan §48)
+
+Kept for when the real vacuum arrives; the `vacuum` preset and its A2 table
+(`docs/results/a2_bakeoff_2026-09-15.md`) stay the reference.
+
+| Channel(s) | Sensor | Assumed part |
+|---|---|---|
+| `range_0..4` | 5 rangefinders at +60, +30, 0, -30, -60 degrees, reach >= 1.3 m | ToF (VL53L1X class) or ultrasonic |
+| `bumper_left/right` | two-zone front bumper | microswitches |
+| `cliff_left/right` | two downward IR sensors 0.23 m ahead at +-30 degrees | IR reflectance pair |
+| `wall_right` | right-side IR, reach ~0.3 m | IR distance sensor |
+| `odom_*`, `gyro_heading` | wheel encoders + IMU yaw | quadrature encoders, MPU-6050 class |
+| `battery`, `charging` | state of charge, dock contacts | cell voltage -> SoC |
+| `dock_*` | three IR beacon receivers + dock emitter, range 2.6 m | |
+
+Scale 0.33 m per unit (33 cm body), tick 0.1 s, rangefinder reach 1.32 m,
+door width 0.79 m; the implied 0.66 m/s top speed is above a real vacuum's.
+A used Roomba 500-800 / Create with the Open Interface serial port provides
+all of this except the rangefinders.
