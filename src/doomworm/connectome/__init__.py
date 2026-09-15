@@ -11,10 +11,18 @@ from doomworm.connectome.mappings import (
 )
 from doomworm.connectome.model import Connection, ConnectionType, Connectome, NeuronInfo
 from doomworm.connectome.neurotransmitters import GABA_NEURONS
+from doomworm.connectome.variants import (
+    VARIANTS,
+    dense_connectome,
+    make_variant,
+    random_connectome,
+    shuffled_connectome,
+)
 
 __all__ = [
     "DATA_DIR",
     "GABA_NEURONS",
+    "VARIANTS",
     "Connection",
     "ConnectionType",
     "Connectome",
@@ -25,5 +33,9 @@ __all__ = [
     "build_network",
     "default_motor_mapping",
     "default_sensory_mapping",
+    "dense_connectome",
     "load_cook2019",
+    "make_variant",
+    "random_connectome",
+    "shuffled_connectome",
 ]

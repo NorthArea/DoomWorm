@@ -2,6 +2,7 @@
 
 doomworm train                     evolve weights (stage 4 small network)
 doomworm train --scenario worm     evolve the connectome weights (stage 10)
+doomworm compare                   real vs random vs shuffled vs free topology (stage 11)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
@@ -17,6 +18,7 @@ from doomworm import __version__
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the top-level argument parser."""
+    from doomworm.experiments.compare_topologies import add_compare_args
     from doomworm.experiments.evolve_small import add_train_args
     from doomworm.experiments.evolve_worm import add_worm_args
 
@@ -35,6 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--steps", type=int, default=600)
     play.add_argument("--every", type=int, default=50)
     play.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
+
+    cmp = sub.add_parser("compare", help="train and compare connectome topologies")
+    add_compare_args(cmp)
 
     stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
     stim.add_argument("neurons", nargs="+", help="neuron names, e.g. ASHL ASHR")
@@ -148,4 +153,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_train(args)
     if args.command == "stimulate":
         return run_stimulate(args)
+    if args.command == "compare":
+        from doomworm.experiments.compare_topologies import run_compare
+
+        return run_compare(args)
     return run_play(args)

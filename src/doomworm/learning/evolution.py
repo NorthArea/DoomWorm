@@ -24,6 +24,7 @@ class EvolutionConfig:
     elite_fraction: float = 0.2
     mutation_sigma: float = 0.3
     weight_range: tuple[float, float] = (-2.0, 2.0)
+    mutation_fraction: float = 1.0  # share of genes perturbed per child (Free mode uses < 1)
 
     @property
     def n_elite(self) -> int:
@@ -118,7 +119,10 @@ def evolve(
         elites = population[: cfg.n_elite]
         n_children = cfg.population - cfg.n_elite
         parents = elites[rng.integers(0, len(elites), size=n_children)]
-        children = parents + rng.normal(0.0, cfg.mutation_sigma, size=parents.shape)
+        noise = rng.normal(0.0, cfg.mutation_sigma, size=parents.shape)
+        if cfg.mutation_fraction < 1.0:
+            noise *= rng.random(parents.shape) < cfg.mutation_fraction
+        children = parents + noise
         population = np.vstack([elites, np.clip(children, low, high)])
 
     return EvolutionResult(best_weights=best_weights, best_fitness=best_fitness, history=history)
