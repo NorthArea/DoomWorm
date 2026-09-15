@@ -63,6 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--repeats", type=int, default=3)
     bench.add_argument("--steps", type=int, default=800)
     bench.add_argument("--out-dir", type=Path, default=Path("runs") / "benchmark")
+    bench.add_argument(
+        "--planner", choices=["none", "coverage"], default="none", help="wrap with the map layer"
+    )
 
     stim = sub.add_parser("stimulate", help="stimulate neurons of the C. elegans connectome")
     stim.add_argument("neurons", nargs="+", help="neuron names, e.g. ASHL ASHR")
@@ -80,6 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
 def run_benchmark_cli(args: argparse.Namespace) -> int:
     """Benchmark a saved brain (worm JSON) and update the leaderboard."""
     from doomworm.brains import WormBrain
+    from doomworm.episode import BrainLike
     from doomworm.learning import BenchmarkConfig, run_benchmark, save_result, write_leaderboard
 
     cfg = BenchmarkConfig(
@@ -91,8 +95,15 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
         steps=args.steps,
         repeats=args.repeats,
     )
+    brain: BrainLike
     brain = WormBrain.from_file(args.brain, maps=args.maps, task=args.task, dangers=args.dangers)
     name = args.name or args.brain.stem
+    if args.planner != "none":
+        from doomworm.brains import PlannerLayer
+        from doomworm.environments.sensors import PRESETS
+
+        brain = PlannerLayer(brain, PRESETS[args.sensors], mode=args.planner)
+        name += "+planner"
     print(f"benchmark {name}: {cfg.episodes} episodes on {cfg.maps}/{cfg.task}/{cfg.sensors}")
     result = run_benchmark(
         brain,

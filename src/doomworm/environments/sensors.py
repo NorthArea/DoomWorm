@@ -50,7 +50,8 @@ class SensorConfig:
     front_half_angle: float = math.radians(15.0)
 
 
-IDEAL = SensorConfig()
+# ideal = every sensor of the vacuum, three 45-degree rays, no noise, no delay
+IDEAL = SensorConfig(bumper=True, cliff=True, wall_sensor=True, odometry=True)
 VACUUM = SensorConfig(
     name="vacuum",
     ray_angles=tuple(math.radians(a) for a in (60.0, 30.0, 0.0, -30.0, -60.0)),

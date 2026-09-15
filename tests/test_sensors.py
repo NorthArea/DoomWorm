@@ -25,7 +25,8 @@ def test_ideal_suite_reproduces_legacy_channels() -> None:
     assert ch["sensor_left"] == pytest.approx(obs.sensor_left)
     assert ch["range_1"] == pytest.approx(obs.sensor_front)
     assert set(suite.channel_names) == set(ch)
-    assert "bumper_left" not in ch
+    assert ch["bumper_left"] == 0.0, "ideal = noiseless, every vacuum sensor present"
+    assert ch["odom_x"] == pytest.approx(w.agent.x)
 
 
 def test_vacuum_channels_and_noise_are_seeded() -> None:
