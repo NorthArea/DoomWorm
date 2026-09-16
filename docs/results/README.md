@@ -1,5 +1,7 @@
 # Results
 
+The map these feed is `docs/findings.md` (one row per axis of Plan §20.7).
+
 One folder per phase. Every report names the rows it was computed from; rows
 are the JSON + CSV the benchmark writes. Trained brains live in `docs/brains/`.
 

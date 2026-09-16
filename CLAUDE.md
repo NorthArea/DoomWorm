@@ -2,7 +2,13 @@
 
 Source of truth: `Plan.md`. Read it before any implementation work.
 
-Two tracks on one platform: A = home vacuum robot (first), B = Doom player (after A1).
+The project is a test bed (Plan §0): the natural network (C. elegans connectome) against
+networks trained from scratch, under identical conditions. Environments, sensor presets,
+budgets and hardware are *conditions* (axes of Plan §20.7), not goals; the deliverable is
+`docs/findings.md`, one row per axis with the worm's number, the best self-trained number,
+the profit and a verdict. Every measurement that changes a row updates that file.
+
+Two tracks on one platform: A = home robot (vacuum -> kit car), B = Doom player (after A1).
 In both, the platform (world, sensor emulation, battery/dock, Brain interface, Gymnasium
 env, benchmark) is finished before any new brain is written; then every candidate brain
 (Roomba-style controller, worm, controls, net from scratch, PPO, NCP, hybrids) is compared

@@ -1,19 +1,20 @@
 # DoomWorm
 
-Experimental project: the **C. elegans connectome** (302 neurons) as a trainable
-controller, built up from a 3-neuron network to a simulated home vacuum robot, and
-compared on one benchmark against a Roomba-style controller, networks trained from
-scratch, PPO, Neural Circuit Policies and hybrids. Two tracks share the platform:
-A = home vacuum (first), B = Doom player. Map building and planning are an engineered
-layer outside the brain.
+A test bed: the **C. elegans connectome** (302 neurons, fixed wiring, trainable
+weights) against networks trained from scratch (small RNN, PPO, NCP) and a Roomba-style
+controller, under identical conditions: same simulated home, same sensor emulation, same
+engineered layer (map, planner, needs), same training budget, one benchmark. Environments,
+sensor presets and hardware are conditions, not goals. The result is the map of where the
+natural network wins, ties or loses: **[docs/findings.md](docs/findings.md)**.
 
 ```text
 Environment -> Sensory Adapter -> Brain Simulator -> Motor Adapter -> Environment
 ```
 
-The research question: does the biological topology of C. elegans provide a useful
-inductive bias for learning behaviour in a completely foreign environment, compared with
-a same-size network trained from scratch?
+The research question: in which conditions does the natural network give the most profit
+over a network one can train oneself, and how much? So far (2026-09-16): it loses to PPO on
+the task it was trained for, ties a same-size RNN, and wins on transfer without retraining
+when the sensors change (−6 % vs PPO's −56 %). Details and every number: `docs/findings.md`.
 Full roadmap and constraints: [Plan.md](Plan.md). Stage progress: [docs/stages.md](docs/stages.md).
 
 ## Requirements

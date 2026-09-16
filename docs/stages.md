@@ -58,6 +58,14 @@ Decision gate after stage 11 (Plan §17.1): recorded in `docs/results/a1/stage11
 2026-09-15. Decision: the connectome stays the primary brain; random, shuffled
 and dense variants are trained as controls in every later run.
 
+## Conditions matrix (Plan §20.7, no hardware, parallel to stage 22)
+
+| # | Axis | Tests | Demo | Status |
+|---|------|-------|------|--------|
+| 23.1 | C5 robustness: sweep of the car preset's assumed numbers around the two chosen brains (`doomworm robustness`) | `tests/test_robustness.py` | `make robustness-car` | running, results -> `docs/findings.md` |
+| 23.2 | C6 cost of training: 12 training maps x 2 noise repeats for the worm and PPO on the car preset; reward-per-generation curves | `tests/test_bakeoff.py` | `make evolve-car CANDIDATE=worm` (`--train-seeds 12 --train-repeats 2`) | running |
+| 23.3 | C7 hybrids: worm as the motivational layer over a net; worm + small net | | | todo |
+
 ## Track B: Doom player (after phase A1)
 
 | # | Stage | Status |
