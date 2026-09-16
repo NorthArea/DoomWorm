@@ -62,7 +62,7 @@ and dense variants are trained as controls in every later run.
 
 | # | Axis | Tests | Demo | Status |
 |---|------|-------|------|--------|
-| 23.1 | C5 robustness: sweep of the car preset's assumed numbers around the two chosen brains (`doomworm robustness`) | `tests/test_robustness.py` | `make robustness-car` | running, results -> `docs/findings.md` |
+| 23.1 | C5 robustness: sweep of the car preset's assumed numbers around the two chosen brains (`doomworm robustness`), 3 seeds | `tests/test_robustness.py` | `make robustness-car` | done: tie split by parameter (worm calmer under noise and delay, PPO under drift and narrow camera); `docs/findings.md` C5, `docs/results/a3/robustness_2026-09-16/` |
 | 23.2 | C6 cost of training: 12 training maps x 2 noise repeats for the worm and PPO on the car preset; reward-per-generation curves | `tests/test_bakeoff.py` | `make evolve-car CANDIDATE=worm` (`--train-seeds 12 --train-repeats 2`) | running |
 | 23.3 | C7 hybrids: worm as the motivational layer over a net; worm + small net | | | todo |
 

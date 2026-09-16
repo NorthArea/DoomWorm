@@ -15,7 +15,7 @@ is worm minus best self-trained, in reward units. Verdict: **win** / **tie**
 | C3 transfer without retraining | vacuum-trained brains run on the car preset (3 rays instead of 5, no bumper, dead reckoning, camera marker) | curriculum 41.2 ± 0.2 (−6 %); real 34.3 ± 3.2 (+7 %) | PPO 27.3 ± 3.6 (−56 %); rnn 27.2 ± 6.5 (−21 %) | +13.9 vs PPO | **win**: the worm's sector inputs survive the sensor change, the nets' input vectors do not | `results/a3/stage22_car_2026-09-15.md` §2 |
 | C4 retraining on the new sensors | car preset, same budget as A2 | curriculum retrained 30.1 ± 5.4 (worse than transferred: overfits 3 training maps) | PPO retrained 43.0 ± 4.0; rnn 30.1 ± 5.0 | −1.8 (transferred worm 41.2 vs PPO 43.0) | **tie**; the worm has half the collisions (14 vs 31) | same §2 |
 | C4 under layer v2 | car preset, marker search in the layer | curriculum (transferred) 42.1 ± 3.7 | PPO-car 46.5 ± 7.7 | −4.4 | **tie** (spreads overlap); worm 17 vs 26 collisions | same §3 |
-| C5 robustness to wrong sensor numbers | sweep of noise, dropout, odometry drift, delay, camera view and range around the car preset | _running_ | _running_ | | | `results/a3/` (stage 23.1) |
+| C5 robustness to wrong sensor numbers | one car-preset number at a time made worse (noise x3/x6, dropout x3/x6, odometry drift x2/x4, delay 2-3 ticks, camera view 20/15 deg, marker range 3/2 u); 12 episodes per cell, 3 seeds | curriculum (transferred) base 41.3 ± 3.2; worst cell −12.3 (marker range 2 u), −11.6 (drift x4), −11.3 (delay 3); noise x6 only −2.2 | PPO-car base 47.8 ± 6.5; worst −18.8 (delay 3), −11.7 (marker range 2), −10.5 (noise x6); drift x4 only −5.7 | worst-case drop −30 % (worm) vs −39 % (PPO) | **tie**, split by parameter: the worm degrades less under noise amplitude and latency, PPO less under odometry drift and a narrower camera; both fall the same when the marker range shrinks (that is the layer, not the brain) | `results/a3/robustness_2026-09-16/summary_3seeds.md` |
 | C6 cost of training | reward per generation / step; number of training maps (12 maps x 2 noise repeats retraining running) | _running_ | _running_ | | | stage 23.2 |
 | C7 hybrids | worm as the motivational layer over a net, worm + small net | | | | todo | stage 23.3 |
 | C8 reality gap | the car: same saved brain in the simulator and in the room | | | | needs the machine | stage 22.2+ |
@@ -36,6 +36,10 @@ is worm minus best self-trained, in reward units. Verdict: **win** / **tie**
   moving docking and the bumper reflex into the layer raised every brain
   (A2 21.8-21.9, A3 22.1e) and let the worm-vs-random ordering appear.
 
-Open questions the running axes answer: does the worm degrade more slowly
-than PPO when the assumed sensor numbers are wrong (C5); does more training
-data close the worm's retraining gap or PPO's transfer gap (C6).
+- Wrong sensor numbers (C5) do not separate the two: the worm is the calmer
+  one under noise amplitude and latency, PPO under odometry drift and a
+  narrower camera. Neither is a robustness win; the layer's marker range is
+  the shared weak point.
+
+Open question the running axis answers: does more training data close the
+worm's retraining gap or PPO's transfer gap (C6).
