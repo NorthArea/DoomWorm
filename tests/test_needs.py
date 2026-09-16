@@ -178,3 +178,77 @@ def test_bumper_reflex_cuts_collisions_of_a_bad_driver() -> None:
         return world.collisions
 
     assert run(True) < run(False) / 3
+
+
+# --- stage 22.1e: the dock trip on a camera marker with dead-reckoning odometry ---------
+
+
+def test_marker_homing_trusts_any_sighting_but_the_ir_beacon_needs_strength() -> None:
+    from doomworm.environments.sensors import CAR
+
+    cam = PlannerLayer(GradientFollower(), CAR, mode="needs")
+    cam.reset()
+    cam.needs.state = "charge"
+    cam.beacon = (0.0, 0.2, 0.0)  # marker seen 5 units away
+    assert cam.homing()
+    ir = PlannerLayer(GradientFollower(), VACUUM, mode="needs")
+    ir.reset()
+    ir.needs.state = "charge"
+    ir.beacon = (0.0, 0.2, 0.0)  # the IR beacon at 5 units points through walls
+    assert not ir.homing()
+
+
+def test_marker_sighting_re_anchors_the_dock_estimate() -> None:
+    from doomworm.environments.sensors import CAR
+
+    layer = PlannerLayer(GradientFollower(), CAR, mode="needs")
+    layer.reset()
+    layer.needs.dock = (0.0, 0.0)
+    base = dict.fromkeys(SensorSuite(CAR).channel_names, 0.0) | {"battery": 1.0}
+    frame = base | {"odom_x": 5.0, "odom_y": 5.0, "odom_heading": 0.0, "dock_front": 0.25}
+    layer.observe(frame)
+    assert layer.needs.dock == pytest.approx((9.0, 5.0), abs=0.3), "4 units straight ahead"
+    frame = base | {"odom_x": 5.0, "odom_y": 5.0, "odom_heading": 0.0, "dock_left": 0.5}
+    layer.observe(frame)
+    dx, dy = layer.needs.dock
+    assert dy > 5.0 > dx - 2.0, "2 units, up and to the left"
+    ir = PlannerLayer(GradientFollower(), VACUUM, mode="needs")
+    ir.reset()
+    ir.needs.dock = (0.0, 0.0)
+    ir.observe(
+        dict.fromkeys(SensorSuite(VACUUM).channel_names, 0.0) | {"battery": 1.0, "dock_front": 0.25}
+    )
+    assert ir.needs.dock == (0.0, 0.0), "the IR beacon does not move the estimate"
+
+
+def test_marker_search_spins_near_the_estimated_dock_without_a_sighting() -> None:
+    from doomworm.environments.sensors import CAR
+
+    layer = PlannerLayer(GradientFollower(), CAR, mode="needs")
+    layer.reset()
+    base = dict.fromkeys(SensorSuite(CAR).channel_names, 0.0)
+    frame = base | {"odom_x": 5.0, "odom_y": 5.0, "odom_heading": 0.0, "battery": 0.2}
+    layer.needs.dock = (6.0, 5.0)  # "here", by dead reckoning; no marker in sight
+    wheels = [layer.act(frame | {"odom_heading": 0.4 * k}) for k in range(12)]
+    spins = [w for w in wheels if w[0] * w[1] < 0.0]
+    assert len(spins) >= 6, f"searching = spinning in place, got {wheels}"
+    assert layer.needs.state == "charge"
+    # the marker appears: homing takes over, no more spinning
+    seen = frame | {"odom_heading": 4.8, "dock_front": 0.3}
+    w = layer.act(seen)
+    assert w[0] > 0.0, f"drive at the marker, got {w}"
+    assert w[1] > 0.0, f"drive at the marker, got {w}"
+
+
+def test_autopilot_on_the_car_preset_docks_the_straight_driver() -> None:
+    """Stage 22.1e: dead-reckoning odometry + camera marker still bring a bad driver home."""
+    from doomworm.brains import ScriptedBrain
+    from doomworm.environments.sensors import CAR
+
+    world = build_world(3001, "apartment", "clean")
+    world.hunger_rate = 0.003
+    straight = ScriptedBrain(lambda _c: (1.0, 1.0), "straight")
+    layer = PlannerLayer(straight, CAR, mode="needs")
+    trace = run_brain_episode(world, layer, 700, sensors=SensorSuite(CAR, seed=7))
+    assert len(trace) == 700, "discharged"
+    assert world.dockings >= 2

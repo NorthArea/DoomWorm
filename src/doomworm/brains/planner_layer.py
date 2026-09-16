@@ -83,6 +83,8 @@ class PlannerLayer:
         cost_per_cell: float = 0.008,
         dock_autopilot: bool = True,
         bumper_reflex: bool = True,
+        marker_search: bool = True,
+        search_radius: float = 3.0,
     ) -> None:
         if mode not in ("coverage", "goal", "needs", "passthrough"):
             raise ValueError("mode must be coverage, goal, needs or passthrough")
@@ -100,6 +102,15 @@ class PlannerLayer:
         self.dock_autopilot = dock_autopilot
         self.autopilot = GradientFollower(name="autopilot")
         self.bumper_reflex = bumper_reflex
+        # Camera marker (stage 22): the dock is a landmark the camera sees within its field
+        # of view. Any sighting is line of sight, so it is trusted at any strength, it
+        # re-anchors the dock estimate, and near the estimated dock without a sighting the
+        # layer spins to look for it (dead reckoning without encoders drifts by units).
+        self.camera = sensors.beacon_fov is not None
+        self.marker_search = marker_search
+        self.search_radius = search_radius
+        self._search: list[Wheels] = []
+        self._search_h0: float | None = None
         self.escape: list[Wheels] = []
         self.bumps = 0
         self.name = f"planner[{getattr(inner, 'name', 'brain')}]"
@@ -131,6 +142,8 @@ class PlannerLayer:
         self.autopilot.reset()
         self.escape = []
         self.bumps = 0
+        self._search = []
+        self._search_h0 = None
         self.inner.reset()
 
     # --- mapping ----------------------------------------------------------------
@@ -148,9 +161,11 @@ class PlannerLayer:
             channels.get("dock_front", 0.0),
             channels.get("dock_right", 0.0),
         )
-        x, y, _ = self.pose
+        x, y, heading = self.pose
         if self.mode == "needs" and self.charging:
             self.needs.dock = (x, y)
+        elif self.mode == "needs" and self.camera and max(self.beacon) > 0.0:
+            self.needs.dock = self._marker_position(x, y, heading)
         readings = [channels.get(f"range_{i}", 0.0) for i in range(len(self.sensors.ray_angles))]
         self.grid.update(self.pose, self.sensors.ray_angles, readings, self.sensors.ray_range)
         self.grid.mark_free_around(x, y, self.footprint)
@@ -173,6 +188,22 @@ class PlannerLayer:
             for j in range(j0, j1 + 1):
                 if math.dist(self.grid.to_world((i, j)), (x, y)) <= self.brush:
                     self.swept.add((i, j))
+
+    def _marker_position(self, x: float, y: float, heading: float) -> tuple[float, float]:
+        """Where the marker is, from its sector and apparent size (strength = 1 / distance)."""
+        left, front, right = self.beacon
+        strength = max(self.beacon)
+        distance = 1.0 / strength if strength < 1.0 else 1.0
+        fov = self.sensors.beacon_fov or 0.0
+        bearing = (
+            0.0
+            if front >= max(left, right)
+            else (2.0 * fov / 3.0 if left > right else -2.0 * fov / 3.0)
+        )
+        return (
+            x + distance * math.cos(heading + bearing),
+            y + distance * math.sin(heading + bearing),
+        )
 
     def plan(self) -> None:
         """Choose the next waypoint for the current mode."""
@@ -237,6 +268,14 @@ class PlannerLayer:
             return 0.0, 0.0
         merged = dict(channels) | self.gradient()
         if self.autopiloting():
+            if self.searching():
+                if self.bumper_reflex:
+                    self._reflex(channels)
+                    if self.escape:
+                        self._search, self._search_h0 = [], None
+                        return self.escape.pop(0)
+                return self._search_step()
+            self._search, self._search_h0 = [], None
             return self.autopilot.act(merged)  # the autopilot has its own escape
         if self.bumper_reflex:
             self._reflex(channels)
@@ -263,12 +302,44 @@ class PlannerLayer:
         return self.dock_autopilot and self.mode == "needs" and self.needs.state == "charge"
 
     def homing(self) -> bool:
-        """Needs mode, heading for the dock, beacon strong enough to trust its bearing."""
+        """Needs mode, heading for the dock, beacon strong enough to trust its bearing.
+
+        A camera marker is line of sight: any sighting is trusted. The IR beacon of
+        the vacuum preset reaches through walls, so it needs ``beacon_homing``.
+        """
+        threshold = 0.0 if self.camera else self.beacon_homing
         return (
             self.mode == "needs"
             and self.needs.state == "charge"
-            and max(self.beacon) >= self.beacon_homing
+            and max(self.beacon) > threshold
+            and (max(self.beacon) >= self.beacon_homing or self.camera)
         )
+
+    def searching(self) -> bool:
+        """Heading for a camera marker, none in sight, dead reckoning says it is near."""
+        if not (self.camera and self.marker_search and self.needs.state == "charge"):
+            return False
+        if max(self.beacon) > 0.0 or self.needs.dock is None:
+            return False
+        x, y, _ = self.pose
+        near = math.dist((x, y), self.needs.dock) <= self.search_radius
+        return near or self.waypoint is None or self._search_h0 is not None
+
+    def _search_step(self) -> Wheels:
+        """Spin a full turn on the odometry heading, then move on a little, repeat."""
+        heading = self.pose[2]
+        if self._search_h0 is None:
+            self._search_h0 = heading
+            self._search = []
+        if self._search:
+            return self._search.pop(0)
+        turned = abs(heading - self._search_h0)
+        if turned < math.tau:
+            return 1.0, -1.0  # spin in place: the camera sweeps the room
+        # a full turn without a sighting: change the vantage point and look again
+        self._search = [(1.0, 1.0)] * 8
+        self._search_h0 = heading
+        return self._search.pop(0)
 
     def parked(self) -> bool:
         """Needs mode, heading for the dock and charging: hold the wheels, skip the brain."""

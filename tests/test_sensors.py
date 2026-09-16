@@ -245,3 +245,23 @@ def test_car_binary_wall_sensor_and_camera_beacon() -> None:
     w.agent = AgentState(x=5.0, y=11.0, heading=0.0)  # wall 1.6 to the right: module off
     ch = suite.read(w, w.observe())
     assert ch["wall_right"] == 0.0
+
+
+def test_camera_beacon_cannot_see_through_walls() -> None:
+    from doomworm.environments.sensors import CAR
+    from doomworm.environments.simple_2d import Dock
+
+    cfg = SensorConfig(
+        name="cam", ray_angles=CAR.ray_angles, beacon_fov=math.radians(30.0), beacon_range=5.0
+    )
+    w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(6.5, 8.0, 0.4, 4.0)])
+    w.dock = Dock(x=8.0, y=10.0)
+    suite = SensorSuite(cfg)
+    suite.reset(w)
+    ch = suite.read(w, w.observe())
+    assert (ch["dock_left"], ch["dock_front"], ch["dock_right"]) == (0.0, 0.0, 0.0), (
+        "wall in between"
+    )
+    w.walls = []
+    ch = suite.read(w, w.observe())
+    assert ch["dock_front"] > 0.0

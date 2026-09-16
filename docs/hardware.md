@@ -23,7 +23,7 @@ two basic sensors from Arduino starter kits. The simulator preset `car`
 | `odom_x/y/heading` | no encoders | commanded wheels integrated (`odom_source="commands"`), 10 % noise; blind to slip and to pushing against a wall | mecanum slip is probably worse |
 | `gyro_heading` | no IMU | equals the odometry heading | |
 | `battery` | voltage divider if the board has one | the world's battery (0.002 per tick) | may be constant 1.0 on the real car |
-| `dock_left/front/right` | K210 recognises a marker on the "dock" | visible within +-30 degrees and 5 u; sector by bearing thirds; strength 1/d | K210 message format |
+| `dock_left/front/right` | K210 recognises a marker on the "dock" | visible within +-30 degrees and 5 u with line of sight; sector by bearing thirds; strength 1/d (apparent size) | K210 message format; the layer needs a distance estimate from the marker's size |
 | (`charging`) | none: the "dock" is the start spot | rising battery = docked, in the simulator only | |
 
 Actuators: four TT motors driven as two pairs (left, right) from wheel commands

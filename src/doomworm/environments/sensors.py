@@ -276,6 +276,8 @@ class SensorSuite:
         bearing = math.remainder(math.atan2(dy, dx) - world.agent.heading, math.tau)
         if abs(bearing) > cfg.beacon_fov:
             return 0.0, 0.0, 0.0
+        if world.ray_distance(math.atan2(dy, dx)) < distance - dock.radius:
+            return 0.0, 0.0, 0.0  # a wall or furniture in the way: a camera cannot see through
         signal = 1.0 if distance <= 1.0 else 1.0 / distance
         if abs(bearing) <= cfg.beacon_fov / 3.0:
             return 0.0, signal, 0.0
