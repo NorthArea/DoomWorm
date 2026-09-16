@@ -15,12 +15,13 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
-from doomworm.brains.base import Wheels
-from doomworm.brains.needs import NeedsArbiter
-from doomworm.brains.simple import GradientFollower
+from doomworm.candidates.base import Wheels
 from doomworm.environments.sensors import SensorConfig
 from doomworm.episode import BrainLike
-from doomworm.mapping import OccupancyGrid, nearest_unswept, next_waypoint, path_to
+from doomworm.layer.follower import GradientFollower
+from doomworm.layer.needs import NeedsArbiter
+from doomworm.layer.occupancy import OccupancyGrid
+from doomworm.layer.path import nearest_unswept, next_waypoint, path_to
 
 FRONT_HALF_ANGLE = math.pi / 6
 

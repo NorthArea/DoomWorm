@@ -1,9 +1,9 @@
 """Stage 21.1: Roomba-style classical controller, the zero-learning floor (Plan §20.4)."""
 
-from doomworm.brains import RoombaBrain
+from doomworm.candidates import RoombaBrain
 from doomworm.environments.sensors import VACUUM, SensorSuite
+from doomworm.environments.worlds import build_world
 from doomworm.episode import run_brain_episode
-from doomworm.worlds import build_world
 
 CLEAR = {"sensor_left": 0.0, "sensor_front": 0.0, "sensor_right": 0.0, "battery": 1.0}
 

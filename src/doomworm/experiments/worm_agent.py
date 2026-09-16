@@ -34,11 +34,11 @@ from doomworm.connectome import (
 from doomworm.environments.maze import rooms_visited
 from doomworm.environments.sensors import PRESETS, SensorSuite
 from doomworm.environments.simple_2d import World
+from doomworm.environments.worlds import build_world
 from doomworm.episode import Record, run_episode
 from doomworm.experiments.episode import print_trace, render_ascii, save_log, save_plot
 from doomworm.learning import RewardTracker
 from doomworm.visualization import save_debug_gif
-from doomworm.worlds import build_world
 
 SCENARIO_NAME = "worm"
 

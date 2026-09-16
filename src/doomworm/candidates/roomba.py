@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from doomworm.brains.base import Wheels
+from doomworm.candidates.base import Wheels
 
 
 class RoombaBrain:

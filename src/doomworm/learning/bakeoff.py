@@ -23,11 +23,11 @@ from typing import Any
 
 import numpy as np
 
-from doomworm.brains.base import Trainable
-from doomworm.brains.candidates import CandidateSpec, build_candidate
-from doomworm.brains.planner_layer import PlannerLayer
+from doomworm.candidates.base import Trainable
+from doomworm.candidates.registry import CandidateSpec, build_candidate
 from doomworm.environments.sensors import PRESETS
 from doomworm.episode import BrainLike
+from doomworm.layer.planner_layer import PlannerLayer
 from doomworm.learning.benchmark import BenchmarkConfig, run_benchmark
 from doomworm.learning.evolution import EvolutionConfig, EvolutionResult, GenerationStats, evolve
 

@@ -11,8 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brains import GradientFollower, PlannerLayer, ScriptedBrain
+from doomworm.candidates import ScriptedBrain
 from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
+from doomworm.environments.worlds import build_world
 from doomworm.episode import run_brain_episode
 from doomworm.hardware import (
     Calibration,
@@ -26,7 +27,7 @@ from doomworm.hardware import (
     replay_in_sim,
 )
 from doomworm.hardware.calibration import RawReading
-from doomworm.worlds import build_world
+from doomworm.layer import GradientFollower, PlannerLayer
 
 # --- calibration -----------------------------------------------------------------
 
@@ -253,7 +254,7 @@ def test_cli_drive_and_compare_log(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert main(["compare-log", "--log", str(log), "--out", str(out)]) == 0
     assert "bumper agreement" in out.read_text()
 
-    brain = Path("docs/results/brains_a2/worm_from_worm_evolved_random.json")
+    brain = Path("docs/brains/a2/worm_from_worm_evolved_random.json")
     args = ["drive", "--brain", str(brain), "--planner", "needs", "--seed", "3004", "--steps", "5"]
     assert main([*args, "--record", str(tmp_path / "brain.jsonl")]) == 0
     with pytest.raises(SystemExit):
@@ -307,7 +308,7 @@ def test_fake_robot_serves_the_car_preset() -> None:
 def test_room_file_in_metres_builds_a_world_and_round_trips() -> None:
     from doomworm.hardware import Room, load_room, room_world
 
-    room = load_room("rooms/example_room.json")
+    room = load_room("data/rooms/example_room.json")
     assert (room.width, room.height) == pytest.approx((15.0, 20.0)), "3 x 4 m at 0.2 m/u"
     assert room.start[2] == pytest.approx(math.pi / 2)
     world = room_world(room, seed=1)
@@ -323,12 +324,12 @@ def test_build_world_accepts_a_room_and_drive_log_carries_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from doomworm.cli import main
-    from doomworm.worlds import build_world
+    from doomworm.environments.worlds import build_world
 
-    world = build_world(0, "room:rooms/example_room.json", "clean")
+    world = build_world(0, "room:data/rooms/example_room.json", "clean")
     assert world.width == pytest.approx(15.0)
     log = tmp_path / "room.jsonl"
-    args = ["drive", "--teleop", "--sensors", "car", "--room", "rooms/example_room.json"]
+    args = ["drive", "--teleop", "--sensors", "car", "--room", "data/rooms/example_room.json"]
     monkeypatch.setattr("sys.stdin", io.StringIO("w\nw\nw\n"))
     assert main([*args, "--steps", "5", "--record", str(log)]) == 0
     meta, rows = read_drive_log(log)
@@ -336,7 +337,7 @@ def test_build_world_accepts_a_room_and_drive_log_carries_it(
     # replay needs no file: the room travels inside the log
     same = replay_in_sim(meta, rows)
     assert compare_logs(rows, same).rmse("odom_x") == 0.0
-    assert main(["compare-log", "--log", str(log), "--room", "rooms/example_room.json"]) == 0
+    assert main(["compare-log", "--log", str(log), "--room", "data/rooms/example_room.json"]) == 0
     assert main(["plot-log", "--log", str(log)]) == 0
     assert log.with_suffix(".png").exists()
 

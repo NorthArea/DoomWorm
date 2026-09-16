@@ -19,11 +19,11 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 
-from doomworm.brains.base import Wheels
-from doomworm.brains.rnn import UNBOUNDED
+from doomworm.candidates.base import Wheels
+from doomworm.candidates.rnn import UNBOUNDED
+from doomworm.environments.gym_env import DoomwormEnv, PlannerWrapper
 from doomworm.environments.sensors import PRESETS, SensorSuite
-from doomworm.gym_env import DoomwormEnv, PlannerWrapper
-from doomworm.worlds import build_world
+from doomworm.environments.worlds import build_world
 
 
 @dataclass(frozen=True)

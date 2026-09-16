@@ -361,52 +361,38 @@ OpenWorm / cect
 
 # 5. Структура проекта
 
+Актуальная раскладка (2026-09-16), по слоям §3:
+
 ```text
-doomworm/
-|
-|-- README.md
-|
-|-- brain/
-|   |-- neuron.py
-|   |-- synapse.py
-|   |-- network.py
-|   |-- simulator.py
-|
-|-- connectome/
-|   |-- loader.py
-|   |-- model.py
-|   |-- mappings.py
-|
-|-- environments/
-|   |
-|   |-- simple_2d/
-|   |
-|   |-- maze/
-|   |
-|   |-- doom/
-|
-|-- adapters/
-|   |-- sensory.py
-|   |-- motor.py
-|
-|-- learning/
-|   |-- fitness.py
-|   |-- evolution.py
-|   |-- plasticity.py
-|
-|-- experiments/
-|   |-- baseline.py
-|   |-- random_network.py
-|   |-- real_connectome.py
-|
-|-- visualization/
-|   |-- brain.py
-|   |-- metrics.py
-|
-|-- tests/
-|
-+-- docs/
+src/doomworm/
+|-- brain/          модель нейрона: Neuron, Synapse, Network, Simulator
+|-- connectome/     загрузчик C. elegans, внутренний граф, маппинги, контроли топологии
+|-- adapters/       sensory (каналы -> токи), motor (активность -> колёса)
+|-- environments/   simple_2d, maze (квартиры), sensors (пресеты ideal|vacuum|noisy|car),
+|                   worlds.py (фабрики карт), gym_env.py
+|-- layer/          инженерный слой вне мозга (§3.2): карта занятости, путь и покрытие,
+|                   арбитр потребностей, PlannerLayer (автопилот дока, рефлекс бампера,
+|                   поиск метки), GradientFollower
+|-- candidates/     мозги-кандидаты (§20.4): worm, rnn, ncp, roomba, протоколы Brain /
+|                   Trainable, реестр и load_candidate (PPO через группу rl)
+|-- learning/       reward, evolution, benchmark и таблица лидеров, bake-off, PPO, сводка
+|-- hardware/       этап 22: звено робота (sim | tcp), единицы, протокол, телеуправление,
+|                   журнал, сверка с симулятором, комнаты, самопроверка, калибровка
+|-- experiments/    демо этапов и точки входа обучения (этапы 0-14)
+|-- visualization/  растры активности, debug screen
+|-- episode.py      замкнутый цикл для любого мозга;  cli.py  команда doomworm
+tests/              по модулю на слой
+docs/
+|-- stages.md, assumptions.md, hardware.md
+|-- results/a1|a2|a3   отчёты и строки бенчмарка по фазам (индекс results/README.md)
+|-- brains/a1|a2|car   опубликованные обученные мозги
+data/connectome/, data/rooms/;  firmware/ (ESP32);  scripts/;  runs/ (в .gitignore)
 ```
+
+Первоначальная схема (brain/, connectome/, environments/, adapters/, learning/,
+experiments/, visualization/) сохранена; добавились `layer/`, `candidates/`,
+`hardware/`. Разделение `layer/` и `candidates/` повторяет правило §2.2 и §3.2:
+карта и планировщик не являются частью мозга.
 
 ---
 
@@ -1276,7 +1262,7 @@ A3  железо         лучший мозг на физическом пыл�
 
 Генератор от seed: комнаты, двери в перегородках, мебель
 (прямоугольники). Метрика «посещённые комнаты». Результаты:
-`docs/results/stage15_apartment_eval_2026-09-15.md`.
+`docs/results/a1/stage15_apartment_eval_2026-09-15.md`.
 
 ---
 
@@ -2408,6 +2394,15 @@ pytest
 - Полезный прецедент: Lechner et al., «Neural circuit policies enabling
   auditable autonomy», Nature Machine Intelligence 2020 (19 нейронов по мотивам
   C. elegans держат автомобиль в полосе; но с CNN спереди и градиентным обучением).
+
+## 2026-09-16 — раскладка по слоям
+
+- §5: структура приведена к фактической. `brains/` разделён на `layer/` (карта,
+  планировщик, арбитр, PlannerLayer, follower; сюда же `mapping/`) и `candidates/`
+  (мозги); `worlds.py` и `gym_env.py` переехали в `environments/`; сводка по
+  посевам в `learning/summary.py`. Результаты разложены по фазам
+  `docs/results/a1|a2|a3`, мозги в `docs/brains/a1|a2|car`, комнаты в `data/rooms/`.
+  Поведение и опубликованные числа не менялись.
 
 ## 2026-09-15 — этап 22 на машинке вместо пылесоса
 

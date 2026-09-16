@@ -14,9 +14,9 @@ from typing import Any
 
 from doomworm.environments.maze import rooms_visited
 from doomworm.environments.sensors import PRESETS, SensorSuite
+from doomworm.environments.worlds import build_world
 from doomworm.episode import BrainLike, run_brain_episode
 from doomworm.learning.reward import RewardConfig, RewardTracker
-from doomworm.worlds import build_world
 
 METRICS = (
     "reward", "ticks", "coverage", "food", "targets", "collisions", "damage",

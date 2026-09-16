@@ -6,7 +6,7 @@ world seeds (train 0-2, held-out 1000-1004, fixed obstacle, 2 food with
 respawn, 400 steps), same evolution budget (population 40, 25 generations,
 sigma 0.02, weights in [-1, 1], evolution seed 0). Only the wiring differs.
 
-Raw files: `docs/results/compare_2026-09-15/` (summary, learning curves,
+Raw files: `docs/results/a1/compare_2026-09-15/` (summary, learning curves,
 per-variant results). Reproduce with `make compare` (about 15 min with the
 four variants in parallel).
 

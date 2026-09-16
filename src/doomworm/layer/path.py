@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable, Iterable
 
-from doomworm.mapping.occupancy import OccupancyGrid
+from doomworm.layer.occupancy import OccupancyGrid
 
 Cell = tuple[int, int]
 NEIGHBOURS = ((1, 0), (-1, 0), (0, 1), (0, -1))

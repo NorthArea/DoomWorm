@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.brains import CANDIDATES, CandidateSpec, Trainable, WormBrain, build_candidate
+from doomworm.candidates import CANDIDATES, CandidateSpec, Trainable, WormBrain, build_candidate
 from doomworm.cli import main
 from doomworm.learning import TrainConfig, fitness_of, train_candidate
 
@@ -79,9 +79,9 @@ def test_evolve_cli(tmp_path: Path) -> None:
 
 
 def test_seed_summary_aggregates_over_directories(tmp_path: Path) -> None:
-    from doomworm.brains import ScriptedBrain
-    from doomworm.experiments.a2_summary import collect, main, summary_table
+    from doomworm.candidates import ScriptedBrain
     from doomworm.learning import BenchmarkConfig, run_benchmark, save_result
+    from doomworm.learning.summary import collect, main, summary_table
 
     cfg = BenchmarkConfig(maps="random", task="food", sensors="ideal", test_seeds=(1,), steps=10)
 

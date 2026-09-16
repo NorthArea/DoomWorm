@@ -13,10 +13,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from doomworm.environments.worlds import build_world
 from doomworm.hardware.calibration import Calibration
 from doomworm.hardware.drive import DriveRow
 from doomworm.hardware.link import SimLink
-from doomworm.worlds import build_world
 
 
 def replay_in_sim(meta: dict[str, Any], rows: Sequence[DriveRow]) -> list[DriveRow]:

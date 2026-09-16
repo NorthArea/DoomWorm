@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brains import CandidateSpec, Trainable, build_candidate, load_candidate
+from doomworm.candidates import CandidateSpec, Trainable, build_candidate, load_candidate
 from doomworm.cli import main
 from doomworm.learning import TrainConfig, train_candidate
 
@@ -14,7 +14,7 @@ TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, wo
 
 
 def test_ncp_is_a_trainable_brain_with_sparse_wiring() -> None:
-    from doomworm.brains.ncp import NCPBrain
+    from doomworm.candidates.ncp import NCPBrain
 
     brain = build_candidate(CandidateSpec("ncp"))
     assert isinstance(brain, NCPBrain)
@@ -34,7 +34,7 @@ def test_ncp_is_a_trainable_brain_with_sparse_wiring() -> None:
 
 
 def test_ncp_round_trips_and_trains(tmp_path: Path) -> None:
-    from doomworm.brains.ncp import NCPBrain
+    from doomworm.candidates.ncp import NCPBrain
 
     brain = build_candidate(CandidateSpec("ncp", variant_seed=4))
     brain.set_weights([v * 2.0 for v in brain.get_weights()])

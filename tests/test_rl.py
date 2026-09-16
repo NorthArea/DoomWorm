@@ -10,7 +10,7 @@ pytest.importorskip("stable_baselines3")
 
 
 def test_ppo_trains_saves_and_benchmarks(tmp_path: Path) -> None:
-    from doomworm.brains import load_candidate
+    from doomworm.candidates import load_candidate
     from doomworm.learning.rl import PPOBrain, PPOConfig, make_env, train_ppo
 
     cfg = PPOConfig(train_seeds=(100, 101), steps=20, timesteps=64, n_steps=32, batch_size=32)

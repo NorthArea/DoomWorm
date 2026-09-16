@@ -26,7 +26,7 @@ from typing import Any
 
 from doomworm.environments.simple_2d import AgentState, Dock, Obstacle, Wall, World
 
-BATTERY_DRAIN = 0.002  # same as doomworm.worlds (imported there, not here: no cycle)
+BATTERY_DRAIN = 0.002  # same as doomworm.environments.worlds (imported there, not here: no cycle)
 
 
 @dataclass(frozen=True)

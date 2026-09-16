@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brains import GradientFollower, NeedsArbiter, PlannerLayer
 from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
+from doomworm.environments.worlds import build_world
 from doomworm.episode import run_brain_episode
-from doomworm.worlds import build_world
+from doomworm.layer import GradientFollower, NeedsArbiter, PlannerLayer
 
 
 def test_arbiter_priorities_and_hysteresis() -> None:
@@ -126,7 +126,7 @@ def test_call_works_with_drifting_odometry() -> None:
 
 def test_dock_autopilot_brings_a_bad_driver_home() -> None:
     """Stage 21.8: the return to dock is the layer's routine, whatever the brain does."""
-    from doomworm.brains import ScriptedBrain
+    from doomworm.candidates import ScriptedBrain
 
     world = build_world(3001, "apartment", "clean")
     world.hunger_rate = 0.003
@@ -145,7 +145,7 @@ def test_dock_autopilot_brings_a_bad_driver_home() -> None:
 
 def test_bumper_reflex_backs_off_and_turns_away() -> None:
     """Stage 21.9: contact is handled by the layer before the brain sees anything."""
-    from doomworm.brains import ScriptedBrain
+    from doomworm.candidates import ScriptedBrain
 
     calls: list[int] = []
 
@@ -168,7 +168,7 @@ def test_bumper_reflex_backs_off_and_turns_away() -> None:
 
 
 def test_bumper_reflex_cuts_collisions_of_a_bad_driver() -> None:
-    from doomworm.brains import ScriptedBrain
+    from doomworm.candidates import ScriptedBrain
 
     def run(reflex: bool) -> int:
         world = build_world(3002, "apartment", "clean")
@@ -242,7 +242,7 @@ def test_marker_search_spins_near_the_estimated_dock_without_a_sighting() -> Non
 
 def test_autopilot_on_the_car_preset_docks_the_straight_driver() -> None:
     """Stage 22.1e: dead-reckoning odometry + camera marker still bring a bad driver home."""
-    from doomworm.brains import ScriptedBrain
+    from doomworm.candidates import ScriptedBrain
     from doomworm.environments.sensors import CAR
 
     world = build_world(3001, "apartment", "clean")

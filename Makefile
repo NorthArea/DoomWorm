@@ -91,8 +91,8 @@ demo-15: ## Stage 15: a brain on an unseen apartment map (rooms, doors, furnitur
 demo-14: ## Stage 14: target task with a danger zone (runs/worm_evolved_danger.json)
 	$(UV) doomworm play --brain runs/worm_evolved_danger.json --seed $(SEED) --plot
 
-WORM_BRAIN ?= docs/results/brains/worm_evolved_random.json
-A2_WORM ?= docs/results/brains_a2/worm_from_worm_evolved_random.json
+WORM_BRAIN ?= docs/brains/a1/worm_evolved_random.json
+A2_WORM ?= docs/brains/a2/worm_from_worm_evolved_random.json
 
 demo-17: ## Stage 17: stage-12 brain under the noisy vacuum sensor suite
 	$(UV) doomworm play --brain $(WORM_BRAIN) --maps random --sensors noisy --seed $(SEED) --plot
@@ -119,7 +119,7 @@ demo-22: ## Stage 22.1: A2 worm over the simulator link with recording, then the
 selftest-sim: ## Stage 22.2 rehearsal: self-test, calibration and a room drive on the simulator link
 	$(UV) doomworm selftest --sensors car --seed 3001 --out runs/selftest_sim.md
 	printf '0.8\n60\n' | $(UV) doomworm calibrate --sensors car --seed 3001 --out runs/calibration_sim.json
-	printf 'w\nw\nw\nw\nd\nd\nw\nw\nw\n' | $(UV) doomworm drive --teleop --sensors car --room rooms/example_room.json --every 1 --record runs/drive/room_sim.jsonl
+	printf 'w\nw\nw\nw\nd\nd\nw\nw\nw\n' | $(UV) doomworm drive --teleop --sensors car --room data/rooms/example_room.json --every 1 --record runs/drive/room_sim.jsonl
 	$(UV) doomworm plot-log --log runs/drive/room_sim.jsonl
 	$(UV) doomworm compare-log --log runs/drive/room_sim.jsonl
 
@@ -127,7 +127,7 @@ benchmark-car: ## Stage 22: every A2 candidate plus the scripted floors on the c
 	$(UV) doomworm benchmark --scripted roomba --sensors car --out-dir runs/benchmark_car
 	$(UV) doomworm benchmark --scripted follower --planner needs --sensors car --out-dir runs/benchmark_car
 	for b in worm worm_from_worm_evolved_random rnn ppo; do \
-	  $(UV) doomworm benchmark --brain docs/results/brains_a2/$$b.json --planner needs --sensors car --out-dir runs/benchmark_car; done
+	  $(UV) doomworm benchmark --brain docs/brains/a2/$$b.json --planner needs --sensors car --out-dir runs/benchmark_car; done
 	for b in $(wildcard runs/a2_car/*.json); do \
 	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --name $$(basename $$b .json)_car --planner needs --sensors car --out-dir runs/benchmark_car;; esac; done
 

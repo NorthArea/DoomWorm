@@ -6,12 +6,22 @@ from itertools import pairwise
 
 import pytest
 
-from doomworm.brains import GradientFollower, PlannerLayer, ScriptedBrain, sector_channels
+from doomworm.candidates import ScriptedBrain
 from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
 from doomworm.environments.simple_2d import AgentState, Target, Wall, World
+from doomworm.environments.worlds import build_world
 from doomworm.episode import run_brain_episode
-from doomworm.mapping import FREE, OCCUPIED, UNKNOWN, OccupancyGrid, nearest_unswept, path_to
-from doomworm.worlds import build_world
+from doomworm.layer import (
+    FREE,
+    OCCUPIED,
+    UNKNOWN,
+    GradientFollower,
+    OccupancyGrid,
+    PlannerLayer,
+    nearest_unswept,
+    path_to,
+    sector_channels,
+)
 
 
 def test_grid_marks_free_and_occupied() -> None:

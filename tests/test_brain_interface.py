@@ -5,10 +5,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.brains import Brain, ScriptedBrain, WormBrain
+from doomworm.candidates import Brain, ScriptedBrain, WormBrain
+from doomworm.environments.gym_env import DoomwormEnv
+from doomworm.environments.worlds import build_world
 from doomworm.episode import run_brain_episode, run_episode
 from doomworm.experiments.worm_agent import WormScenario, run_worm
-from doomworm.gym_env import DoomwormEnv
 from doomworm.learning import (
     BenchmarkConfig,
     RewardTracker,
@@ -17,7 +18,6 @@ from doomworm.learning import (
     save_result,
     write_leaderboard,
 )
-from doomworm.worlds import build_world
 
 
 def straight(_: object) -> tuple[float, float]:
@@ -127,7 +127,7 @@ def test_old_loop_still_works() -> None:
 
 
 def test_planner_wrapper_injects_gradient_and_parks_when_charging() -> None:
-    from doomworm.gym_env import PlannerWrapper
+    from doomworm.environments.gym_env import PlannerWrapper
 
     base = DoomwormEnv(lambda seed: build_world(seed, "apartment", "clean"), sensors="vacuum")
     env = PlannerWrapper(base, mode="needs")

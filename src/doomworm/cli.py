@@ -205,7 +205,7 @@ def open_link(args: argparse.Namespace) -> Any:
 
             tcp.room = load_room(args.room).to_dict()
         return tcp
-    from doomworm.worlds import build_world
+    from doomworm.environments.worlds import build_world
 
     maps = f"room:{args.room}" if args.room is not None else args.maps
     world = build_world(args.seed, maps, args.task)
@@ -273,22 +273,22 @@ def run_drive_cli(args: argparse.Namespace) -> int:
         stream = raw_keys() if sys.stdin.isatty() else sys.stdin
         controller = Teleop(stream)
     elif args.scripted == "follower":
-        from doomworm.brains import GradientFollower
+        from doomworm.layer import GradientFollower
 
         controller = GradientFollower()
     elif args.scripted == "roomba":
-        from doomworm.brains import RoombaBrain
+        from doomworm.candidates import RoombaBrain
 
         controller = RoombaBrain()
     elif args.brain is not None:
-        from doomworm.brains import load_candidate
+        from doomworm.candidates import load_candidate
 
         controller = load_candidate(args.brain, maps=args.maps, task=args.task)
     else:
         raise SystemExit("drive: give --teleop, --brain <file> or --scripted <name>")
     if args.planner != "none":
-        from doomworm.brains import PlannerLayer
         from doomworm.environments.sensors import PRESETS
+        from doomworm.layer import PlannerLayer
 
         controller = PlannerLayer(controller, PRESETS[args.sensors], mode=args.planner)
 
@@ -377,25 +377,25 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
     )
     brain: BrainLike
     if args.scripted == "follower":
-        from doomworm.brains import GradientFollower
+        from doomworm.layer import GradientFollower
 
         brain = GradientFollower()
         name = args.name or "driver_follower"
     elif args.scripted == "roomba":
-        from doomworm.brains import RoombaBrain
+        from doomworm.candidates import RoombaBrain
 
         brain = RoombaBrain()
         name = args.name or "roomba"
     elif args.brain is not None:
-        from doomworm.brains import load_candidate
+        from doomworm.candidates import load_candidate
 
         brain = load_candidate(args.brain, maps=args.maps, task=args.task, dangers=args.dangers)
         name = args.name or args.brain.stem
     else:
         raise SystemExit("benchmark: give --brain <file> or --scripted <name>")
     if args.planner != "none":
-        from doomworm.brains import PlannerLayer
         from doomworm.environments.sensors import PRESETS
+        from doomworm.layer import PlannerLayer
 
         brain = PlannerLayer(brain, PRESETS[args.sensors], mode=args.planner)
         # "+planner" is the stage-19 coverage row name; other modes carry their own name.
@@ -419,7 +419,7 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
 
 def run_evolve_cli(args: argparse.Namespace) -> int:
     """Train one candidate with the shared harness (stage 21.2)."""
-    from doomworm.brains import CandidateSpec
+    from doomworm.candidates import CandidateSpec
     from doomworm.learning import TrainConfig, train_candidate
 
     spec = CandidateSpec(

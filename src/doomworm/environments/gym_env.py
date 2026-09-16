@@ -13,9 +13,9 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 
-from doomworm.brains.planner_layer import PlannerLayer
 from doomworm.environments.sensors import PASSTHROUGH, PRESETS, SensorSuite
 from doomworm.environments.simple_2d import Observation, World
+from doomworm.layer.planner_layer import PlannerLayer
 from doomworm.learning.reward import RewardConfig, RewardTracker
 
 WorldFactory = Callable[[int], World]

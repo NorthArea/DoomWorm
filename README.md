@@ -77,28 +77,41 @@ make check                                                   # lint, mypy, 200+ 
 make demo-20                                                 # stage-20 benchmark rows (worm + scripted driver)
 ```
 
-Trained brains live in `docs/results/brains/`; `runs/` is git-ignored scratch.
+Trained brains live in `docs/brains/a1/`; `runs/` is git-ignored scratch.
 
 ## Layout
 
+Code follows the layers of Plan §3: environment -> sensors -> engineered layer -> brain.
+
 ```text
 src/doomworm/
-  brain/           Neuron, Synapse, Network, Simulator
-  connectome/      loader, internal graph model, name mappings
-  environments/    simple_2d, maze, doom
-  adapters/        sensory (obs -> stimulation), motor (activity -> actions)
-  learning/        fitness, evolution, reward, benchmark, bake-off harness, PPO
-  mapping/         occupancy grid, BFS / coverage planner (engineered layer)
-  brains/          Brain interface and candidates: worm, rnn, ncp, roomba, planner layer, needs
-  hardware/        stage 22: robot link (sim | machine), units, wire protocol, teleop, log compare
-  experiments/     baseline, random_network, real_connectome
-  visualization/   brain activity, metrics, debug screen
-tests/             pytest suite (one test module per layer)
-docs/              assumptions, stage checklist, hardware contract (docs/hardware.md), results
-firmware/          stage 22: ESP32 sketch speaking the robot protocol (not compiled yet)
-data/connectome/   Cook 2019 connectome CSVs (see its README for source and citation)
-scripts/           cross-cutting utilities
-runs/              experiment outputs (git-ignored)
+  brain/           neuron model: Neuron, Synapse, Network, Simulator (LIF, graded)
+  connectome/      C. elegans loader, internal graph, name mappings, topology controls
+  adapters/        sensory (channels -> currents), motor (activity -> wheels)
+  environments/    simple_2d world, maze/apartment maps, sensor suite + presets
+                   (ideal | vacuum | noisy | car), worlds.py factories, gym_env.py
+  layer/           the engineered layer outside the brain: occupancy grid, path and
+                   coverage planning, needs arbitration, PlannerLayer (dock autopilot,
+                   bumper reflex, marker search), GradientFollower
+  candidates/      the brains compared on the benchmark: worm, rnn, ncp, roomba,
+                   Brain / Trainable protocols, registry + load_candidate (PPO via rl group)
+  learning/        reward, evolution, benchmark + leaderboard, bake-off harness,
+                   PPO (rl group), multi-seed summary
+  hardware/        stage 22: robot link (sim | tcp), units, wire protocol, teleop,
+                   drive log, sim-vs-real compare, room files, selftest, calibrate, plot
+  experiments/     stage demos and training entry points (stages 0-14)
+  visualization/   brain rasters, debug screen
+  episode.py       the closed loop for any brain;  cli.py  the doomworm command
+tests/             one module per layer (test_brain, test_sensors, test_needs, test_hardware, ...)
+docs/
+  stages.md        stage checklist (what is done, how it is demonstrated)
+  assumptions.md   every non-obvious decision, dated
+  hardware.md      the machine contract: sensors, units, protocol, day-one checklist
+  results/a1|a2|a3 reports and benchmark rows per phase (README.md there is the index)
+  brains/a1|a2|car published trained brains: A1 stages, A2 bake-off, retrained for the car
+data/connectome/   Cook 2019 connectome CSVs;  data/rooms/  real rooms for the simulator
+firmware/          ESP32 sketch speaking the robot protocol (not compiled yet)
+scripts/           cross-cutting utilities;  runs/  experiment outputs (git-ignored)
 ```
 
 ## Rules of the road

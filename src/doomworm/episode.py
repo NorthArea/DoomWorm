@@ -169,7 +169,7 @@ def run_episode(
 
 
 class BrainLike(Protocol):
-    """Minimal duck type of :class:`doomworm.brains.Brain` (avoids an import cycle)."""
+    """Minimal duck type of :class:`doomworm.candidates.Brain` (avoids an import cycle)."""
 
     def reset(self) -> None:
         """Forget episode state."""

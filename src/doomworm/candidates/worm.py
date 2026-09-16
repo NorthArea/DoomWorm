@@ -8,7 +8,7 @@ from typing import Any
 
 from doomworm.adapters import SensoryAdapter
 from doomworm.brain import Network, Simulator, load_brain, save_brain
-from doomworm.brains.base import Wheels
+from doomworm.candidates.base import Wheels
 from doomworm.episode import MotorLike, average_activity
 
 

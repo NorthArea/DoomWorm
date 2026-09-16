@@ -92,7 +92,7 @@ before unboxing, not compiled, pins are placeholders).
 5. **Coverage, map, call** (22.5): the acceptance of Plan §20.5.1.
 
 Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
-`make evolve-car CANDIDATE=...`); results in `docs/results/stage22_car_2026-09-15.md`.
+`make evolve-car CANDIDATE=...`); results in `docs/results/a3/stage22_car_2026-09-15.md`.
 
 ## Day one on the car (everything below is ready, nothing needs the machine to prepare)
 
@@ -107,13 +107,13 @@ Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
    Two runs, two tape-measure answers (metres driven, degrees turned) ->
    `runs/calibration.json` with the measured metres per unit, wheel base and
    tick length. Pass it to every later command with `--calibration runs/calibration.json`.
-4. **Describe the room** in a file like `rooms/example_room.json` (metres:
+4. **Describe the room** in a file like `data/rooms/example_room.json` (metres:
    floor size, furniture rectangles, round obstacles, start pose, marker).
-   The simulator builds the same room (`--room rooms/<name>.json` on any
+   The simulator builds the same room (`--room data/rooms/<name>.json` on any
    command; `build_world` accepts `room:<file>`) and the room travels inside
    every drive log, so a log replays without the file.
 5. **First manual log**: `uv run doomworm drive --link tcp --sensors car --teleop
-   --calibration runs/calibration.json --room rooms/<name>.json --record runs/drive/real1.jsonl`
+   --calibration runs/calibration.json --room data/rooms/<name>.json --record runs/drive/real1.jsonl`
    (keys `w a s d x`, `q` to stop). Then look at it: `uv run doomworm plot-log --log runs/drive/real1.jsonl`
    (path from odometry, bumper hits, rays, wheels).
 6. **Compare with the simulator**: `uv run doomworm compare-log --log runs/drive/real1.jsonl`.
@@ -122,8 +122,8 @@ Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
    integration drifts. Adjust `CAR` in `environments/sensors.py` from the
    numbers, re-run `make benchmark-car`, and only then put a brain on the car.
 7. **First autonomous drive**: the transferred curriculum worm
-   (`--brain docs/results/brains_a2/worm_from_worm_evolved_random.json --planner needs`),
-   then PPO-car (`docs/results/brains_car/ppo.json`, needs `uv sync --group rl`).
+   (`--brain docs/brains/a2/worm_from_worm_evolved_random.json --planner needs`),
+   then PPO-car (`docs/brains/car/ppo.json`, needs `uv sync --group rl`).
 
 ## Commands
 
@@ -140,7 +140,7 @@ uv run doomworm compare-log --log runs/drive/real.jsonl --seed 3002
 ## The vacuum (the project's target platform, Plan §48)
 
 Kept for when the real vacuum arrives; the `vacuum` preset and its A2 table
-(`docs/results/a2_bakeoff_2026-09-15.md`) stay the reference.
+(`docs/results/a2/a2_bakeoff_2026-09-15.md`) stay the reference.
 
 | Channel(s) | Sensor | Assumed part |
 |---|---|---|

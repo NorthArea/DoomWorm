@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from doomworm.brains.base import Wheels
+from doomworm.candidates.base import Wheels
 
 UNBOUNDED = ("odom_x", "odom_y", "odom_heading", "gyro_heading")
 

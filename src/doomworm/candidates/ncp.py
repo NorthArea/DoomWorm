@@ -19,8 +19,8 @@ from typing import Any
 
 import numpy as np
 
-from doomworm.brains.base import Wheels
-from doomworm.brains.rnn import UNBOUNDED
+from doomworm.candidates.base import Wheels
+from doomworm.candidates.rnn import UNBOUNDED
 
 
 class NCPBrain:

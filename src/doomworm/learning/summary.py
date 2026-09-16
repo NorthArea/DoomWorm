@@ -5,7 +5,7 @@ prints, per candidate, the mean and spread over seeds of every leaderboard
 metric, plus the per-seed rewards, so the decision rests on the spread
 between seeds and not on one run (Plan §20.4: at least 3 seeds).
 
-    python -m doomworm.experiments.a2_summary runs/benchmark_a2 runs/benchmark_a2/seed1 ...
+    python -m doomworm.learning.summary runs/benchmark_a2 runs/benchmark_a2/seed1 ...
 """
 
 from __future__ import annotations

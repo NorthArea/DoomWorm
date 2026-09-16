@@ -1,7 +1,7 @@
 """Candidate brains of the A2 bake-off, built from a plain spec (Plan §20.4).
 
-Every candidate is a :class:`~doomworm.brains.base.Brain` that is also
-:class:`~doomworm.brains.base.Trainable`; the training harness only sees the
+Every candidate is a :class:`~doomworm.candidates.base.Brain` that is also
+:class:`~doomworm.candidates.base.Trainable`; the training harness only sees the
 weight vector. Adding a candidate means adding a name here.
 """
 
@@ -12,9 +12,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from doomworm.brains.base import Trainable
-from doomworm.brains.rnn import RNNBrain
-from doomworm.brains.worm import WormBrain
+from doomworm.candidates.base import Trainable
+from doomworm.candidates.rnn import RNNBrain
+from doomworm.candidates.worm import WormBrain
 from doomworm.episode import BrainLike
 
 
@@ -66,7 +66,7 @@ def load_candidate(path: Path | str, **world: Any) -> BrainLike:
     if '"kind": "rnn"' in head:
         return RNNBrain.from_file(path)
     if '"kind": "ncp"' in head:
-        from doomworm.brains.ncp import NCPBrain
+        from doomworm.candidates.ncp import NCPBrain
 
         return NCPBrain.from_file(path)
     if '"kind": "ppo"' in head:
@@ -98,7 +98,7 @@ def build_candidate(spec: CandidateSpec) -> TrainableBrain:
         if spec.kind == "rnn":
             return RNNBrain(inputs, seed=spec.variant_seed, **spec.params)
         try:
-            from doomworm.brains.ncp import NCPBrain
+            from doomworm.candidates.ncp import NCPBrain
         except ImportError as e:  # pragma: no cover - depends on the optional group
             raise ImportError(
                 "the ncp candidate needs the optional rl group: uv sync --group rl"
