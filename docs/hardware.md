@@ -94,9 +94,41 @@ before unboxing, not compiled, pins are placeholders).
 Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
 `make evolve-car CANDIDATE=...`); results in `docs/results/stage22_car_2026-09-15.md`.
 
+## Day one on the car (everything below is ready, nothing needs the machine to prepare)
+
+1. **Flash** `firmware/esp32_car/` after filling in the pins (firmware/README.md).
+   Join the car's Wi-Fi (`doomworm` / `doomworm123`).
+2. **Self-test**: `uv run doomworm selftest --link tcp --sensors car --out runs/selftest.md`.
+   It checks the frame format, watches the sensors at rest (dropouts,
+   round-trip latency), drives each wheel pair alone and forward, and says
+   whether the odometry answers the right way round. Exit code 1 = a problem
+   is listed at the end of the report.
+3. **Calibrate**: `uv run doomworm calibrate --link tcp --sensors car --ticks 20`.
+   Two runs, two tape-measure answers (metres driven, degrees turned) ->
+   `runs/calibration.json` with the measured metres per unit, wheel base and
+   tick length. Pass it to every later command with `--calibration runs/calibration.json`.
+4. **Describe the room** in a file like `rooms/example_room.json` (metres:
+   floor size, furniture rectangles, round obstacles, start pose, marker).
+   The simulator builds the same room (`--room rooms/<name>.json` on any
+   command; `build_world` accepts `room:<file>`) and the room travels inside
+   every drive log, so a log replays without the file.
+5. **First manual log**: `uv run doomworm drive --link tcp --sensors car --teleop
+   --calibration runs/calibration.json --room rooms/<name>.json --record runs/drive/real1.jsonl`
+   (keys `w a s d x`, `q` to stop). Then look at it: `uv run doomworm plot-log --log runs/drive/real1.jsonl`
+   (path from odometry, bumper hits, rays, wheels).
+6. **Compare with the simulator**: `uv run doomworm compare-log --log runs/drive/real1.jsonl`.
+   Read the per-channel RMSE against the `car` preset: rays tell how far the
+   noise/dropout numbers are off, odometry tells how much the command
+   integration drifts. Adjust `CAR` in `environments/sensors.py` from the
+   numbers, re-run `make benchmark-car`, and only then put a brain on the car.
+7. **First autonomous drive**: the transferred curriculum worm
+   (`--brain docs/results/brains_a2/worm_from_worm_evolved_random.json --planner needs`),
+   then PPO-car (`docs/results/brains_car/ppo.json`, needs `uv sync --group rl`).
+
 ## Commands
 
 ```bash
+make selftest-sim                              # the day-one self-test and calibration, on the simulator
 make benchmark-car                             # every candidate on the car preset -> runs/benchmark_car/
 make evolve-car CANDIDATE=rnn                  # retrain a candidate on the car preset -> runs/a2_car/
 make demo-22                                   # brain over the sim link + log replay comparison

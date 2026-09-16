@@ -84,6 +84,7 @@ class SimLink:
         self.world = world
         self.suite = SensorSuite(cfg, seed=sensor_seed)
         self.seed, self.maps, self.task = seed, maps, task
+        self.room: dict[str, Any] | None = None  # inline room geometry for the log header
         self._obs = world.observe()
 
     @property
@@ -124,6 +125,7 @@ class SimLink:
             "seed": self.seed,
             "maps": self.maps,
             "task": self.task,
+            "room": self.room,
         }
 
 
@@ -146,6 +148,7 @@ class LineLink:
         self._names = SensorSuite(self.calibration.sensors).channel_names
         self._pose = [0.0, 0.0, 0.0]  # open-loop odometry (units) when the robot has no encoders
         self._command = (0.0, 0.0)
+        self.room: dict[str, Any] | None = None  # the real room, for the log header
 
     @property
     def channel_names(self) -> list[str]:
@@ -213,8 +216,11 @@ class LineLink:
 
     def meta(self) -> dict[str, Any]:
         """Log header fields."""
-        return {"link": self.name, "sensors": self.calibration.sensors.name} | {
-            "calibration": self.calibration.to_dict()
+        return {
+            "link": self.name,
+            "sensors": self.calibration.sensors.name,
+            "calibration": self.calibration.to_dict(),
+            "room": self.room,
         }
 
 

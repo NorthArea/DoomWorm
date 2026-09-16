@@ -30,7 +30,13 @@ def replay_in_sim(meta: dict[str, Any], rows: Sequence[DriveRow]) -> list[DriveR
     task = str(meta.get("task") or "clean")
     sensors = str(meta.get("sensors") or "vacuum")
     sensor_seed = int(meta.get("sensor_seed") or 0)
-    link = SimLink(build_world(seed, maps, task), sensors, sensor_seed, seed, maps, task)
+    if meta.get("room") is not None:  # the log carries its room: no file needed to replay
+        from doomworm.hardware.room import Room, room_world
+
+        world = room_world(Room.from_dict(meta["room"]), seed, task)
+    else:
+        world = build_world(seed, maps, task)
+    link = SimLink(world, sensors, sensor_seed, seed, maps, task)
     channels = link.reset()
     out: list[DriveRow] = []
     for row in rows:

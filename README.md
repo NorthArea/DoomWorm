@@ -65,6 +65,7 @@ make train-worm-danger && make demo-14                      # stage 14: avoid a 
 make benchmark BRAIN=runs/worm_evolved_random.json          # stage 18: benchmark + leaderboard
 make benchmark-a2                                           # stage 21: A2 bake-off of every candidate
 make demo-22                                                # stage 22.1: drive over the robot link, replay the log
+make selftest-sim                                           # stage 22.2 rehearsal: self-test, calibration, room drive
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 

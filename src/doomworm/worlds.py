@@ -17,8 +17,14 @@ def build_world(seed: int, maps: str = "fixed", task: str = "food", dangers: int
         return apply_task(random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0)), task, dangers)
     if maps == "apartment":
         return apply_task(apartment_world(seed, ApartmentConfig(n_food=N_FOOD)), task, dangers)
+    if maps.startswith("room:"):  # stage 22: a real room from a file (hardware/room.py)
+        from doomworm.hardware.room import load_room, room_world
+
+        world = room_world(load_room(maps[len("room:") :]), seed, task)
+        world.dangers = [world.spawn_danger() for _ in range(dangers)]
+        return world
     if maps != "fixed":
-        raise ValueError("maps must be 'fixed', 'random' or 'apartment'")
+        raise ValueError("maps must be 'fixed', 'random', 'apartment' or 'room:<file>'")
     world = World(
         width=20.0,
         height=20.0,

@@ -299,3 +299,106 @@ def test_fake_robot_serves_the_car_preset() -> None:
     link.close()
     thread.join(timeout=5)
     assert [r.wheels for r in rows_wire] == pytest.approx([r.wheels for r in rows_direct])
+
+
+# --- stage 22.2 preparation: room files, self-test, calibration, pictures -------------
+
+
+def test_room_file_in_metres_builds_a_world_and_round_trips() -> None:
+    from doomworm.hardware import Room, load_room, room_world
+
+    room = load_room("rooms/example_room.json")
+    assert (room.width, room.height) == pytest.approx((15.0, 20.0)), "3 x 4 m at 0.2 m/u"
+    assert room.start[2] == pytest.approx(math.pi / 2)
+    world = room_world(room, seed=1)
+    assert world.dock is not None
+    assert world.dirt is not None
+    assert world.agent.x == pytest.approx(2.5)
+    assert len(world.walls) == 2
+    again = Room.from_dict(room.to_dict())
+    assert again == room
+
+
+def test_build_world_accepts_a_room_and_drive_log_carries_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from doomworm.cli import main
+    from doomworm.worlds import build_world
+
+    world = build_world(0, "room:rooms/example_room.json", "clean")
+    assert world.width == pytest.approx(15.0)
+    log = tmp_path / "room.jsonl"
+    args = ["drive", "--teleop", "--sensors", "car", "--room", "rooms/example_room.json"]
+    monkeypatch.setattr("sys.stdin", io.StringIO("w\nw\nw\n"))
+    assert main([*args, "--steps", "5", "--record", str(log)]) == 0
+    meta, rows = read_drive_log(log)
+    assert meta["room"]["width"] == pytest.approx(15.0)
+    # replay needs no file: the room travels inside the log
+    same = replay_in_sim(meta, rows)
+    assert compare_logs(rows, same).rmse("odom_x") == 0.0
+    assert main(["compare-log", "--log", str(log), "--room", "rooms/example_room.json"]) == 0
+    assert main(["plot-log", "--log", str(log)]) == 0
+    assert log.with_suffix(".png").exists()
+
+
+def test_selftest_passes_on_the_simulator_and_flags_dead_odometry() -> None:
+    from doomworm.environments.sensors import CAR
+    from doomworm.hardware import selftest
+
+    link = SimLink(build_world(3001, "apartment", "clean"), CAR, sensor_seed=1)
+    report = selftest(link, rest_frames=5)
+    assert report.ok, report.problems
+    assert report.heading_left_spin > 0 > report.heading_right_spin
+    assert report.forward_units > 0
+    assert len(report.roundtrip_ms) == 5
+    assert "OK" in report.markdown()
+
+    class Frozen(SimLink):
+        def step(self, left: float, right: float) -> dict[str, float]:
+            return super().step(0.0, 0.0)  # wheels wired to nothing
+
+    frozen = Frozen(build_world(3001, "apartment", "clean"), CAR, sensor_seed=1)
+    bad = selftest(frozen, rest_frames=2)
+    assert not bad.ok
+    assert any("heading" in p for p in bad.problems)
+
+
+def test_calibrate_recovers_the_simulator_scale(tmp_path: Path) -> None:
+    from doomworm.hardware import calibrate, load_calibration, save_calibration
+
+    # a "car" whose true scale is 0.25 m/u: an empty sim world, measured with a tape
+    world = build_world(3001, "fixed", "food")
+    world.walls, world.obstacles = [], []
+    link = SimLink(world, "ideal", 0)
+    base = Calibration.for_preset("car")
+    answers = iter(["1.0", "45"])  # 20 ticks * 0.2 u = 4 u = 1.0 m -> 0.25 m/u; spin 45 deg
+    said: list[str] = []
+    cal = calibrate(link, base, ticks=20, ask=lambda _: next(answers), say=said.append)
+    assert cal.unit_m == pytest.approx(0.25)
+    assert cal.wheel_base == pytest.approx(8.0 / math.radians(45), rel=1e-3)
+    assert cal.sensors.name == "car"
+    path = save_calibration(cal, tmp_path / "cal.json")
+    back = load_calibration(path)
+    assert back.unit_m == pytest.approx(0.25)
+    assert back.wheel_base == pytest.approx(cal.wheel_base)
+    assert back.sensors.name == "car"
+    assert any("measured" in line for line in said)
+
+
+def test_cli_selftest_and_calibrate_on_the_simulator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from doomworm.cli import main
+
+    out = tmp_path / "selftest.md"
+    st = ["selftest", "--sensors", "car", "--seed", "3001", "--frames", "3"]
+    assert main([*st, "--out", str(out)]) == 0
+    assert "OK" in out.read_text()
+    answers = iter(["0.8", "60"])
+    monkeypatch.setattr("builtins.input", lambda _: next(answers))
+    cal = tmp_path / "cal.json"
+    cl = ["calibrate", "--sensors", "car", "--seed", "3001", "--ticks", "20"]
+    assert main([*cl, "--out", str(cal)]) == 0
+    assert json.loads(cal.read_text())["unit_m"] == pytest.approx(0.2)
+    # a measured file feeds the tcp link; on the sim link it is accepted and ignored
+    assert main([*st, "--calibration", str(cal)]) == 0

@@ -9,6 +9,9 @@ doomworm ppo                       train the PPO candidate (optional rl group, s
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm drive --teleop            drive the simulator or the machine, record sensors (stage 22)
 doomworm compare-log --log X       replay a drive log in the simulator, compare channels
+doomworm selftest --link tcp       day-one check of the machine: protocol, sensors, wheels
+doomworm calibrate --link tcp      measure metres per unit and the wheel base
+doomworm plot-log --log X          picture of a drive log (path, rays, wheels)
 doomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
 
@@ -17,6 +20,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from doomworm import __version__
 
@@ -126,21 +130,11 @@ def build_parser() -> argparse.ArgumentParser:
     stim.add_argument("--plot", action="store_true", help="save raster + subgraph PNGs to runs/")
 
     drv = sub.add_parser("drive", help="drive the simulator or the machine through one link")
-    drv.add_argument("--link", choices=["sim", "tcp"], default="sim")
-    drv.add_argument("--host", default="192.168.4.1", help="robot address for --link tcp")
-    drv.add_argument("--port", type=int, default=5000)
-    drv.add_argument(
-        "--unit-m", type=float, default=None, help="metres per world unit (default: preset)"
-    )
+    add_link_args(drv)
     drv.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
     drv.add_argument("--scripted", choices=["follower", "roomba"], default=None)
     drv.add_argument("--teleop", action="store_true", help="wasd / 'l r' pairs from stdin")
     drv.add_argument("--planner", choices=["none", "coverage", "needs"], default="none")
-    drv.add_argument("--seed", type=int, default=3000, help="world seed (sim link)")
-    drv.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
-    drv.add_argument("--task", choices=["food", "target", "clean"], default="clean")
-    drv.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
-    drv.add_argument("--sensor-seed", type=int, default=0)
     drv.add_argument("--steps", type=int, default=800)
     drv.add_argument("--every", type=int, default=25, help="print a line every N ticks")
     drv.add_argument("--record", type=Path, default=None, help="drive log (JSON lines)")
@@ -153,17 +147,125 @@ def build_parser() -> argparse.ArgumentParser:
     cmp_log.add_argument("--seed", type=int, default=None, help="override the log's world seed")
     cmp_log.add_argument("--sensors", choices=SENSOR_PRESETS, default=None)
     cmp_log.add_argument("--sensor-seed", type=int, default=None)
+    cmp_log.add_argument("--room", type=Path, default=None, help="replay in this room file")
     cmp_log.add_argument("--out", type=Path, default=None, help="write the markdown report here")
+
+    st = sub.add_parser("selftest", help="day-one check of the machine behind a link")
+    add_link_args(st)
+    st.add_argument("--frames", type=int, default=10, help="frames to watch at rest")
+    st.add_argument("--out", type=Path, default=None, help="write the report here")
+
+    cal = sub.add_parser("calibrate", help="measure metres per unit and the wheel base")
+    add_link_args(cal)
+    cal.add_argument("--ticks", type=int, default=20, help="ticks of each run")
+    cal.add_argument("--out", type=Path, default=Path("runs") / "calibration.json")
+
+    pl = sub.add_parser("plot-log", help="picture of a drive log")
+    pl.add_argument("--log", type=Path, required=True)
+    pl.add_argument("--out", type=Path, default=None, help="PNG path (default: next to the log)")
     return parser
+
+
+def add_link_args(parser: argparse.ArgumentParser) -> None:
+    """Arguments shared by every command that opens a robot link."""
+    parser.add_argument("--link", choices=["sim", "tcp"], default="sim")
+    parser.add_argument("--host", default="192.168.4.1", help="robot address for --link tcp")
+    parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
+    parser.add_argument(
+        "--unit-m", type=float, default=None, help="metres per world unit (default: preset)"
+    )
+    parser.add_argument(
+        "--calibration", type=Path, default=None, help="JSON from doomworm calibrate"
+    )
+    parser.add_argument("--seed", type=int, default=3000, help="world seed (sim link)")
+    parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    parser.add_argument("--room", type=Path, default=None, help="room file instead of --maps")
+    parser.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    parser.add_argument("--sensor-seed", type=int, default=0)
+
+
+def open_link(args: argparse.Namespace) -> Any:
+    """The link the arguments describe: a seeded simulator world or a TCP machine."""
+    from dataclasses import replace
+
+    from doomworm.hardware import Calibration, SimLink, connect_tcp, load_calibration
+
+    if args.link == "tcp":
+        cal = (
+            load_calibration(args.calibration)
+            if args.calibration is not None
+            else Calibration.for_preset(args.sensors)
+        )
+        if args.unit_m is not None:
+            cal = replace(cal, unit_m=args.unit_m)
+        tcp = connect_tcp(args.host, args.port, cal)
+        if args.room is not None:
+            from doomworm.hardware import load_room
+
+            tcp.room = load_room(args.room).to_dict()
+        return tcp
+    from doomworm.worlds import build_world
+
+    maps = f"room:{args.room}" if args.room is not None else args.maps
+    world = build_world(args.seed, maps, args.task)
+    link = SimLink(world, args.sensors, args.sensor_seed, args.seed, maps, args.task)
+    if args.room is not None:
+        from doomworm.hardware import load_room
+
+        link.room = load_room(args.room).to_dict()
+    return link
+
+
+def run_selftest_cli(args: argparse.Namespace) -> int:
+    """Stage 22.2: protocol, sensors and wheels of the machine behind the link."""
+    from doomworm.hardware import selftest
+
+    link = open_link(args)
+    try:
+        report = selftest(link, rest_frames=args.frames)
+    finally:
+        link.close()
+    text = f"# selftest over {link.name} ({args.sensors})\n\n" + report.markdown()
+    print(text)
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(text, encoding="utf-8")
+    return 0 if report.ok else 1
+
+
+def run_calibrate_cli(args: argparse.Namespace) -> int:
+    """Stage 22.2: two measured runs -> runs/calibration.json."""
+    from doomworm.hardware import Calibration, calibrate, save_calibration
+
+    link = open_link(args)
+    base = getattr(link, "calibration", None) or Calibration.for_preset(args.sensors)
+    try:
+        measured = calibrate(link, base, ticks=args.ticks)
+    finally:
+        link.close()
+    print(f"saved {save_calibration(measured, args.out)}")
+    return 0
+
+
+def run_plot_log_cli(args: argparse.Namespace) -> int:
+    """Stage 22.2: PNG of a drive log."""
+    from doomworm.hardware import plot_drive_log, read_drive_log
+
+    meta, rows = read_drive_log(args.log)
+    if not rows:
+        raise SystemExit(f"plot-log: {args.log} has no rows")
+    out = args.out if args.out is not None else args.log.with_suffix(".png")
+    print(f"saved {plot_drive_log(rows, out, meta, meta.get('room'))}")
+    return 0
 
 
 def run_drive_cli(args: argparse.Namespace) -> int:
     """Stage 22: one loop for the simulator and the machine, with recording."""
     import sys
-    from dataclasses import replace
 
     from doomworm.episode import BrainLike
-    from doomworm.hardware import Calibration, SimLink, Teleop, connect_tcp, drive, raw_keys
+    from doomworm.hardware import Teleop, drive, raw_keys
     from doomworm.hardware.link import RobotLink
 
     controller: BrainLike
@@ -190,17 +292,7 @@ def run_drive_cli(args: argparse.Namespace) -> int:
 
         controller = PlannerLayer(controller, PRESETS[args.sensors], mode=args.planner)
 
-    link: RobotLink
-    if args.link == "tcp":
-        cal = Calibration.for_preset(args.sensors)
-        if args.unit_m is not None:
-            cal = replace(cal, unit_m=args.unit_m)
-        link = connect_tcp(args.host, args.port, cal)
-    else:
-        from doomworm.worlds import build_world
-
-        world = build_world(args.seed, args.maps, args.task)
-        link = SimLink(world, args.sensors, args.sensor_seed, args.seed, args.maps, args.task)
+    link: RobotLink = open_link(args)
     name = getattr(controller, "name", "?")
     print(f"drive {name} over {link.name} ({args.sensors}), {args.steps} ticks", flush=True)
 
@@ -249,6 +341,10 @@ def run_compare_log_cli(args: argparse.Namespace) -> int:
             value = getattr(args, key.replace("-", "_"))
             if value is not None:
                 other_meta[key] = value
+        if args.room is not None:
+            from doomworm.hardware import load_room
+
+            other_meta["room"] = load_room(args.room).to_dict()
         other = replay_in_sim(other_meta, rows)
         label = f"{args.log} vs replay ({other_meta.get('sensors')}, seed {other_meta.get('seed')})"
     report = compare_logs(rows, other)
@@ -508,4 +604,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_drive_cli(args)
     if args.command == "compare-log":
         return run_compare_log_cli(args)
+    if args.command == "selftest":
+        return run_selftest_cli(args)
+    if args.command == "calibrate":
+        return run_calibrate_cli(args)
+    if args.command == "plot-log":
+        return run_plot_log_cli(args)
     return run_play(args)
