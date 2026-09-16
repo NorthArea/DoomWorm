@@ -16,7 +16,8 @@ is worm minus best self-trained, in reward units. Verdict: **win** / **tie**
 | C4 retraining on the new sensors | car preset, same budget as A2 | curriculum retrained 30.1 ± 5.4 (worse than transferred: overfits 3 training maps) | PPO retrained 43.0 ± 4.0; rnn 30.1 ± 5.0 | −1.8 (transferred worm 41.2 vs PPO 43.0) | **tie**; the worm has half the collisions (14 vs 31) | same §2 |
 | C4 under layer v2 | car preset, marker search in the layer | curriculum (transferred) 42.1 ± 3.7 | PPO-car 46.5 ± 7.7 | −4.4 | **tie** (spreads overlap); worm 17 vs 26 collisions | same §3 |
 | C5 robustness to wrong sensor numbers | one car-preset number at a time made worse (noise x3/x6, dropout x3/x6, odometry drift x2/x4, delay 2-3 ticks, camera view 20/15 deg, marker range 3/2 u); 12 episodes per cell, 3 seeds | curriculum (transferred) base 41.3 ± 3.2; worst cell −12.3 (marker range 2 u), −11.6 (drift x4), −11.3 (delay 3); noise x6 only −2.2 | PPO-car base 47.8 ± 6.5; worst −18.8 (delay 3), −11.7 (marker range 2), −10.5 (noise x6); drift x4 only −5.7 | worst-case drop −30 % (worm) vs −39 % (PPO) | **tie**, split by parameter: the worm degrades less under noise amplitude and latency, PPO less under odometry drift and a narrower camera; both fall the same when the marker range shrinks (that is the layer, not the brain) | `results/a3/robustness_2026-09-16/summary_3seeds.md` |
-| C6 cost of training | reward per generation / step; number of training maps (12 maps x 2 noise repeats retraining running) | _running_ | _running_ | | | stage 23.2 |
+| C6a more training data, same budget | car preset, retraining on 12 maps x 2 noise repeats instead of 3 x 1; evolution pop 40 x 25 gen, PPO 300k steps; layer v2 | curriculum worm 44.4 ± 5.6 (was 30.1 on 3 maps; transferred 42.1) | PPO 37.5 ± 8.4 (was 46.5 on 3 maps) | +6.9 | **tie leaning worm** (spreads 5.6 / 8.4 overlap): more maps cure the worm's overfit; PPO at a fixed 300k steps gets fewer steps per map and loses | `results/a3/benchmark_car12_2026-09-16/summary_3seeds.md` |
+| C6b cost in environment steps | what each budget above actually consumes | evolution: 40 genomes x 25 gen x 24 episodes = 24 000 episodes = 19 M env steps | PPO: 300 000 steps = 375 episodes | worm needs ~64x the experience | **loss** on sample efficiency: the natural wiring does not make evolution cheap; a gradient learner reaches the same reward on 1/64 of the data | same, `docs/brains/car_12maps/train.log` |
 | C7 hybrids | worm as the motivational layer over a net, worm + small net | | | | todo | stage 23.3 |
 | C8 reality gap | the car: same saved brain in the simulator and in the room | | | | needs the machine | stage 22.2+ |
 | C9 another environment | Doom (track B) | | | | on the owner's word | |
@@ -36,10 +37,13 @@ is worm minus best self-trained, in reward units. Verdict: **win** / **tie**
   moving docking and the bumper reflex into the layer raised every brain
   (A2 21.8-21.9, A3 22.1e) and let the worm-vs-random ordering appear.
 
+- Training data (C6): given more maps at the same protocol budget the worm
+  recovers from its overfit and edges past PPO (44.4 vs 37.5), but it pays
+  ~64x the environment steps for it. The worm's profit is never in cheap
+  training; it is in what it carries over without training.
 - Wrong sensor numbers (C5) do not separate the two: the worm is the calmer
   one under noise amplitude and latency, PPO under odometry drift and a
   narrower camera. Neither is a robustness win; the layer's marker range is
   the shared weak point.
 
-Open question the running axis answers: does more training data close the
-worm's retraining gap or PPO's transfer gap (C6).
+Remaining axes: hybrids (C7), the real car (C8), Doom (C9).
