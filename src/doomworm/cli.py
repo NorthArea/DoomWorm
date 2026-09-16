@@ -9,6 +9,7 @@ doomworm ppo                       train the PPO candidate (optional rl group, s
 doomworm play --brain brain.json   replay a saved brain on a seeded world
 doomworm drive --teleop            drive the simulator or the machine, record sensors (stage 22)
 doomworm compare-log --log X       replay a drive log in the simulator, compare channels
+doomworm robustness --brain X      sweep the sensor preset's assumed numbers, table of the drops
 doomworm selftest --link tcp       day-one check of the machine: protocol, sensors, wheels
 doomworm calibrate --link tcp      measure metres per unit and the wheel base
 doomworm plot-log --log X          picture of a drive log (path, rays, wheels)
@@ -97,6 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--task", choices=["food", "target", "clean"], default="clean")
     ev.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     ev.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
+    ev.add_argument("--train-repeats", type=int, default=1, help="noise seeds per training map")
     ev.add_argument("--steps", type=int, default=800)
     ev.add_argument("--population", type=int, default=40)
     ev.add_argument("--generations", type=int, default=25)
@@ -149,6 +151,24 @@ def build_parser() -> argparse.ArgumentParser:
     cmp_log.add_argument("--sensor-seed", type=int, default=None)
     cmp_log.add_argument("--room", type=Path, default=None, help="replay in this room file")
     cmp_log.add_argument("--out", type=Path, default=None, help="write the markdown report here")
+
+    rb = sub.add_parser("robustness", help="sweep the assumed sensor numbers around a brain")
+    rb.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
+    rb.add_argument("--scripted", choices=["follower", "roomba"], default=None)
+    rb.add_argument("--name", default=None)
+    rb.add_argument("--planner", choices=["none", "coverage", "needs"], default="needs")
+    rb.add_argument("--sensors", choices=SENSOR_PRESETS, default="car")
+    rb.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    rb.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    rb.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
+    rb.add_argument("--repeats", type=int, default=2)
+    rb.add_argument("--steps", type=int, default=800)
+    rb.add_argument(
+        "--params", default=None, help="comma-separated subset of the grid (default: all)"
+    )
+    rb.add_argument(
+        "--out", type=Path, default=None, help="markdown table (default: runs/robustness/<name>.md)"
+    )
 
     st = sub.add_parser("selftest", help="day-one check of the machine behind a link")
     add_link_args(st)
@@ -215,6 +235,67 @@ def open_link(args: argparse.Namespace) -> Any:
 
         link.room = load_room(args.room).to_dict()
     return link
+
+
+def run_robustness_cli(args: argparse.Namespace) -> int:
+    """Stage 22.1f: one preset parameter at a time, worse than assumed, table of the drops."""
+    from doomworm.environments.sensors import PRESETS, SensorConfig
+    from doomworm.episode import BrainLike
+    from doomworm.learning import CAR_GRID, BenchmarkConfig, sweep, sweep_table, worst_cells
+
+    inner: BrainLike
+    if args.scripted == "follower":
+        from doomworm.layer import GradientFollower
+
+        inner = GradientFollower()
+        name = args.name or "driver_follower"
+    elif args.scripted == "roomba":
+        from doomworm.candidates import RoombaBrain
+
+        inner = RoombaBrain()
+        name = args.name or "roomba"
+    elif args.brain is not None:
+        from doomworm.candidates import load_candidate
+
+        inner = load_candidate(args.brain, maps=args.maps, task=args.task)
+        name = args.name or args.brain.stem
+    else:
+        raise SystemExit("robustness: give --brain <file> or --scripted <name>")
+
+    def factory(cfg: SensorConfig) -> BrainLike:
+        if args.planner == "none":
+            return inner
+        from doomworm.layer import PlannerLayer
+
+        return PlannerLayer(inner, cfg, mode=args.planner)
+
+    grid = dict(CAR_GRID)
+    if args.params:
+        wanted = [p.strip() for p in args.params.split(",") if p.strip()]
+        unknown = [p for p in wanted if p not in grid]
+        if unknown:
+            raise SystemExit(f"robustness: unknown parameters {unknown}; known: {sorted(grid)}")
+        grid = {p: grid[p] for p in wanted}
+    bench = BenchmarkConfig(
+        maps=args.maps,
+        task=args.task,
+        sensors=args.sensors,
+        test_seeds=tuple(range(3000, 3000 + args.test_seeds)),
+        steps=args.steps,
+        repeats=args.repeats,
+    )
+    row_name = name if args.planner == "none" else f"{name}+{args.planner}"
+    print(f"robustness of {row_name} around {args.sensors}: {bench.episodes} episodes per cell")
+    rows = sweep(factory, row_name, PRESETS[args.sensors], grid, bench)
+    worst = ", ".join(f"{r.param}={r.label}" for r in worst_cells(rows))
+    text = f"# {row_name} around the {args.sensors} preset\n\n" + sweep_table(rows)
+    text += f"\nlargest drops: {worst}\n"
+    print(text)
+    out = args.out or Path("runs") / "robustness" / f"{row_name}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(f"saved {out}")
+    return 0
 
 
 def run_selftest_cli(args: argparse.Namespace) -> int:
@@ -433,6 +514,7 @@ def run_evolve_cli(args: argparse.Namespace) -> int:
     cfg = TrainConfig(
         layer=args.layer,
         train_seeds=tuple(range(100, 100 + args.train_seeds)),
+        train_repeats=args.train_repeats,
         steps=args.steps,
         population=args.population,
         generations=args.generations,
@@ -606,6 +688,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_compare_log_cli(args)
     if args.command == "selftest":
         return run_selftest_cli(args)
+    if args.command == "robustness":
+        return run_robustness_cli(args)
     if args.command == "calibrate":
         return run_calibrate_cli(args)
     if args.command == "plot-log":

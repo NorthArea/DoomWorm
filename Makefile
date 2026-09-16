@@ -7,7 +7,7 @@ SEED ?= 1003
 NEURON ?= ASHL
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-22 demos benchmark-car evolve-car selftest-sim train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-22 demos benchmark-car evolve-car selftest-sim robustness-car train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -122,6 +122,10 @@ selftest-sim: ## Stage 22.2 rehearsal: self-test, calibration and a room drive o
 	printf 'w\nw\nw\nw\nd\nd\nw\nw\nw\n' | $(UV) doomworm drive --teleop --sensors car --room data/rooms/example_room.json --every 1 --record runs/drive/room_sim.jsonl
 	$(UV) doomworm plot-log --log runs/drive/room_sim.jsonl
 	$(UV) doomworm compare-log --log runs/drive/room_sim.jsonl
+
+robustness-car: ## Stage 22.1f: sweep the car preset's assumed numbers around the two chosen brains -> runs/robustness/
+	$(UV) doomworm robustness --brain docs/brains/a2/worm_from_worm_evolved_random.json --planner needs --sensors car
+	$(UV) doomworm robustness --brain docs/brains/car/ppo.json --name ppo_car --planner needs --sensors car
 
 benchmark-car: ## Stage 22: every A2 candidate plus the scripted floors on the car sensor preset -> runs/benchmark_car/
 	$(UV) doomworm benchmark --scripted roomba --sensors car --out-dir runs/benchmark_car

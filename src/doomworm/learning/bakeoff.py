@@ -40,6 +40,7 @@ class TrainConfig:
 
     layer: str = "needs"
     train_seeds: tuple[int, ...] = (100, 101, 102)
+    train_repeats: int = 1  # sensor-noise seeds per training map
     steps: int = 800
     population: int = 40
     generations: int = 25
@@ -71,7 +72,7 @@ def wrap(brain: BrainLike, spec: CandidateSpec, layer: str) -> BrainLike:
 
 
 def benchmark_config(spec: CandidateSpec, cfg: TrainConfig) -> BenchmarkConfig:
-    """Benchmark settings for the training maps: one noise repeat per map."""
+    """Benchmark settings for the training maps (``train_repeats`` noise seeds per map)."""
     return BenchmarkConfig(
         maps=spec.maps,
         task=spec.task,
@@ -79,7 +80,7 @@ def benchmark_config(spec: CandidateSpec, cfg: TrainConfig) -> BenchmarkConfig:
         sensors=spec.sensors,
         test_seeds=cfg.train_seeds,
         steps=cfg.steps,
-        repeats=1,
+        repeats=cfg.train_repeats,
     )
 
 

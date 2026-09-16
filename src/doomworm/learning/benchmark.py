@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from doomworm.environments.maze import rooms_visited
-from doomworm.environments.sensors import PRESETS, SensorSuite
+from doomworm.environments.sensors import PRESETS, SensorConfig, SensorSuite
 from doomworm.environments.worlds import build_world
 from doomworm.episode import BrainLike, run_brain_episode
 from doomworm.learning.reward import RewardConfig, RewardTracker
@@ -35,6 +35,7 @@ class BenchmarkConfig:
     test_seeds: tuple[int, ...] = tuple(range(3000, 3006))
     steps: int = 800
     repeats: int = 3  # sensor-noise seeds per map
+    sensor_config: SensorConfig | None = None  # overrides the ``sensors`` preset (sweeps)
 
     @property
     def episodes(self) -> int:
@@ -102,15 +103,16 @@ def run_benchmark(
 ) -> BenchmarkResult:
     """Run every (map seed, repeat) episode for one brain."""
     cfg = config or BenchmarkConfig()
-    if cfg.sensors not in PRESETS:
+    if cfg.sensor_config is None and cfg.sensors not in PRESETS:
         raise ValueError(f"unknown sensor preset {cfg.sensors!r}")
+    sensor_config = cfg.sensor_config or PRESETS[cfg.sensors]
     result = BenchmarkResult(name=name, config=cfg)
     for seed in cfg.test_seeds:
         for repeat in range(cfg.repeats):
             world = build_world(seed, cfg.maps, cfg.task, cfg.dangers)
             # Every preset goes through the suite: "ideal" is noiseless, not sensorless,
             # so planner-wrapped brains get odometry and bumper channels there too.
-            suite = SensorSuite(PRESETS[cfg.sensors], seed=seed * 1000 + repeat)
+            suite = SensorSuite(sensor_config, seed=seed * 1000 + repeat)
             tracker = RewardTracker(reward_config or RewardConfig())
             trace = run_brain_episode(world, brain, cfg.steps, tracker, sensors=suite)
             distance = sum(math.dist((a.x, a.y), (b.x, b.y)) for a, b in pairwise(trace))
