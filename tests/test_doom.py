@@ -352,3 +352,118 @@ def test_ncp_gets_a_third_output_on_the_doom_task(tmp_path: Path) -> None:
     loaded = NCPBrain.from_file(path)
     assert loaded.outputs == 3
     assert loaded.n_weights == three.n_weights
+
+
+def test_the_trigger_answers_the_gun_line_before_any_training() -> None:
+    """Stage B2c: the trigger group sits in the pharynx, whose only door is RIP.
+
+    Routed to the amphid pair alone the trigger cannot see `aim` at all -- the
+    pharyngeal nervous system is joined to the rest of the connectome by five
+    connections, all through RIPL/RIPR. With the signal delivered to that door,
+    an untrained worm fires when an enemy is on the gun line and holds when the
+    line is clear.
+    """
+    import numpy as np
+
+    from doomworm.candidates import WormBrain
+    from doomworm.connectome import default_sensory_mapping
+    from doomworm.environments.worlds import build_world
+    from doomworm.experiments.worm_agent import WormScenario
+
+    def fire_rates(*, through_the_door: bool) -> tuple[float, float]:
+        mapping = default_sensory_mapping()
+        if not through_the_door:  # the mapping this project used before stage B2c
+            mapping.routes = [r for r in mapping.routes if r.neuron not in ("RIPL", "RIPR")]
+        scenario = WormScenario(
+            sensory_mapping=mapping, maps="doom4", task="doom", sensors="ideal"
+        )
+        aims, fires = [], []
+        for seed in (3000, 3001, 3002):
+            brain = WormBrain.from_scenario(scenario)
+            world = build_world(seed, "doom4", "doom")
+            brain.reset()
+            for _ in range(200):
+                channels = world.observe().as_channels()
+                left, right = brain.act(channels)
+                aims.append(channels["aim"])
+                fires.append(brain.fire)
+                world.step(left, right, fire=brain.fire > 0.5)
+        a, f = np.array(aims), np.array(fires)
+        return float(f[a > 0.3].mean()), float(f[a == 0.0].mean())
+
+    on_default, off_default = fire_rates(through_the_door=True)
+    assert on_default > 0.5, "an enemy on the gun line pulls the trigger"
+    assert off_default < 0.5, "a clear line holds it"
+
+    on_blind, off_blind = fire_rates(through_the_door=False)
+    assert on_blind < 0.5, "without the pharyngeal door the trigger cannot see the target"
+    assert abs(on_blind - off_blind) < 0.1, "it is the same noise with a target and without"
+
+
+def test_an_untrained_worm_turns_its_body_toward_the_enemy() -> None:
+    """Stage B2d: the gun is bolted to the chassis, so aiming is turning.
+
+    The enemy already arrives on `danger_*`, which the default mapping sends to the
+    nociceptive pair ASH -- the animal's escape pathway, which turns it away. The
+    `prey_*` channels read the same monster as an attractant by side, on the
+    chemosensory pair the worm's own taxis can climb.
+    """
+    import math
+
+    import numpy as np
+
+    from doomworm.candidates import WormBrain
+    from doomworm.connectome import default_sensory_mapping
+    from doomworm.environments.simple_2d import AgentState, Enemy, World
+    from doomworm.experiments.worm_agent import WormScenario
+
+    def turn_bias(*, with_prey: bool, side: str) -> float:
+        mapping = default_sensory_mapping()
+        if not with_prey:
+            mapping.routes = [r for r in mapping.routes if not r.channel.startswith("prey_")]
+        scenario = WormScenario(
+            sensory_mapping=mapping, maps="doom4", task="doom", sensors="ideal"
+        )
+        brain = WormBrain.from_scenario(scenario)
+        brain.reset()
+        world = World(
+            width=40.0,
+            height=40.0,
+            agent=AgentState(x=20.0, y=20.0, heading=0.0),
+            fire_enabled=True,
+            hunger_rate=0.0,
+        )
+        bearing = math.radians(50.0 if side == "left" else -50.0)
+        world.enemies = [
+            Enemy(20.0 + 5.0 * math.cos(bearing), 20.0 + 5.0 * math.sin(bearing), 0.5, 3, 0.0)
+        ]
+        turns = []
+        for _ in range(30):
+            left, right = brain.act(world.observe().as_channels())
+            turns.append(right - left)  # positive = turning left
+            world.step(left, right)
+        return float(np.mean(turns))
+
+    on_left = turn_bias(with_prey=True, side="left")
+    on_right = turn_bias(with_prey=True, side="right")
+    assert on_left > 0.0, "an enemy on the left turns the body left"
+    assert on_right < 0.0, "an enemy on the right turns it right"
+
+    # and the signal is what does it: the same worm without those channels does not orient
+    blind_left = turn_bias(with_prey=False, side="left")
+    blind_right = turn_bias(with_prey=False, side="right")
+    assert (on_left - on_right) > 2.0 * (blind_left - blind_right)
+
+
+def test_prey_channels_are_silent_without_a_gun() -> None:
+    """A monster you cannot shoot is a hazard, not prey (levels 1-3, and every A-track world)."""
+    from doomworm.environments.worlds import build_world
+
+    with_gun = build_world(3000, "doom4", "doom")
+    without = build_world(3000, "doom3", "doom")  # same enemy, no gun
+    assert with_gun.has_gun
+    assert not without.has_gun
+    channels = without.observe().as_channels()
+    assert channels["prey_left"] == 0.0
+    assert channels["prey_front"] == 0.0
+    assert channels["prey_right"] == 0.0

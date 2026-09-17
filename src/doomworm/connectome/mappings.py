@@ -14,6 +14,11 @@ ventral head bends. ``front`` drives both members of every pair.
     target_*        -> same neurons as food_* (Plan §19: the target is the
                        new attractive signal; the worm cannot tell them apart)
     danger_*        -> ASHL / ASHR / both  (nociceptive; used from stage 14)
+    prey_*          -> ASGL / ASGR / both  (track B: the enemy as an attractant, so the
+                                            worm's own taxis can turn the body onto it)
+    aim             -> ADLL, ADLR          (track B: enemy on the gun line)
+                       RIPL, RIPR          (the only connection into the pharynx, where
+                                            the trigger group lives: stage B2c)
 
 Mappings serialise to JSON so an experiment can ship its own table.
 """
@@ -34,6 +39,8 @@ OBSTACLE = {"left": "sensor_left", "front": "sensor_front", "right": "sensor_rig
 FOOD = {"left": "food_left", "front": "food_front", "right": "food_right"}
 DANGER = {"left": "danger_left", "front": "danger_front", "right": "danger_right"}
 TARGET = {"left": "target_left", "front": "target_front", "right": "target_right"}
+PREY = {"left": "prey_left", "front": "prey_front", "right": "prey_right"}
+PREY_GAIN = 3.0  # measured: the response saturates here (LIF activity clips at 1)
 DOCK = {"left": "dock_left", "front": "dock_front", "right": "dock_right"}
 
 
@@ -233,4 +240,25 @@ def default_sensory_mapping() -> SensoryMapping:
     m.add(DANGER["left"], ["ASHL"])
     m.add(DANGER["right"], ["ASHR"])
     m.add(DANGER["front"], ["ASHL", "ASHR"])
+    # Track B: the gun line. The amphid pair reads it, and the same signal is delivered to
+    # RIPL/RIPR because they are the animal's only door into the pharynx (5 crossing
+    # connections in the whole connectome), where the trigger group M3/M4/MC lives. With
+    # ADL alone the trigger is blind to the target: untrained fire 0.134 with an enemy on
+    # the line against 0.157 with none. Through RIP the same untrained worm answers 0.906
+    # against 0.143 (docs/assumptions.md 2026-09-16, stage B2c).
+    m.add("aim", ["ADLL", "ADLR", "RIPL", "RIPR"])
+    # The same monster that ASH reads as pain, read again as prey, by side. A body with
+    # the gun bolted to it can only aim by turning, and turning toward something is what
+    # the chemosensory pathway does; the escape pathway does the opposite.
+    #
+    # The pair was chosen by measurement, not by the story: of the 31 free sensory pairs,
+    # only some make the *untrained* connectome turn the right way (mean wheel difference
+    # over 30 ticks with an enemy 50 degrees off, left case / right case): ASG +0.047 /
+    # -0.014, CEPD +0.037 / -0.023, ASK +0.021 / -0.016 orient; ADF (+0.094 by score) and
+    # OLL only bias the body rightwards in both cases, which is not orienting at all.
+    # ASG wins on modality too: an amphid chemosensory pair for a 1/distance gradient,
+    # the same reading the food channels get. Gain 3 saturates the response (stage B2d).
+    m.add(PREY["left"], ["ASGL"], PREY_GAIN)
+    m.add(PREY["right"], ["ASGR"], PREY_GAIN)
+    m.add(PREY["front"], ["ASGL", "ASGR"], PREY_GAIN)
     return m

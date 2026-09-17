@@ -191,10 +191,18 @@ class Observation:
     dock_right: float = 0.0
     docked: bool = False
     cleaned: int = 0
+    ammo: float = 0.0
+    aim: float = 0.0
+    prey_left: float = 0.0  # the same enemy read as prey, not as a hazard (track B)
+    prey_front: float = 0.0
+    prey_right: float = 0.0
     collided: bool = False
     ate: bool = False
     reached: bool = False
     damaged: bool = False
+    fired: bool = False
+    hit: int = 0
+    killed: int = 0
 
     def as_channels(self) -> dict[str, float]:
         """Numeric channels for the sensory adapter."""
@@ -217,6 +225,11 @@ class Observation:
             "dock_left": self.dock_left,
             "dock_front": self.dock_front,
             "dock_right": self.dock_right,
+            "ammo": self.ammo,
+            "aim": self.aim,
+            "prey_left": self.prey_left,
+            "prey_front": self.prey_front,
+            "prey_right": self.prey_right,
         }
 
 
@@ -269,6 +282,9 @@ class World:
         self.agent = agent if agent is not None else AgentState(x=3.0, y=10.0)
         self.obstacles = list(obstacles)
         self.walls = list(walls)
+        # Arbitrary-angle solid lines. Generated levels use axis-aligned walls; a map
+        # that comes from the Doom engine (stage B11) has angled ones (Plan §33).
+        self.segments: list[tuple[float, float, float, float]] = []
         self.rooms: list[tuple[float, float, float, float]] = []  # optional (x0, y0, x1, y1)
         self.foods = list(foods)
         self.respawn_food = respawn_food
@@ -615,12 +631,16 @@ class World:
             danger_left=d_left,
             danger_front=d_front,
             danger_right=d_right,
+            prey_left=p_left,
+            prey_front=p_front,
+            prey_right=p_right,
             health=self.health,
             battery=self.battery,
             dock_left=k_left,
             dock_front=k_front,
             dock_right=k_right,
             docked=self._docked,
+            ammo=self.ammo / self.ammo_max if self.has_gun and self.ammo_max else 0.0,
         )
 
     def _sense_dock(self) -> tuple[float, float, float]:
@@ -728,6 +748,10 @@ class World:
                 best = min(best, t)
         for w in self.walls:
             t = _ray_rect(ox, oy, dx, dy, w)
+            if t is not None:
+                best = min(best, t)
+        for seg in self.segments:
+            t = _ray_segment(ox, oy, dx, dy, seg)
             if t is not None:
                 best = min(best, t)
 

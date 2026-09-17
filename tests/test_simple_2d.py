@@ -177,6 +177,11 @@ def test_observation_channels_include_food_and_hunger() -> None:
         "dock_left",
         "dock_front",
         "dock_right",
+        "ammo",
+        "aim",
+        "prey_left",
+        "prey_front",
+        "prey_right",
     }
 
 

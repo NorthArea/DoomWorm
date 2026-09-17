@@ -20,13 +20,23 @@ def worm() -> Connectome:
     return load_cook2019()
 
 
+# Two channels do not describe the outside world and do not end on sensory neurons:
+# `hunger` is an internal state and goes to the neurosecretory pair NSM, and `aim` is
+# also delivered to RIP, the single gateway into the pharynx, because the pharyngeal
+# system of Cook 2019 has no sensory neuron at all and the trigger group lives inside
+# it (stage B2c, docs/assumptions.md).
+INTERNAL_ROUTES = {("hunger", "NSML"), ("hunger", "NSMR"), ("aim", "RIPL"), ("aim", "RIPR")}
+
+
 def test_default_mapping_neurons_exist_and_are_sensory(worm: Connectome) -> None:
     m = default_sensory_mapping()
     m.validate(worm)
     for channel in m.channels():
         for neuron, _ in m.targets(channel):
-            if channel != "hunger":
-                assert worm.neuron(neuron).type == "sensory", (channel, neuron)
+            if (channel, neuron) in INTERNAL_ROUTES:
+                assert worm.neuron(neuron).type == "interneuron", (channel, neuron)
+                continue
+            assert worm.neuron(neuron).type == "sensory", (channel, neuron)
 
 
 def test_default_mapping_is_lateralised() -> None:
