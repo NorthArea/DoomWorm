@@ -85,6 +85,21 @@ class Simulator:
         self.time += 1
         return dict(zip(self.ids, self._activity.tolist(), strict=True))
 
+    def snapshot(self) -> tuple[np.ndarray, np.ndarray]:
+        """The whole dynamic state: two arrays of 302 numbers.
+
+        Cheap enough to take every tick, which is what a search over the brain's
+        own proposals needs — copying the network instead costs a hundred times
+        more (stage 21).
+        """
+        return self._potential.copy(), self._activity.copy()
+
+    def restore(self, state: tuple[np.ndarray, np.ndarray]) -> None:
+        """Put the network back where :meth:`snapshot` found it."""
+        potential, activity = state
+        self._potential = potential.copy()
+        self._activity = activity.copy()
+
     def run(self, steps: int, inputs: Mapping[str, float] | None = None) -> list[dict[str, float]]:
         """Step ``steps`` times with constant ``inputs``; return activity per tick."""
         return [self.step(inputs) for _ in range(steps)]
