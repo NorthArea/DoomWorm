@@ -28,6 +28,7 @@ class SelfTestReport:
     heading_right_spin: float = 0.0
     forward_units: float = 0.0
     problems: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # true, but not a failure
 
     @property
     def ok(self) -> bool:
@@ -51,8 +52,19 @@ class SelfTestReport:
         for k, v in self.channels.items():
             lines.append(f"| {k} | {v:.3f} | {self.dropouts.get(k, 0)} |")
         lines.append("")
+        lines += [f"NOTE: {n}" for n in self.notes]
         lines += [f"PROBLEM: {p}" for p in self.problems] or ["OK"]
         return "\n".join(lines) + "\n"
+
+
+def _sensor_config(link: RobotLink) -> str | None:
+    """The link's odometry source: ``wheels`` (encoders), ``commands`` (open loop)."""
+    for owner, attr in ((link, "suite"), (link, "calibration")):
+        holder = getattr(owner, attr, None)
+        cfg = getattr(holder, "config", None) or getattr(holder, "sensors", None)
+        if cfg is not None:
+            return str(getattr(cfg, "odom_source", "wheels"))
+    return None
 
 
 def _range_keys(channels: dict[str, float]) -> list[str]:
@@ -88,6 +100,7 @@ def selftest(link: RobotLink, rest_frames: int = 10, expect_move: bool = True) -
             report.problems.append(f"{key} reads nothing in {n}/{rest_frames} frames at rest")
 
     # --- wiggle: does odometry answer the wheels the right way round ----------------
+    dead_reckoned = _sensor_config(link) is not None and _sensor_config(link) == "commands"
     frame = link.step(0.0, 0.0)
     h0 = frame.get("odom_heading", 0.0)
     for _ in range(5):
@@ -101,6 +114,14 @@ def selftest(link: RobotLink, rest_frames: int = 10, expect_move: bool = True) -
         frame = link.step(1.0, 1.0)
     report.forward_units = math.dist((frame.get("odom_x", 0.0), frame.get("odom_y", 0.0)), (x0, y0))
     link.step(0.0, 0.0)
+    if dead_reckoned:
+        # No encoders: the odometry below is integrated from the commands the host
+        # itself sent, so these three checks test the host's arithmetic, not the car.
+        report.notes.append(
+            "odometry is dead reckoning on this preset (no encoders): the spin and "
+            "forward checks test the host, not the wiring. Confirm by eye that each "
+            "wheel pair turns the way the command says before trusting a drive."
+        )
     if expect_move and "odom_heading" in first:
         if report.heading_left_spin <= 0.0:
             report.problems.append("right wheel alone did not turn the heading left (+)")

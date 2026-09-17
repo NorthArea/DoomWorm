@@ -8,6 +8,7 @@ import math
 import socket
 import threading
 from pathlib import Path
+from typing import TextIO, cast
 
 import pytest
 
@@ -300,6 +301,12 @@ def test_fake_robot_serves_the_car_preset() -> None:
     link.close()
     thread.join(timeout=5)
     assert [r.wheels for r in rows_wire] == pytest.approx([r.wheels for r in rows_direct])
+    # every channel, not just the wheels: the wire rebuilds bumper and wall from the
+    # raw reading, and a machine that serves fewer keys than the suite is the day-one bug
+    for wire, direct_row in zip(rows_wire, rows_direct, strict=True):
+        assert set(wire.channels) == set(direct_row.channels)
+        for key, value in direct_row.channels.items():
+            assert wire.channels[key] == pytest.approx(value, abs=1e-9), key
 
 
 # --- stage 22.2 preparation: room files, self-test, calibration, pictures -------------
@@ -403,3 +410,75 @@ def test_cli_selftest_and_calibrate_on_the_simulator(
     assert json.loads(cal.read_text())["unit_m"] == pytest.approx(0.2)
     # a measured file feeds the tcp link; on the sim link it is accepted and ignored
     assert main([*st, "--calibration", str(cal)]) == 0
+
+
+def test_car_frame_carries_every_channel_the_car_preset_defines() -> None:
+    """Stage 22.2: the real link must serve the same keys as the simulator's suite.
+
+    The car has no bumper: contact is derived from the rays (``proximity_bumper``).
+    Without it the day-one self-test reports missing channels and the layer's bumper
+    reflex reads a permanent zero on the machine.
+    """
+    from doomworm.environments.sensors import CAR
+
+    cal = Calibration.for_preset("car")
+    raw = RawReading(
+        ranges_m=[0.10, 0.12, 0.30],
+        bumper=(0, 0),
+        cliff=(0, 0),
+        wall_m=0.10,
+        odom_m=None,
+        odom_rad=0.0,
+        gyro_rad=0.0,
+        battery=1.0,
+        charging=False,
+        dock=(0.0, 0.0, 0.0),
+    )
+    channels = cal.channels(raw)
+    assert set(SensorSuite(CAR).channel_names) <= set(channels)
+    # 0.10 m = 0.5 u is inside the 0.7 u proximity threshold, on the front and left rays
+    assert channels["bumper_left"] == 1.0
+    assert channels["bumper_right"] == 1.0
+
+
+def test_car_wall_sensor_is_binary_on_the_machine_too() -> None:
+    """The IR module is a binary obstacle sensor (0.75 u), not a graded proximity."""
+    cal = Calibration.for_preset("car")
+    assert cal.wall_channel(0.10) == 1.0, "0.5 u is inside the 0.75 u trip point"
+    assert cal.wall_channel(0.20) == 0.0, "1.0 u is outside it"
+    assert cal.wall_channel(None) == 0.0, "no echo = nothing there"
+
+
+def test_selftest_says_when_odometry_is_only_dead_reckoning() -> None:
+    """Stage 22.2: on a machine without encoders the wiggle check tests the host, not the car."""
+    from doomworm.environments.sensors import CAR
+    from doomworm.hardware import selftest
+
+    world = build_world(3001, "apartment", "clean")
+    report = selftest(SimLink(world, CAR, sensor_seed=3), rest_frames=3)
+    assert report.ok, "a dead-reckoned link is not a failure"
+    assert any("dead reckoning" in note for note in report.notes)
+    assert "NOTE:" in report.markdown()
+
+    vacuum = selftest(SimLink(build_world(3001, "apartment", "clean"), VACUUM), rest_frames=3)
+    assert vacuum.notes == [], "encoders: the check means what it says"
+
+
+def test_line_link_reports_a_robot_error_and_a_silent_machine() -> None:
+    """Stage 22.2: the firmware answers every command, and a stall must not look like a hang."""
+
+    class Silent:
+        """A machine that stops answering mid-drive."""
+
+        def readline(self) -> str:
+            raise TimeoutError("socket timed out")
+
+    cal = Calibration.for_preset("car")
+    error_line = json.dumps({"error": "unknown command"}) + "\n"
+    link = LineLink(io.StringIO(error_line), io.StringIO(), cal)
+    with pytest.raises(ValueError, match="rejected 'reset': unknown command"):
+        link.reset()
+
+    stalled = LineLink(cast("TextIO", Silent()), io.StringIO(), cal)
+    with pytest.raises(ConnectionError, match="no reply to 'reset'"):
+        stalled.reset()

@@ -103,6 +103,14 @@ Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
    round-trip latency), drives each wheel pair alone and forward, and says
    whether the odometry answers the right way round. Exit code 1 = a problem
    is listed at the end of the report.
+
+   **On the car that last check proves nothing** and the report says so as a
+   `NOTE`: with no encoders the odometry is integrated by the host from the
+   wheel values the host itself sent, so it would look right with the motor
+   pairs crossed. Confirm by eye, once: drive the right wheel alone and watch
+   the car turn left; then the left wheel alone. The same goes for the three
+   ray positions -- put an obstacle on one side only and check that `range_0`
+   (left) moves, not `range_2`.
 3. **Calibrate**: `uv run doomworm calibrate --link tcp --sensors car --ticks 20`.
    Two runs, two tape-measure answers (metres driven, degrees turned) ->
    `runs/calibration.json` with the measured metres per unit, wheel base and

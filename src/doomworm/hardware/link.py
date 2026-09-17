@@ -158,10 +158,17 @@ class LineLink:
     def _exchange(self, command: dict[str, Any]) -> dict[str, float]:
         self.writer.write(json.dumps(command) + "\n")
         self.writer.flush()
-        line = self.reader.readline()
+        try:
+            line = self.reader.readline()
+        except TimeoutError as e:  # a machine that stops answering must not look like a hang
+            raise ConnectionError(
+                f"{self.name}: no reply to {command['cmd']!r} within the socket timeout"
+            ) from e
         if not line:
             raise ConnectionError(f"{self.name}: the robot closed the link")
         data = json.loads(line)
+        if isinstance(data, dict) and "error" in data:
+            raise ValueError(f"{self.name}: the robot rejected {command['cmd']!r}: {data['error']}")
         if not isinstance(data, dict) or "ranges_m" not in data:
             raise ValueError(f"{self.name}: expected a reading with ranges_m, got {line.strip()!r}")
         self.raw_last = RawReading.from_dict(data)

@@ -112,6 +112,22 @@ class Calibration:
             return 0.0
         return max(0.0, min(1.0, 1.0 - metres / range_m))
 
+    def wall_channel(self, metres: float | None) -> float:
+        """The side wall sensor, binary or graded exactly as the preset defines it."""
+        cfg = self.sensors
+        if cfg.wall_binary:  # an IR obstacle module answers yes/no, not a distance
+            if metres is None:
+                return 0.0
+            return 1.0 if metres < self.to_metres(cfg.wall_binary) else 0.0
+        return self.proximity(metres, self.wall_range_m)
+
+    def proximity_bumper(self, rays: list[tuple[float, float]]) -> tuple[float, float]:
+        """Contact derived from the rays for a machine without a bumper (see sensors.py)."""
+        near = 1.0 - self.sensors.proximity_bumper / self.sensors.ray_range
+        left = float(any(p > near for a, p in rays if a >= 0.0))
+        right = float(any(p > near for a, p in rays if a <= 0.0))
+        return left, right
+
     # --- raw -> channels -------------------------------------------------------------
 
     def channels(self, raw: RawReading) -> dict[str, float]:
@@ -132,10 +148,12 @@ class Calibration:
         out["sensor_right"] = max((p for a, p in rays if a < -fa), default=0.0)
         if cfg.bumper:
             out["bumper_left"], out["bumper_right"] = float(raw.bumper[0]), float(raw.bumper[1])
+        elif cfg.proximity_bumper:
+            out["bumper_left"], out["bumper_right"] = self.proximity_bumper(rays)
         if cfg.cliff:
             out["cliff_left"], out["cliff_right"] = float(raw.cliff[0]), float(raw.cliff[1])
         if cfg.wall_sensor:
-            out["wall_right"] = self.proximity(raw.wall_m, self.wall_range_m)
+            out["wall_right"] = self.wall_channel(raw.wall_m)
         if cfg.odometry:
             odom = raw.odom_m if raw.odom_m is not None else (0.0, 0.0)
             out["odom_x"] = self.to_units(odom[0])

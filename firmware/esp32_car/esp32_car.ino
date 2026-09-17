@@ -147,7 +147,12 @@ static void handle(WiFiClient& client, const String& cmd) {
     tick++;
     sweepStep();
   } else {
-    return;                                      // unknown command: no reply
+    // The host waits for exactly one line per command (LineLink._exchange blocks on
+    // readline). Staying silent desyncs the link and hangs it until the socket
+    // timeout, so say so and let the host fail loudly, like fake_robot.py does.
+    client.print("{\"error\":\"unknown command\"}\n");
+    drive(0.0f, 0.0f);
+    return;
   }
   writeReading(client);
 }
@@ -179,8 +184,11 @@ void loop() {
       String cmd = client.readStringUntil('\n');
       lastCommand = millis();
       handle(client, cmd);
-    } else if (millis() - lastCommand > 500) {
-      drive(0.0f, 0.0f);                         // watchdog: no host, no motion
+    } else {
+      if (millis() - lastCommand > 500) {
+        drive(0.0f, 0.0f);                       // watchdog: no host, no motion
+      }
+      delay(1);                                  // yield: a tight loop trips the task watchdog
     }
   }
   drive(0.0f, 0.0f);
