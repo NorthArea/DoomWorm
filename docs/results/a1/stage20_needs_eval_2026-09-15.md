@@ -50,7 +50,7 @@ candidate needs it.
 
 ## Diagnostic: the same driver on the ideal preset
 
-`doomworm benchmark --driver --planner needs --sensors ideal` (noiseless
+`broomworm benchmark --driver --planner needs --sensors ideal` (noiseless
 suite, exact odometry, repeats identical; one row per map):
 
 | map | ticks | coverage | collisions | dockings | survived |

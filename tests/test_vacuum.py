@@ -2,13 +2,13 @@
 
 import pytest
 
-from doomworm.connectome import default_sensory_mapping
-from doomworm.environments.maze import ApartmentConfig, apartment_world
-from doomworm.environments.simple_2d import AgentState, Dock, Wall, World
-from doomworm.episode import run_episode
-from doomworm.experiments import food_agent
-from doomworm.experiments.worm_agent import WormScenario, summarise
-from doomworm.learning import RewardConfig, RewardTracker
+from broomworm.connectome import default_sensory_mapping
+from broomworm.environments.maze import ApartmentConfig, apartment_world
+from broomworm.environments.simple_2d import AgentState, Dock, Wall, World
+from broomworm.episode import run_episode
+from broomworm.experiments import food_agent
+from broomworm.experiments.worm_agent import WormScenario, summarise
+from broomworm.learning import RewardConfig, RewardTracker
 
 
 def test_dirt_map_counts_floor_and_cleans_under_agent() -> None:

@@ -4,9 +4,9 @@ import math
 
 import pytest
 
-from doomworm.environments.maze import ApartmentConfig, apartment_world, rooms_visited
-from doomworm.environments.simple_2d import AgentState, Wall, World
-from doomworm.experiments.worm_agent import WormScenario
+from broomworm.environments.maze import ApartmentConfig, apartment_world, rooms_visited
+from broomworm.environments.simple_2d import AgentState, Wall, World
+from broomworm.experiments.worm_agent import WormScenario
 
 
 def test_wall_distance() -> None:

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from doomworm.learning import EvolutionConfig, evolve
+from broomworm.learning import EvolutionConfig, evolve
 
 
 def test_evolve_finds_target_vector() -> None:

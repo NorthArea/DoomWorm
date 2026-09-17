@@ -1,6 +1,6 @@
 """Stage 3 acceptance: reward separates good behaviour from bad (Plan §9)."""
 
-from doomworm.experiments.reward_demo import evaluate_all
+from broomworm.experiments.reward_demo import evaluate_all
 
 
 def test_reward_ranks_brains() -> None:

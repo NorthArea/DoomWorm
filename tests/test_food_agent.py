@@ -2,9 +2,9 @@
 
 from itertools import pairwise
 
-from doomworm.experiments.episode import run_episode
-from doomworm.experiments.food_agent import HUNGER_THRESHOLD, build_scenario
-from doomworm.experiments.obstacle_agent import SENSOR_THRESHOLD
+from broomworm.experiments.episode import run_episode
+from broomworm.experiments.food_agent import HUNGER_THRESHOLD, build_scenario
+from broomworm.experiments.obstacle_agent import SENSOR_THRESHOLD
 
 
 def test_hungry_agent_finds_food() -> None:

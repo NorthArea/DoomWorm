@@ -5,11 +5,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.brain import load_brain
-from doomworm.connectome import load_cook2019
-from doomworm.experiments.evolve_worm import train_worm
-from doomworm.experiments.worm_agent import WormScenario
-from doomworm.learning import EvolutionConfig, evolve, seeded_population
+from broomworm.brain import load_brain
+from broomworm.connectome import load_cook2019
+from broomworm.experiments.evolve_worm import train_worm
+from broomworm.experiments.worm_agent import WormScenario
+from broomworm.learning import EvolutionConfig, evolve, seeded_population
 
 
 def test_seeded_population_keeps_the_original_first() -> None:

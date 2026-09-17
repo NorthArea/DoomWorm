@@ -5,12 +5,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.candidates import Brain, ScriptedBrain, WormBrain
-from doomworm.environments.gym_env import DoomwormEnv
-from doomworm.environments.worlds import build_world
-from doomworm.episode import run_brain_episode, run_episode
-from doomworm.experiments.worm_agent import WormScenario, run_worm
-from doomworm.learning import (
+from broomworm.candidates import Brain, ScriptedBrain, WormBrain
+from broomworm.environments.gym_env import BroomwormEnv
+from broomworm.environments.worlds import build_world
+from broomworm.episode import run_brain_episode, run_episode
+from broomworm.experiments.worm_agent import WormScenario, run_worm
+from broomworm.learning import (
     BenchmarkConfig,
     RewardTracker,
     leaderboard,
@@ -63,7 +63,7 @@ def test_build_world_is_the_scenario_world() -> None:
 
 
 def test_gym_env_api() -> None:
-    env = DoomwormEnv(lambda seed: build_world(seed, "random", "food"), sensors="vacuum", steps=20)
+    env = BroomwormEnv(lambda seed: build_world(seed, "random", "food"), sensors="vacuum", steps=20)
     obs, info = env.reset(seed=5)
     assert obs.shape == env.observation_space.shape
     assert env.observation_space.contains(obs)
@@ -89,7 +89,7 @@ def test_gym_env_terminates_on_death() -> None:
         w.hunger_rate = 0.5
         return w
 
-    env = DoomwormEnv(factory, sensors="ideal", steps=50)
+    env = BroomwormEnv(factory, sensors="ideal", steps=50)
     env.reset(seed=0)
     for _ in range(3):
         _, _, terminated, truncated, _ = env.step(np.zeros(2))
@@ -120,16 +120,16 @@ def test_benchmark_and_leaderboard(tmp_path: Path) -> None:
 def test_old_loop_still_works() -> None:
     sc = WormScenario()
     world = sc.make_world(1)
-    from doomworm.brain import Simulator
+    from broomworm.brain import Simulator
 
     trace = run_episode(world, Simulator(sc.template), sc.sensory, sc.motor, 5)
     assert len(trace) == 5
 
 
 def test_planner_wrapper_injects_gradient_and_parks_when_charging() -> None:
-    from doomworm.environments.gym_env import PlannerWrapper
+    from broomworm.environments.gym_env import PlannerWrapper
 
-    base = DoomwormEnv(lambda seed: build_world(seed, "apartment", "clean"), sensors="vacuum")
+    base = BroomwormEnv(lambda seed: build_world(seed, "apartment", "clean"), sensors="vacuum")
     env = PlannerWrapper(base, mode="needs")
     obs, _ = env.reset(seed=3000)
     names = base.channel_names

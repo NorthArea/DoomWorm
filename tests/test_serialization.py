@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brain import Network, Neuron, Synapse, load_brain, network_from_dict, save_brain
-from doomworm.brain.serialization import FORMAT_VERSION, network_to_dict
+from broomworm.brain import Network, Neuron, Synapse, load_brain, network_from_dict, save_brain
+from broomworm.brain.serialization import FORMAT_VERSION, network_to_dict
 
 
 def make_net() -> Network:

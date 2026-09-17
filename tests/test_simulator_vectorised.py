@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from doomworm.brain import Network, Neuron, Simulator, Synapse
+from broomworm.brain import Network, Neuron, Simulator, Synapse
 
 
 def reference_step(net: Network, state: dict[str, tuple[float, float]], inputs: dict[str, float]):  # type: ignore[no-untyped-def]

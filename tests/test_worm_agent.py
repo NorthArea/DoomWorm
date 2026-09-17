@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brain import Simulator, save_brain
-from doomworm.cli import main as cli_main
-from doomworm.connectome import Connectome, load_cook2019
-from doomworm.episode import average_activity
-from doomworm.experiments.episode import save_log
-from doomworm.experiments.worm_agent import SCENARIO_NAME, WormScenario, run_worm, summarise
-from doomworm.learning import evaluate
+from broomworm.brain import Simulator, save_brain
+from broomworm.cli import main as cli_main
+from broomworm.connectome import Connectome, load_cook2019
+from broomworm.episode import average_activity
+from broomworm.experiments.episode import save_log
+from broomworm.experiments.worm_agent import SCENARIO_NAME, WormScenario, run_worm, summarise
+from broomworm.learning import evaluate
 
 
 @pytest.fixture(scope="module")

@@ -1,0 +1,6 @@
+"""Allow ``python -m broomworm``."""
+
+from broomworm.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -3,9 +3,9 @@
 from dataclasses import replace
 from pathlib import Path
 
-from doomworm.environments.sensors import CAR, SensorConfig
-from doomworm.layer import GradientFollower, PlannerLayer
-from doomworm.learning import BenchmarkConfig, run_benchmark, sweep, sweep_table, worst_cells
+from broomworm.environments.sensors import CAR, SensorConfig
+from broomworm.layer import GradientFollower, PlannerLayer
+from broomworm.learning import BenchmarkConfig, run_benchmark, sweep, sweep_table, worst_cells
 
 
 def test_benchmark_accepts_an_explicit_sensor_config() -> None:
@@ -34,7 +34,7 @@ def test_sweep_has_a_baseline_and_one_cell_per_changed_value(tmp_path: Path) -> 
 
 
 def test_cli_robustness_writes_a_table(tmp_path: Path) -> None:
-    from doomworm.cli import main
+    from broomworm.cli import main
 
     out = tmp_path / "rb.md"
     args = ["robustness", "--scripted", "follower", "--test-seeds", "1", "--repeats", "1"]

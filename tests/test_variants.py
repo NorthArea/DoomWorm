@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.connectome import (
+from broomworm.connectome import (
     ConnectionType,
     Connectome,
     dense_connectome,
@@ -15,8 +15,8 @@ from doomworm.connectome import (
     random_connectome,
     shuffled_connectome,
 )
-from doomworm.experiments.compare_topologies import compare, summary_table
-from doomworm.learning import EvolutionConfig, evolve
+from broomworm.experiments.compare_topologies import compare, summary_table
+from broomworm.learning import EvolutionConfig, evolve
 
 
 @pytest.fixture(scope="module")

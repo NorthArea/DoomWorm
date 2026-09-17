@@ -6,12 +6,12 @@ from itertools import pairwise
 
 import pytest
 
-from doomworm.candidates import ScriptedBrain
-from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
-from doomworm.environments.simple_2d import AgentState, Target, Wall, World
-from doomworm.environments.worlds import build_world
-from doomworm.episode import run_brain_episode
-from doomworm.layer import (
+from broomworm.candidates import ScriptedBrain
+from broomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
+from broomworm.environments.simple_2d import AgentState, Target, Wall, World
+from broomworm.environments.worlds import build_world
+from broomworm.episode import run_brain_episode
+from broomworm.layer import (
     FREE,
     OCCUPIED,
     UNKNOWN,

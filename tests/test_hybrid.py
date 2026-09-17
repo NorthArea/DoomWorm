@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.candidates import (
+from broomworm.candidates import (
     CandidateSpec,
     HybridBrain,
     RNNBrain,
@@ -12,9 +12,9 @@ from doomworm.candidates import (
     build_candidate,
     load_candidate,
 )
-from doomworm.candidates.hybrid import REFLEX_CHANNELS
-from doomworm.cli import main
-from doomworm.learning import TrainConfig, train_candidate
+from broomworm.candidates.hybrid import REFLEX_CHANNELS
+from broomworm.cli import main
+from broomworm.learning import TrainConfig, train_candidate
 
 REFLEX = "docs/brains/a2/worm_from_worm_evolved_random.json"
 TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, workers=1)
@@ -83,13 +83,3 @@ def test_hybrid_trains_and_benchmarks_with_the_shared_harness(tmp_path: Path) ->
 def test_hybrid_needs_a_reflex_brain() -> None:
     with pytest.raises(ValueError, match="reflex"):
         build_candidate(CandidateSpec(kind="hybrid"))
-
-
-def test_hybrid_carries_the_trigger_on_the_doom_task() -> None:
-    brain = build_candidate(spec(maps="doom4", task="doom", sensors="ideal"))
-    assert isinstance(brain, HybridBrain)
-    assert brain.policy.outputs == 3, "track B: the policy also pulls the trigger"
-    assert "reflex_fire" in brain.policy.inputs
-    brain.reset()
-    brain.act({"sensor_front": 0.5, "aim": 0.9})
-    assert -1.0 <= brain.fire <= 1.0, "the policy readout, like the rnn's third unit"

@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brain import stimulate
-from doomworm.connectome import Connectome, build_network, load_cook2019
-from doomworm.episode import run_episode
-from doomworm.experiments import food_agent
-from doomworm.learning import RewardTracker
-from doomworm.visualization import (
+from broomworm.brain import stimulate
+from broomworm.connectome import Connectome, build_network, load_cook2019
+from broomworm.episode import run_episode
+from broomworm.experiments import food_agent
+from broomworm.learning import RewardTracker
+from broomworm.visualization import (
     plot_active_subgraph,
     plot_raster,
     propagation_tree,

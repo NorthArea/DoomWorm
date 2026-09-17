@@ -108,7 +108,7 @@ def main() -> int:
                 log(f"    have {out.relative_to(ROOT)}, skipping")
             else:
                 rc = run(
-                    ["uv", "run", "doomworm", "evolve", *flags, *TRAIN,
+                    ["uv", "run", "broomworm", "evolve", *flags, *TRAIN,
                      "--workers", WORKERS, "--seed", str(seed),
                      "--out", str(out.relative_to(ROOT))],
                     out.with_suffix(".log"),
@@ -117,7 +117,7 @@ def main() -> int:
                     log(f"    CRASH: see {out.with_suffix('.log').relative_to(ROOT)}")
                     continue
             run(
-                ["uv", "run", "doomworm", "benchmark", "--brain", str(out.relative_to(ROOT)),
+                ["uv", "run", "broomworm", "benchmark", "--brain", str(out.relative_to(ROOT)),
                  "--name", f"{name}_c7_seed{seed}", *BENCH,
                  "--out-dir", str((OUT / "benchmark").relative_to(ROOT))],
                 out.with_suffix(".bench.log"),

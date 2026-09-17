@@ -4,11 +4,11 @@ import math
 
 import pytest
 
-from doomworm.environments.sensors import IDEAL, NOISY, PRESETS, VACUUM, SensorConfig, SensorSuite
-from doomworm.environments.simple_2d import AgentState, Danger, Obstacle, Wall, World
-from doomworm.episode import run_episode
-from doomworm.experiments import food_agent
-from doomworm.experiments.worm_agent import WormScenario
+from broomworm.environments.sensors import IDEAL, NOISY, PRESETS, VACUUM, SensorConfig, SensorSuite
+from broomworm.environments.simple_2d import AgentState, Danger, Obstacle, Wall, World
+from broomworm.episode import run_episode
+from broomworm.experiments import food_agent
+from broomworm.experiments.worm_agent import WormScenario
 
 
 def world_with_wall_ahead() -> World:
@@ -148,7 +148,7 @@ def test_episode_runs_with_a_suite_and_scenario_param() -> None:
 
 
 def test_car_preset_has_the_vacuum_channel_layout_with_three_rays() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     names = SensorSuite(CAR).channel_names
     assert [n for n in names if n.startswith("range_")] == ["range_0", "range_1", "range_2"]
@@ -157,7 +157,7 @@ def test_car_preset_has_the_vacuum_channel_layout_with_three_rays() -> None:
 
 
 def test_car_sweep_refreshes_one_ray_per_tick() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     cfg = SensorConfig(name="sweep", ray_angles=CAR.ray_angles, sweep=True)
     w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
@@ -180,7 +180,7 @@ def test_car_sweep_refreshes_one_ray_per_tick() -> None:
 def test_car_proximity_bumper_fires_before_contact_and_ignores_real_collisions() -> None:
     from dataclasses import replace
 
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     cfg = SensorConfig(name="pb", ray_angles=CAR.ray_angles, proximity_bumper=0.7)
     w = World(agent=AgentState(x=7.0, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
@@ -198,7 +198,7 @@ def test_car_proximity_bumper_fires_before_contact_and_ignores_real_collisions()
 
 
 def test_car_command_odometry_keeps_moving_against_a_wall_and_gyro_follows_it() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     cfg = SensorConfig(
         name="ol", ray_angles=CAR.ray_angles, odometry=True, odom_source="commands", gyro=False
@@ -215,8 +215,8 @@ def test_car_command_odometry_keeps_moving_against_a_wall_and_gyro_follows_it() 
 
 
 def test_car_binary_wall_sensor_and_camera_beacon() -> None:
-    from doomworm.environments.sensors import CAR
-    from doomworm.environments.simple_2d import Dock
+    from broomworm.environments.sensors import CAR
+    from broomworm.environments.simple_2d import Dock
 
     cfg = SensorConfig(
         name="cam",
@@ -248,8 +248,8 @@ def test_car_binary_wall_sensor_and_camera_beacon() -> None:
 
 
 def test_camera_beacon_cannot_see_through_walls() -> None:
-    from doomworm.environments.sensors import CAR
-    from doomworm.environments.simple_2d import Dock
+    from broomworm.environments.sensors import CAR
+    from broomworm.environments.simple_2d import Dock
 
     cfg = SensorConfig(
         name="cam", ray_angles=CAR.ray_angles, beacon_fov=math.radians(30.0), beacon_range=5.0

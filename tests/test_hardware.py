@@ -12,11 +12,11 @@ from typing import TextIO, cast
 
 import pytest
 
-from doomworm.candidates import ScriptedBrain
-from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
-from doomworm.environments.worlds import build_world
-from doomworm.episode import run_brain_episode
-from doomworm.hardware import (
+from broomworm.candidates import ScriptedBrain
+from broomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
+from broomworm.environments.worlds import build_world
+from broomworm.episode import run_brain_episode
+from broomworm.hardware import (
     Calibration,
     FakeRobot,
     LineLink,
@@ -27,8 +27,8 @@ from doomworm.hardware import (
     read_drive_log,
     replay_in_sim,
 )
-from doomworm.hardware.calibration import RawReading
-from doomworm.layer import GradientFollower, PlannerLayer
+from broomworm.hardware.calibration import RawReading
+from broomworm.layer import GradientFollower, PlannerLayer
 
 # --- calibration -----------------------------------------------------------------
 
@@ -247,7 +247,7 @@ def test_compare_handles_different_lengths_and_missing_truth() -> None:
 
 
 def test_cli_drive_and_compare_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from doomworm.cli import main
+    from broomworm.cli import main
 
     log = tmp_path / "drive.jsonl"
     monkeypatch.setattr("sys.stdin", io.StringIO("w\nw\nw\na\nw\n"))
@@ -293,7 +293,7 @@ def test_line_link_integrates_odometry_when_the_machine_has_no_encoders() -> Non
 
 
 def test_fake_robot_serves_the_car_preset() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     cal = Calibration.for_preset("car")
     brain = PlannerLayer(GradientFollower(), CAR, mode="needs")
@@ -317,7 +317,7 @@ def test_fake_robot_serves_the_car_preset() -> None:
 
 
 def test_room_file_in_metres_builds_a_world_and_round_trips() -> None:
-    from doomworm.hardware import Room, load_room, room_world
+    from broomworm.hardware import Room, load_room, room_world
 
     room = load_room("data/rooms/example_room.json")
     assert (room.width, room.height) == pytest.approx((15.0, 20.0)), "3 x 4 m at 0.2 m/u"
@@ -334,8 +334,8 @@ def test_room_file_in_metres_builds_a_world_and_round_trips() -> None:
 def test_build_world_accepts_a_room_and_drive_log_carries_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from doomworm.cli import main
-    from doomworm.environments.worlds import build_world
+    from broomworm.cli import main
+    from broomworm.environments.worlds import build_world
 
     world = build_world(0, "room:data/rooms/example_room.json", "clean")
     assert world.width == pytest.approx(15.0)
@@ -354,8 +354,8 @@ def test_build_world_accepts_a_room_and_drive_log_carries_it(
 
 
 def test_selftest_passes_on_the_simulator_and_flags_dead_odometry() -> None:
-    from doomworm.environments.sensors import CAR
-    from doomworm.hardware import selftest
+    from broomworm.environments.sensors import CAR
+    from broomworm.hardware import selftest
 
     link = SimLink(build_world(3001, "apartment", "clean"), CAR, sensor_seed=1)
     report = selftest(link, rest_frames=5)
@@ -376,7 +376,7 @@ def test_selftest_passes_on_the_simulator_and_flags_dead_odometry() -> None:
 
 
 def test_calibrate_recovers_the_simulator_scale(tmp_path: Path) -> None:
-    from doomworm.hardware import calibrate, load_calibration, save_calibration
+    from broomworm.hardware import calibrate, load_calibration, save_calibration
 
     # a "car" whose true scale is 0.25 m/u: an empty sim world, measured with a tape
     world = build_world(3001, "fixed", "food")
@@ -400,7 +400,7 @@ def test_calibrate_recovers_the_simulator_scale(tmp_path: Path) -> None:
 def test_cli_selftest_and_calibrate_on_the_simulator(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from doomworm.cli import main
+    from broomworm.cli import main
 
     out = tmp_path / "selftest.md"
     st = ["selftest", "--sensors", "car", "--seed", "3001", "--frames", "3"]
@@ -423,7 +423,7 @@ def test_car_frame_carries_every_channel_the_car_preset_defines() -> None:
     Without it the day-one self-test reports missing channels and the layer's bumper
     reflex reads a permanent zero on the machine.
     """
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     cal = Calibration.for_preset("car")
     raw = RawReading(
@@ -455,8 +455,8 @@ def test_car_wall_sensor_is_binary_on_the_machine_too() -> None:
 
 def test_selftest_says_when_odometry_is_only_dead_reckoning() -> None:
     """Stage 22.2: on a machine without encoders the wiggle check tests the host, not the car."""
-    from doomworm.environments.sensors import CAR
-    from doomworm.hardware import selftest
+    from broomworm.environments.sensors import CAR
+    from broomworm.hardware import selftest
 
     world = build_world(3001, "apartment", "clean")
     report = selftest(SimLink(world, CAR, sensor_seed=3), rest_frames=3)

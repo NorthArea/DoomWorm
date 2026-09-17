@@ -2,7 +2,7 @@
 
 import pytest
 
-from doomworm.learning import RewardConfig, RewardTracker
+from broomworm.learning import RewardConfig, RewardTracker
 
 
 def make_tracker(**kwargs: float) -> RewardTracker:

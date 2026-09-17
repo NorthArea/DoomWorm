@@ -4,13 +4,13 @@ import math
 
 import pytest
 
-from doomworm.connectome import default_sensory_mapping
-from doomworm.environments.maze import MapConfig, random_world
-from doomworm.environments.simple_2d import AgentState, Danger, World
-from doomworm.episode import run_episode
-from doomworm.experiments import food_agent
-from doomworm.experiments.worm_agent import WormScenario
-from doomworm.learning import RewardConfig, RewardTracker
+from broomworm.connectome import default_sensory_mapping
+from broomworm.environments.maze import MapConfig, random_world
+from broomworm.environments.simple_2d import AgentState, Danger, World
+from broomworm.episode import run_episode
+from broomworm.experiments import food_agent
+from broomworm.experiments.worm_agent import WormScenario
+from broomworm.learning import RewardConfig, RewardTracker
 
 
 def make_world(**kwargs: object) -> World:

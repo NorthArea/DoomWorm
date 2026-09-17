@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.candidates import CandidateSpec, RNNBrain, Trainable, build_candidate, load_candidate
-from doomworm.cli import main
-from doomworm.learning import TrainConfig, train_candidate
+from broomworm.candidates import CandidateSpec, RNNBrain, Trainable, build_candidate, load_candidate
+from broomworm.cli import main
+from broomworm.learning import TrainConfig, train_candidate
 
 TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, workers=1)
 

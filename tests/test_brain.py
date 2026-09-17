@@ -2,7 +2,7 @@
 
 import pytest
 
-from doomworm.brain import Network, Neuron, Simulator, Synapse
+from broomworm.brain import Network, Neuron, Simulator, Synapse
 
 
 def make_chain() -> Network:

@@ -1,9 +1,9 @@
-// DoomWorm stage 22.2: reference firmware for the ACEBOTT QD001 car (ESP32).
+// BroomWorm stage 22.2: reference firmware for the ACEBOTT QD001 car (ESP32).
 //
 // Speaks the JSON-lines protocol of docs/hardware.md over TCP: the host sends
 // {"cmd":"reset"} or {"cmd":"drive","left":l,"right":r} (l, r in [-1, 1]) and
 // gets one RawReading back, in physical units. The Python side of this
-// contract is doomworm/hardware/fake_robot.py; this sketch has to behave like it.
+// contract is broomworm/hardware/fake_robot.py; this sketch has to behave like it.
 //
 // STATUS: written before the kit was unboxed, NOT compiled, NOT run on hardware.
 // Every pin and the motor-driver wiring below is a placeholder marked TODO;
@@ -25,8 +25,8 @@
 #include <ESP32Servo.h>
 
 // ---------------------------------------------------------------- config (TODO: pins)
-static const char* WIFI_SSID = "doomworm";      // the car runs its own access point
-static const char* WIFI_PASS = "doomworm123";   // >= 8 chars for WPA2
+static const char* WIFI_SSID = "broomworm";      // the car runs its own access point
+static const char* WIFI_PASS = "broomworm123";   // >= 8 chars for WPA2
 static const uint16_t PORT = 5000;
 
 static const int PIN_TRIG = 12;      // TODO: HC-SR04 trigger

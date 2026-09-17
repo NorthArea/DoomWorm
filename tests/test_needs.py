@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.body import DifferentialDrive, drive_of
-from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
-from doomworm.environments.worlds import build_world
-from doomworm.episode import run_brain_episode
-from doomworm.layer import GradientFollower, NeedsArbiter, PlannerLayer
+from broomworm.body import DifferentialDrive, drive_of
+from broomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
+from broomworm.environments.worlds import build_world
+from broomworm.episode import run_brain_episode
+from broomworm.layer import GradientFollower, NeedsArbiter, PlannerLayer
 
 
 def test_arbiter_priorities_and_hysteresis() -> None:
@@ -89,7 +89,7 @@ def test_call_takes_the_robot_to_a_point() -> None:
 
 
 def test_benchmark_cli_driver_and_needs_row_name(tmp_path: Path) -> None:
-    from doomworm.cli import main
+    from broomworm.cli import main
 
     args = [
         "benchmark",
@@ -127,7 +127,7 @@ def test_call_works_with_drifting_odometry() -> None:
 
 def test_dock_autopilot_brings_a_bad_driver_home() -> None:
     """Stage 21.8: the return to dock is the layer's routine, whatever the brain does."""
-    from doomworm.candidates import ScriptedBrain
+    from broomworm.candidates import ScriptedBrain
 
     world = build_world(3001, "apartment", "clean")
     world.hunger_rate = 0.003
@@ -146,7 +146,7 @@ def test_dock_autopilot_brings_a_bad_driver_home() -> None:
 
 def test_bumper_reflex_backs_off_and_turns_away() -> None:
     """Stage 21.9: contact is handled by the layer before the brain sees anything."""
-    from doomworm.candidates import ScriptedBrain
+    from broomworm.candidates import ScriptedBrain
 
     calls: list[int] = []
 
@@ -169,7 +169,7 @@ def test_bumper_reflex_backs_off_and_turns_away() -> None:
 
 
 def test_bumper_reflex_cuts_collisions_of_a_bad_driver() -> None:
-    from doomworm.candidates import ScriptedBrain
+    from broomworm.candidates import ScriptedBrain
 
     def run(reflex: bool) -> int:
         world = build_world(3002, "apartment", "clean")
@@ -185,7 +185,7 @@ def test_bumper_reflex_cuts_collisions_of_a_bad_driver() -> None:
 
 
 def test_marker_homing_trusts_any_sighting_but_the_ir_beacon_needs_strength() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     cam = PlannerLayer(GradientFollower(), CAR, mode="needs")
     cam.reset()
@@ -200,7 +200,7 @@ def test_marker_homing_trusts_any_sighting_but_the_ir_beacon_needs_strength() ->
 
 
 def test_marker_sighting_re_anchors_the_dock_estimate() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     layer = PlannerLayer(GradientFollower(), CAR, mode="needs")
     layer.reset()
@@ -223,7 +223,7 @@ def test_marker_sighting_re_anchors_the_dock_estimate() -> None:
 
 
 def test_marker_search_spins_near_the_estimated_dock_without_a_sighting() -> None:
-    from doomworm.environments.sensors import CAR
+    from broomworm.environments.sensors import CAR
 
     layer = PlannerLayer(GradientFollower(), CAR, mode="needs")
     layer.reset()
@@ -244,8 +244,8 @@ def test_marker_search_spins_near_the_estimated_dock_without_a_sighting() -> Non
 
 def test_autopilot_on_the_car_preset_docks_the_straight_driver() -> None:
     """Stage 22.1e: dead-reckoning odometry + camera marker still bring a bad driver home."""
-    from doomworm.candidates import ScriptedBrain
-    from doomworm.environments.sensors import CAR
+    from broomworm.candidates import ScriptedBrain
+    from broomworm.environments.sensors import CAR
 
     world = build_world(3001, "apartment", "clean")
     world.hunger_rate = 0.003
