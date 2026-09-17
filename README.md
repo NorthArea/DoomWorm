@@ -1,131 +1,78 @@
 # DoomWorm
 
-A test bed: the **C. elegans connectome** (302 neurons, fixed wiring, trainable
-weights) against networks trained from scratch (small RNN, PPO, NCP) and a Roomba-style
-controller, under identical conditions: same simulated home, same sensor emulation, same
-engineered layer (map, planner, needs), same training budget, one benchmark. Environments,
-sensor presets and hardware are conditions, not goals. The result is the map of where the
-natural network wins, ties or loses: **[docs/findings.md](docs/findings.md)**.
+A test bed for one question:
+
+> **Does the nervous system of *C. elegans* — 302 neurons, wired the way the
+> animal is actually wired — play Doom better than a network of the same size
+> trained from scratch?**
+
+The connectome is the candidate. A small recurrent net, a Neural Circuit
+Policy, PPO and a hand-written reflex player are the yardsticks. Everything is
+compared through one benchmark, on seeded levels nobody tuned against, and
+every number that changes a verdict lands in `docs/findings.md`.
+
+## What is here
 
 ```text
-Environment -> Sensory Adapter -> Brain Simulator -> Motor Adapter -> Environment
+the world            a 2D simulator with walls, monsters, a gun and an exit,
+                     and the same seeded layouts run by the real Doom engine
+                     through ViZDoom (no framebuffer: structured observations)
+the brain contract   channels in, Drive(forward, turn, strafe, fire) out
+the body             a vehicle turns that intent into actuators or engine buttons
+the candidates       the connectome, its topology controls (random, shuffled,
+                     dense), a small recurrent net, an NCP, PPO, a hybrid, and
+                     the zero-learning `doomguy` floor
+the training         evolution on the synaptic weights; the topology is fixed
+the food task        the simple attractant world the worm is pre-trained on
+                     before it sees a level (the curriculum of stage 5)
 ```
 
-The research question: in which conditions does the natural network give the most profit
-over a network one can train oneself, and how much? So far (2026-09-16): it loses to PPO on
-the task it was trained for, ties a same-size RNN, and wins on transfer without retraining
-when the sensors change (−6 % vs PPO's −56 %). Details and every number: `docs/findings.md`.
-Full roadmap and constraints: [Plan.md](Plan.md). Stage progress: [docs/stages.md](docs/stages.md).
+The worm senses Doom the way a worm senses anything: walls as touch, the exit
+as a smell, monsters as pain — and, since stage 6, as prey. It has no map, no
+memory of where it has been, and no image. See `docs/findings.md` for what that
+buys and what it costs.
 
-## Requirements
-
-- Python 3.12+ (project pinned to 3.14 in `.python-version`)
-- [uv](https://docs.astral.sh/uv/)
-
-## Setup
+## Run it
 
 ```bash
-uv sync --all-groups
-uv run pre-commit install
+uv sync --all-groups          # core + dev; add --group doom for the engine
+make check                    # ruff, mypy, pytest
+make demo-b1 LEVEL=doom4      # the hand-written floor on a simulator level
+make demo-b4 LEVEL=doom4      # the same level inside the Doom engine
+make watch-doom LEVEL=doom4   # watch a trained worm play, in a real window
+make watch-doomguy            # watch the floor, which actually aims
+make demo-b11 STOCK=stock_defend   # a scenario shipped with ViZDoom
 ```
 
-## Development
-
-`make help` lists every shortcut: `make check` runs lint, mypy and tests; `make demo-N`
-runs a stage demo; `make train`, `make play SEED=1003`, `make stimulate NEURON=ASHL`.
-The underlying commands:
+Training and benchmarking:
 
 ```bash
-uv run pytest                 # tests
-uv run pytest --cov           # tests + coverage
-uv run ruff check . --fix     # lint
-uv run ruff format .          # format
-uv run mypy                   # type-check
+uv run doomworm evolve --candidate worm --maps doom4 --out runs/worm.json
+uv run doomworm benchmark --brain runs/worm.json --maps doom6
+uv run doomworm ppo --maps doom4          # needs the rl group
+uv run doomworm play --brain runs/worm.json --maps vizdoom4 --watch
 ```
 
-## Stage demos
+## Where the numbers are
 
-```bash
-uv run python -m doomworm.experiments.three_neurons        # stage 0
-uv run python -m doomworm.experiments.obstacle_agent --plot # stage 1
-uv run python -m doomworm.experiments.food_agent --plot     # stage 2
-uv run python -m doomworm.experiments.reward_demo           # stage 3
-uv run doomworm train                                       # stage 4: evolve weights
-uv run python -m doomworm.experiments.connectome_stats     # stage 5: real connectome
-uv run doomworm stimulate ASHL --plot                      # stage 6: propagation
-uv run python -m doomworm.experiments.debug_screen_demo    # stage 6: debug screen GIF
-uv run python -m doomworm.experiments.sensory_mapping_demo # stage 7: sensory mapping
-uv run python -m doomworm.experiments.motor_mapping_demo   # stage 8: motor mapping
-uv run python -m doomworm.experiments.worm_agent --plot --gif # stage 9: untrained worm drives
-uv run doomworm train --scenario worm                      # stage 10: evolve connectome weights
-uv run doomworm play --brain runs/worm_evolved.json --seed 1003 --plot
-uv run doomworm compare                                    # stage 11: topology comparison
-uv run doomworm train --scenario worm --maps random          # stage 12: random maps
-make demo-13                                                # stage 13: come to a target
-make train-worm-danger && make demo-14                      # stage 14: avoid a danger zone
-make benchmark BRAIN=runs/worm_evolved_random.json          # stage 18: benchmark + leaderboard
-make benchmark-a2                                           # stage 21: A2 bake-off of every candidate
-make demo-22                                                # stage 22.1: drive over the robot link, replay the log
-make selftest-sim                                           # stage 22.2 rehearsal: self-test, calibration, room drive
-make demo-b1 LEVEL=doom4                                    # track B: mini-Doom level 4 (enemy + gun) on the simulator
-make demo-b4 LEVEL=doom4                                    # track B: the same level in the Doom engine (uv sync --group doom)
-uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
-```
+| File | What it holds |
+|---|---|
+| `docs/findings.md` | the map: one row per question, with the worm's number, the best self-trained number and a verdict |
+| `docs/stages.md` | what is built, what is next, and how to reproduce each row |
+| `docs/assumptions.md` | every non-obvious decision, dated, with the measurement behind it |
+| `docs/results/b/` | the benchmark tables the rows are computed from |
+| `docs/brains/` | trained brains, committed so a row can be replayed |
 
-## Fresh clone
+## The rules this project keeps
 
-```bash
-uv sync --all-groups && uv run pre-commit install
-make check                                                   # lint, mypy, 200+ tests
-make demo-20                                                 # stage-20 benchmark rows (worm + scripted driver)
-```
-
-Trained brains live in `docs/brains/a1/`; `runs/` is git-ignored scratch.
-
-## Layout
-
-Code follows the layers of Plan §3: environment -> sensors -> engineered layer -> brain.
-
-```text
-src/doomworm/
-  brain/           neuron model: Neuron, Synapse, Network, Simulator (LIF, graded)
-  connectome/      C. elegans loader, internal graph, name mappings, topology controls
-  adapters/        sensory (channels -> currents), motor (activity -> wheels)
-  environments/    simple_2d world, maze/apartment maps, sensor suite + presets
-                   (ideal | vacuum | noisy | car), worlds.py factories, gym_env.py,
-                   doom/ (track B): mini-Doom levels, PWAD writer, the Doom engine world
-  layer/           the engineered layer outside the brain: occupancy grid, path and
-                   coverage planning, needs arbitration, PlannerLayer (dock autopilot,
-                   bumper reflex, marker search), GradientFollower
-  candidates/      the brains compared on the benchmark: worm, rnn, ncp, roomba, doomguy,
-                   Brain / Trainable protocols, registry + load_candidate (PPO via rl group)
-  learning/        reward, evolution, benchmark + leaderboard, bake-off harness,
-                   PPO (rl group), multi-seed summary
-  hardware/        stage 22: robot link (sim | tcp), units, wire protocol, teleop,
-                   drive log, sim-vs-real compare, room files, selftest, calibrate, plot
-  experiments/     stage demos and training entry points (stages 0-14)
-  visualization/   brain rasters, debug screen
-  episode.py       the closed loop for any brain;  cli.py  the doomworm command
-tests/             one module per layer (test_brain, test_sensors, test_needs, test_hardware, ...)
-docs/
-  stages.md        stage checklist (what is done, how it is demonstrated)
-  assumptions.md   every non-obvious decision, dated
-  hardware.md      the machine contract: sensors, units, protocol, day-one checklist
-  results/a1|a2|a3 reports and benchmark rows per phase (README.md there is the index)
-  brains/a1|a2|car published trained brains: A1 stages, A2 bake-off, retrained for the car
-data/connectome/   Cook 2019 connectome CSVs;  data/rooms/  real rooms for the simulator
-firmware/          ESP32 sketch speaking the robot protocol (not compiled yet)
-scripts/           cross-cutting utilities;  runs/  experiment outputs (git-ignored)
-```
-
-## Rules of the road
-
-1. Stages are implemented strictly in the order of Plan §44, one new complexity at a time.
-2. A stage is done only when it works, is tested, and has a runnable demo.
-3. No CNN/Transformer between the environment and the worm. Adapters are simple transforms.
-4. Connectome topology is fixed; only synaptic weights are trained.
-5. Deterministic seeds everywhere; every experiment must be replayable.
-
-## License
-
-MIT
+- The connectome's **topology is fixed**; only synaptic weights are trained.
+- The neuron model is leaky integrate-and-fire, activity graded in [0, 1]. No
+  Hodgkin-Huxley, no body model.
+- **No CNN, transformer or RL framework between the world and the brain.**
+  Adapters are simple transforms; PPO is a candidate, not the platform.
+- The brain never sees game logic, and the world is never made more convenient
+  than the game.
+- Deterministic seeds. Every experiment saves its seed, brain, weights and
+  world, and can be replayed.
+- A measurement beats an argument. When a design choice is open, it is settled
+  by running it, and the numbers go in `docs/assumptions.md`.

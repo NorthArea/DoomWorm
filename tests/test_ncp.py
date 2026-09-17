@@ -45,5 +45,5 @@ def test_ncp_round_trips_and_trains(tmp_path: Path) -> None:
     out = tmp_path / "ncp.json"
     result = train_candidate(CandidateSpec("ncp"), TINY, out)
     assert len(result.history) == 2
-    args = ["benchmark", "--brain", str(out), "--planner", "needs", "--test-seeds", "1"]
+    args = ["benchmark", "--brain", str(out), "--test-seeds", "1"]
     assert main([*args, "--repeats", "1", "--steps", "10", "--out-dir", str(tmp_path / "b")]) == 0

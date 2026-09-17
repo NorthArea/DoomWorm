@@ -6,7 +6,7 @@ the training maps, and the search is the stage-4/10 evolution. The candidate
 only contributes a weight vector, so the worm, its control topologies and a
 network from scratch are trained by exactly the same code.
 
-    doomworm evolve --candidate worm --layer needs --out runs/a2/worm.json
+    doomworm evolve --candidate worm --maps doom4 --task doom --out runs/worm.json
 """
 
 from __future__ import annotations
@@ -25,20 +25,18 @@ import numpy as np
 
 from doomworm.candidates.base import Trainable
 from doomworm.candidates.registry import CandidateSpec, build_candidate
-from doomworm.environments.sensors import PRESETS
 from doomworm.episode import BrainLike
-from doomworm.layer.planner_layer import PlannerLayer
 from doomworm.learning.benchmark import BenchmarkConfig, run_benchmark
 from doomworm.learning.evolution import EvolutionConfig, EvolutionResult, GenerationStats, evolve
 
-LAYERS = ("none", "coverage", "needs")
+LAYERS = ("none",)
 
 
 @dataclass(frozen=True)
 class TrainConfig:
     """Where and how long a candidate trains; the world is the benchmark's world."""
 
-    layer: str = "needs"
+    layer: str = "none"
     train_seeds: tuple[int, ...] = (100, 101, 102)
     train_repeats: int = 1  # sensor-noise seeds per training map
     steps: int = 800
@@ -63,12 +61,10 @@ class TrainConfig:
 
 
 def wrap(brain: BrainLike, spec: CandidateSpec, layer: str) -> BrainLike:
-    """The engineered layer every candidate gets in the benchmark (none = bare)."""
-    if layer not in LAYERS:
-        raise ValueError(f"layer must be one of {LAYERS}")
-    if layer == "none":
-        return brain
-    return PlannerLayer(brain, PRESETS[spec.sensors], mode=layer)
+    """Kept for the saved-brain metadata: a candidate now always trains bare."""
+    if layer != "none":
+        raise ValueError("the engineered layer belonged to the vacuum; only 'none' is left")
+    return brain
 
 
 def benchmark_config(spec: CandidateSpec, cfg: TrainConfig) -> BenchmarkConfig:

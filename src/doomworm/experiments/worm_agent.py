@@ -88,8 +88,8 @@ class WormScenario:
                 "maps must be 'fixed', 'random', 'apartment', doom1..6, vizdoom1..6 or stock_*"
             )
         self.maps = maps
-        if task not in ("food", "target", "clean", "doom"):
-            raise ValueError("task must be 'food', 'target', 'clean' or 'doom'")
+        if task not in ("food", "target", "doom"):
+            raise ValueError("task must be 'food', 'target' or 'doom'")
         self.task = task
         self.dangers = dangers
         if sensors not in PRESETS:

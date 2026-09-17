@@ -16,7 +16,7 @@ from doomworm.candidates.hybrid import REFLEX_CHANNELS
 from doomworm.cli import main
 from doomworm.learning import TrainConfig, train_candidate
 
-REFLEX = "docs/brains/a2/worm_from_worm_evolved_random.json"
+REFLEX = "docs/brains/a1/worm_evolved_random.json"
 TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, workers=1)
 
 
@@ -66,7 +66,7 @@ def test_round_trip_keeps_the_same_behaviour(tmp_path: Path) -> None:
     got = [loaded.act({"sensor_front": 0.1 * i}) for i in range(4)]
     assert got == pytest.approx(expected)
     assert loaded.meta["candidate"] == "hybrid"
-    assert loaded.meta["reflex"].endswith("worm_from_worm_evolved_random.json")
+    assert loaded.meta["reflex"].endswith("worm_evolved_random.json")
 
 
 def test_hybrid_trains_and_benchmarks_with_the_shared_harness(tmp_path: Path) -> None:
@@ -75,8 +75,8 @@ def test_hybrid_trains_and_benchmarks_with_the_shared_harness(tmp_path: Path) ->
     assert len(result.history) == 2
     loaded = load_candidate(out)
     assert isinstance(loaded, HybridBrain)
-    assert loaded.meta["layer"] == "needs"
-    args = ["benchmark", "--brain", str(out), "--planner", "needs", "--test-seeds", "1"]
+    assert loaded.meta["layer"] == "none"
+    args = ["benchmark", "--brain", str(out), "--test-seeds", "1"]
     assert main([*args, "--repeats", "1", "--steps", "10", "--out-dir", str(tmp_path / "b")]) == 0
 
 

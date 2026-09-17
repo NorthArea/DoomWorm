@@ -50,9 +50,9 @@ class CandidateSpec:
     kind: str
     init: str | None = None  # brain JSON to start from (curriculum)
     variant_seed: int = 0  # seed of a control topology
-    maps: str = "apartment"
-    task: str = "clean"
-    sensors: str = "vacuum"
+    maps: str = "doom4"
+    task: str = "doom"
+    sensors: str = "ideal"
     dangers: int = 0
     params: dict[str, Any] = field(default_factory=dict, hash=False, compare=False)
 

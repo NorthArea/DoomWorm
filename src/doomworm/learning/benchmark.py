@@ -28,10 +28,10 @@ METRICS = (
 class BenchmarkConfig:
     """What every brain is measured on."""
 
-    maps: str = "apartment"
-    task: str = "clean"
+    maps: str = "doom4"
+    task: str = "doom"
     dangers: int = 0
-    sensors: str = "vacuum"
+    sensors: str = "ideal"
     test_seeds: tuple[int, ...] = tuple(range(3000, 3006))
     steps: int = 800
     repeats: int = 3  # sensor-noise seeds per map

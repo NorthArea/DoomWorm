@@ -46,16 +46,16 @@ def test_worm_brain_save_and_load_with_overrides(tmp_path: Path) -> None:
     brain = WormBrain.from_scenario(sc)
     path = tmp_path / "w.json"
     brain.save(path)
-    loaded = WormBrain.from_file(path, maps="apartment", task="clean")
-    assert loaded.meta["params"]["maps"] == "apartment"
-    assert loaded.meta["params"]["task"] == "clean"
+    loaded = WormBrain.from_file(path, maps="doom4", task="doom")
+    assert loaded.meta["params"]["maps"] == "doom4"
+    assert loaded.meta["params"]["task"] == "doom"
     assert loaded.name == "w"
     assert loaded.network.get_weights() == brain.network.get_weights()
 
 
 def test_build_world_is_the_scenario_world() -> None:
-    a = WormScenario(maps="apartment", task="clean").make_world(3)
-    b = build_world(3, "apartment", "clean")
+    a = WormScenario(maps="doom4", task="doom").make_world(3)
+    b = build_world(3, "doom4", "doom")
     assert a.walls == b.walls
     assert a.dock == b.dock
     with pytest.raises(ValueError, match="task"):
@@ -63,7 +63,7 @@ def test_build_world_is_the_scenario_world() -> None:
 
 
 def test_gym_env_api() -> None:
-    env = DoomwormEnv(lambda seed: build_world(seed, "random", "food"), sensors="vacuum", steps=20)
+    env = DoomwormEnv(lambda seed: build_world(seed, "random", "food"), sensors="ideal", steps=20)
     obs, info = env.reset(seed=5)
     assert obs.shape == env.observation_space.shape
     assert env.observation_space.contains(obs)
@@ -99,7 +99,7 @@ def test_gym_env_terminates_on_death() -> None:
 
 def test_benchmark_and_leaderboard(tmp_path: Path) -> None:
     cfg = BenchmarkConfig(
-        maps="random", task="food", sensors="noisy", test_seeds=(2000, 2001), steps=30, repeats=2
+        maps="random", task="food", sensors="ideal", test_seeds=(2000, 2001), steps=30, repeats=2
     )
     assert cfg.episodes == 4
     a = run_benchmark(ScriptedBrain(straight, "straight"), "straight", cfg)
@@ -124,24 +124,3 @@ def test_old_loop_still_works() -> None:
 
     trace = run_episode(world, Simulator(sc.template), sc.sensory, sc.motor, 5)
     assert len(trace) == 5
-
-
-def test_planner_wrapper_injects_gradient_and_parks_when_charging() -> None:
-    from doomworm.environments.gym_env import PlannerWrapper
-
-    base = DoomwormEnv(lambda seed: build_world(seed, "apartment", "clean"), sensors="vacuum")
-    env = PlannerWrapper(base, mode="needs")
-    obs, _ = env.reset(seed=3000)
-    names = base.channel_names
-    assert obs.shape == base.observation_space.shape
-    for _ in range(6):
-        obs, _, _, _, _ = env.step(np.array([1.0, 1.0]))
-    target = [obs[names.index(f"target_{s}")] for s in ("left", "front", "right")]
-    assert max(target) > 0.0, "the planner's virtual gradient reaches the policy"
-    env.layer.needs.state = "charge"
-    env.layer.charging = True
-    assert env.layer.parked()
-    x0 = base.world.agent.x if base.world else 0.0
-    env.step(np.array([1.0, 1.0]))
-    assert base.world is not None
-    assert base.world.agent.x == x0, "wheels overridden while parked"

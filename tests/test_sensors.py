@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from doomworm.environments.sensors import IDEAL, NOISY, PRESETS, VACUUM, SensorConfig, SensorSuite
+from doomworm.environments.sensors import IDEAL, PRESETS, SensorConfig, SensorSuite
 from doomworm.environments.simple_2d import AgentState, Danger, Obstacle, Wall, World
 from doomworm.episode import run_episode
 from doomworm.experiments import food_agent
@@ -27,27 +27,6 @@ def test_ideal_suite_reproduces_legacy_channels() -> None:
     assert set(suite.channel_names) == set(ch)
     assert ch["bumper_left"] == 0.0, "ideal = noiseless, every vacuum sensor present"
     assert ch["odom_x"] == pytest.approx(w.agent.x)
-
-
-def test_vacuum_channels_and_noise_are_seeded() -> None:
-    w = world_with_wall_ahead()
-    a = SensorSuite(VACUUM, seed=1)
-    b = SensorSuite(VACUUM, seed=1)
-    c = SensorSuite(VACUUM, seed=2)
-    for s in (a, b, c):
-        s.reset(w)
-    obs = w.observe()
-    # delay 1: the first read is the warm reading taken at rest (stale, not zero)
-    first = a.read(w, obs)
-    assert abs(first["range_2"] - obs.sensor_front) < 0.3
-    assert first["hunger"] == obs.hunger
-    b.read(w, obs)
-    c.read(w, obs)
-    ra, rb, rc = a.read(w, obs), b.read(w, obs), c.read(w, obs)
-    assert ra == rb
-    assert ra["range_2"] != rc["range_2"], "different seeds, different noise"
-    assert abs(ra["range_2"] - obs.sensor_front) < 0.3
-    assert {"bumper_left", "cliff_left", "wall_right", "odom_x", "gyro_heading"} <= set(ra)
 
 
 def test_dropout_zeroes_readings() -> None:
@@ -75,7 +54,7 @@ def test_delay_shifts_readings() -> None:
 
 
 def test_bumper_reports_contact_side() -> None:
-    cfg = SensorConfig(name="bump", bumper=True, ray_angles=VACUUM.ray_angles)
+    cfg = SensorConfig(name="bump", bumper=True, ray_angles=IDEAL.ray_angles)
     w = World(agent=AgentState(x=7.4, y=10.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)], speed=0.5)
     suite = SensorSuite(cfg)
     suite.reset(w)
@@ -133,135 +112,12 @@ def test_odometry_tracks_and_drifts() -> None:
 
 def test_episode_runs_with_a_suite_and_scenario_param() -> None:
     world, sim, sensory, motor = food_agent.build_scenario()
-    trace = run_episode(world, sim, sensory, motor, 30, sensors=SensorSuite(NOISY, seed=0))
+    noisy = SensorConfig(name="noisy", noise_sigma=0.1, dropout=0.05)
+    trace = run_episode(world, sim, sensory, motor, 30, sensors=SensorSuite(noisy, seed=0))
     assert len(trace) == 30
-    sc = WormScenario(sensors="vacuum")
-    assert sc.params["sensors"] == "vacuum"
-    assert isinstance(sc.make_sensors(1), SensorSuite)
-    assert WormScenario().make_sensors(1) is None
+    sc = WormScenario(sensors="ideal")
+    assert sc.params["sensors"] == "ideal"
+    assert sc.make_sensors(1) is None, "the ideal preset is noiseless: the loop reads the world"
     with pytest.raises(ValueError, match="sensors"):
         WormScenario(sensors="lidar")
-    assert set(PRESETS) == {"ideal", "vacuum", "noisy", "car"}
-
-
-# --- stage 22: the kit car preset ------------------------------------------------------
-
-
-def test_car_preset_has_the_vacuum_channel_layout_with_three_rays() -> None:
-    from doomworm.environments.sensors import CAR
-
-    names = SensorSuite(CAR).channel_names
-    assert [n for n in names if n.startswith("range_")] == ["range_0", "range_1", "range_2"]
-    for key in ("bumper_left", "cliff_right", "wall_right", "odom_x", "gyro_heading", "dock_front"):
-        assert key in names
-
-
-def test_car_sweep_refreshes_one_ray_per_tick() -> None:
-    from doomworm.environments.sensors import CAR
-
-    cfg = SensorConfig(name="sweep", ray_angles=CAR.ray_angles, sweep=True)
-    w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
-    suite = SensorSuite(cfg)
-    suite.reset(w)
-    first = suite.read(w, w.observe())
-    # spin 90 degrees in one go: only the ray measured this tick sees the new geometry
-    w.agent = AgentState(x=5.0, y=10.0, heading=math.pi / 2)
-    second = suite.read(w, w.observe())
-    changed = [i for i in range(3) if second[f"range_{i}"] != first[f"range_{i}"]]
-    assert len(changed) == 1, "one servo position per tick"
-    for _ in range(2):
-        second = suite.read(w, w.observe())
-    exact = [
-        max(0.0, 1.0 - w.ray_distance(w.agent.heading + a) / cfg.ray_range) for a in cfg.ray_angles
-    ]
-    assert [second[f"range_{i}"] for i in range(3)] == pytest.approx(exact), "a full sweep later"
-
-
-def test_car_proximity_bumper_fires_before_contact_and_ignores_real_collisions() -> None:
-    from dataclasses import replace
-
-    from doomworm.environments.sensors import CAR
-
-    cfg = SensorConfig(name="pb", ray_angles=CAR.ray_angles, proximity_bumper=0.7)
-    w = World(agent=AgentState(x=7.0, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
-    suite = SensorSuite(cfg)
-    suite.reset(w)
-    far = suite.read(w, w.observe())
-    assert (far["bumper_left"], far["bumper_right"]) == (0.0, 0.0), "1.0 away: no hit"
-    w.agent = AgentState(x=7.4, y=10.0, heading=0.0)
-    near = suite.read(w, w.observe())
-    assert (near["bumper_left"], near["bumper_right"]) == (1.0, 1.0), "front ray under 0.7"
-    # a real collision from the side is invisible to a ray-based bumper
-    w.agent = AgentState(x=5.0, y=10.0, heading=math.pi / 2)
-    side = suite.read(w, replace(w.observe(), collided=True))
-    assert (side["bumper_left"], side["bumper_right"]) == (0.0, 0.0)
-
-
-def test_car_command_odometry_keeps_moving_against_a_wall_and_gyro_follows_it() -> None:
-    from doomworm.environments.sensors import CAR
-
-    cfg = SensorConfig(
-        name="ol", ray_angles=CAR.ray_angles, odometry=True, odom_source="commands", gyro=False
-    )
-    w = World(agent=AgentState(x=7.4, y=10.0, heading=0.0), walls=[Wall(8.0, 0.0, 1.0, 20.0)])
-    suite = SensorSuite(cfg)
-    suite.reset(w)
-    for _ in range(10):
-        obs = w.step(1.0, 1.0)  # pushing into the wall: the body does not move
-        ch = suite.read(w, obs)
-    assert w.agent.x == pytest.approx(7.4, abs=0.15)
-    assert ch["odom_x"] == pytest.approx(7.4 + 10 * w.speed), "open loop believes it drove on"
-    assert ch["gyro_heading"] == ch["odom_heading"], "no IMU: the gyro channel is the odometry"
-
-
-def test_car_binary_wall_sensor_and_camera_beacon() -> None:
-    from doomworm.environments.sensors import CAR
-    from doomworm.environments.simple_2d import Dock
-
-    cfg = SensorConfig(
-        name="cam",
-        ray_angles=CAR.ray_angles,
-        wall_sensor=True,
-        wall_binary=0.75,
-        beacon_fov=math.radians(30.0),
-        beacon_range=5.0,
-    )
-    w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(0.0, 9.0, 20.0, 0.4)])
-    w.dock = Dock(x=8.0, y=10.0)
-    suite = SensorSuite(cfg)
-    suite.reset(w)
-    ch = suite.read(w, w.observe())
-    assert ch["wall_right"] == 1.0, "wall 0.6 to the right: the IR module is on"
-    assert ch["dock_front"] == pytest.approx(1.0 / 3.0), "marker straight ahead, 3 away"
-    w.agent = AgentState(x=5.0, y=10.0, heading=math.pi / 2)  # marker now at -90: out of view
-    ch = suite.read(w, w.observe())
-    assert (ch["dock_left"], ch["dock_front"], ch["dock_right"]) == (0.0, 0.0, 0.0)
-    w.agent = AgentState(x=5.0, y=10.0, heading=-math.radians(20.0))  # marker 20 deg left
-    ch = suite.read(w, w.observe())
-    assert ch["dock_left"] > 0.0
-    w.agent = AgentState(x=1.0, y=10.0, heading=0.0)  # 7 away: beyond the marker range
-    ch = suite.read(w, w.observe())
-    assert ch["dock_front"] == 0.0
-    w.agent = AgentState(x=5.0, y=11.0, heading=0.0)  # wall 1.6 to the right: module off
-    ch = suite.read(w, w.observe())
-    assert ch["wall_right"] == 0.0
-
-
-def test_camera_beacon_cannot_see_through_walls() -> None:
-    from doomworm.environments.sensors import CAR
-    from doomworm.environments.simple_2d import Dock
-
-    cfg = SensorConfig(
-        name="cam", ray_angles=CAR.ray_angles, beacon_fov=math.radians(30.0), beacon_range=5.0
-    )
-    w = World(agent=AgentState(x=5.0, y=10.0, heading=0.0), walls=[Wall(6.5, 8.0, 0.4, 4.0)])
-    w.dock = Dock(x=8.0, y=10.0)
-    suite = SensorSuite(cfg)
-    suite.reset(w)
-    ch = suite.read(w, w.observe())
-    assert (ch["dock_left"], ch["dock_front"], ch["dock_right"]) == (0.0, 0.0, 0.0), (
-        "wall in between"
-    )
-    w.walls = []
-    ch = suite.read(w, w.observe())
-    assert ch["dock_front"] > 0.0
+    assert set(PRESETS) == {"ideal"}

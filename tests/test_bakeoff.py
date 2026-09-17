@@ -17,7 +17,7 @@ def test_every_candidate_is_a_trainable_brain(kind: str) -> None:
     if kind == "ncp":
         pytest.importorskip("ncps")
     # the hybrid is the one candidate that is built on top of another brain (axis C7)
-    init = "docs/brains/a2/worm_from_worm_evolved_random.json" if kind == "hybrid" else None
+    init = "docs/brains/a1/worm_evolved_random.json" if kind == "hybrid" else None
     brain = build_candidate(CandidateSpec(kind, init=init))
     assert isinstance(brain, Trainable)
     assert brain.n_weights == len(brain.get_weights()) > 1000
@@ -59,8 +59,8 @@ def test_train_saves_a_brain_the_benchmark_loads(tmp_path: Path) -> None:
     assert loaded.n_weights == build_candidate(spec).n_weights, "control topology restored"
     assert loaded.get_weights() == pytest.approx(list(result.best_weights))
     assert loaded.meta["candidate"] == "worm_random"
-    assert loaded.meta["layer"] == "needs"
-    args = ["benchmark", "--brain", str(out), "--planner", "needs", "--test-seeds", "1"]
+    assert loaded.meta["layer"] == "none"
+    args = ["benchmark", "--brain", str(out), "--test-seeds", "1"]
     assert main([*args, "--repeats", "1", "--steps", "10", "--out-dir", str(tmp_path / "b")]) == 0
 
 

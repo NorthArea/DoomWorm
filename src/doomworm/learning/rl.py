@@ -21,7 +21,7 @@ import numpy as np
 
 from doomworm.candidates.base import Wheels
 from doomworm.candidates.rnn import UNBOUNDED
-from doomworm.environments.gym_env import DoomwormEnv, PlannerWrapper
+from doomworm.environments.gym_env import DoomwormEnv
 from doomworm.environments.sensors import PRESETS, SensorSuite
 from doomworm.environments.worlds import build_world
 
@@ -30,9 +30,9 @@ from doomworm.environments.worlds import build_world
 class PPOConfig:
     """World, layer and budget of one PPO run."""
 
-    maps: str = "apartment"
-    task: str = "clean"
-    sensors: str = "vacuum"
+    maps: str = "doom4"
+    task: str = "doom"
+    sensors: str = "ideal"
     dangers: int = 0
     steps: int = 800
     layer: str = "needs"
@@ -76,7 +76,7 @@ def make_env(cfg: PPOConfig) -> gym.Env[np.ndarray, np.ndarray]:
     )
     env: gym.Env[np.ndarray, np.ndarray] = base
     if cfg.layer != "none":
-        env = PlannerWrapper(base, mode=cfg.layer)
+        env = base
     return _SeedCycle(env, cfg.train_seeds)
 
 

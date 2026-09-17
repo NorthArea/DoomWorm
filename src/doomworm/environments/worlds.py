@@ -6,7 +6,7 @@ import math
 
 from doomworm.body import build_body
 from doomworm.environments.maze import ApartmentConfig, MapConfig, apartment_world, random_world
-from doomworm.environments.simple_2d import AgentState, Dock, Obstacle, World
+from doomworm.environments.simple_2d import AgentState, Obstacle, World
 
 N_FOOD = 2
 BATTERY_DRAIN = 0.002  # 500 ticks from full to empty (Plan §8 range)
@@ -54,14 +54,8 @@ def build_world(
     if maps == "apartment":
         world = apartment_world(seed, ApartmentConfig(n_food=N_FOOD))
         return _with_body(apply_task(world, task, dangers), body)
-    if maps.startswith("room:"):  # stage 22: a real room from a file (hardware/room.py)
-        from doomworm.hardware.room import load_room, room_world
-
-        world = room_world(load_room(maps[len("room:") :]), seed, task)
-        world.dangers = [world.spawn_danger() for _ in range(dangers)]
-        return _with_body(world, body)
     if maps != "fixed":
-        raise ValueError("maps must be 'fixed', 'random', 'apartment' or 'room:<file>'")
+        raise ValueError("maps must be 'fixed', 'random' or 'apartment'")
     world = World(
         width=20.0,
         height=20.0,
@@ -88,19 +82,12 @@ def _with_body(world: World, body: str) -> World:
 
 
 def apply_task(world: World, task: str, dangers: int) -> World:
-    """Task overlays: ``target`` (come to X), ``clean`` (vacuum: dirt, dock, battery)."""
+    """Task overlays: ``target`` (come to X). ``food`` is the world as built."""
     if task == "target":
         world.foods = []
         world.respawn_target = True
         world.target = world.spawn_target()
-    elif task == "clean":
-        world.foods = []
-        world.hunger_rate = BATTERY_DRAIN
-        spot = world.spawn_food(radius=0.6, margin=1.2)
-        world.dock = Dock(x=spot.x, y=spot.y)
-        world.agent = AgentState(x=spot.x, y=spot.y, heading=world.agent.heading)
-        world.init_dirt()
     elif task != "food":
-        raise ValueError("task must be 'food', 'target' or 'clean'")
+        raise ValueError("task must be 'food' or 'target'")
     world.dangers = [world.spawn_danger() for _ in range(dangers)]
     return world

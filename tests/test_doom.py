@@ -254,7 +254,8 @@ def test_worm_brain_exposes_a_trigger_from_the_pharyngeal_group() -> None:
 
 
 def test_rnn_gets_a_third_output_on_the_doom_task(tmp_path: Path) -> None:
-    two = build_candidate(CandidateSpec("rnn", sensors="ideal"))
+    # the food trainer has no gun, the Doom levels do
+    two = build_candidate(CandidateSpec("rnn", maps="random", task="food", sensors="ideal"))
     three = build_candidate(CandidateSpec("rnn", maps="doom4", task="doom", sensors="ideal"))
     assert isinstance(two, RNNBrain)
     assert isinstance(three, RNNBrain)

@@ -2,15 +2,26 @@
 
 .DEFAULT_GOAL := help
 UV := uv run
-BRAIN ?= runs/small_evolved.json
 SEED ?= 1003
 NEURON ?= ASHL
+LEVEL ?= doom4
+STOCK ?= stock_defend
+CANDIDATE ?= worm
+WORKERS ?= 6
+TRAIN_LEVEL ?= doom4
+DOOM_SEED ?= 0
+WORM_BRAIN ?= docs/brains/a1/worm_evolved_random.json
+WATCH_BRAIN ?= docs/brains/doom/doom4/seed0/worm_from_worm_evolved_random.json
+WATCH_SEED ?= 3000
+DOOM_BENCH = --task doom --sensors ideal --steps 600 --test-seeds 12 --repeats 1
 
-.PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
-	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-22 demo-b1 demo-b4 demo-b11 watch-doom watch-doomguy watch-stock benchmark-doom benchmark-vizdoom evolve-doom demos benchmark-car evolve-car selftest-sim robustness-car train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
+.PHONY: help sync hooks fetch-data test test-fast cov lint format typecheck check clean \
+	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos \
+	    demo-b1 demo-b4 demo-b11 watch-doom watch-doomguy watch-stock \
+	    benchmark-doom benchmark-vizdoom evolve-doom train-worm compare play stimulate
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # --- setup -------------------------------------------------------------------
 
@@ -19,6 +30,9 @@ sync: ## Install/refresh the venv from uv.lock (all groups)
 
 hooks: sync ## Install pre-commit hooks into .git
 	$(UV) pre-commit install
+
+fetch-data: ## Download the connectome dataset
+	$(UV) python scripts/fetch_connectome.py
 
 # --- quality -----------------------------------------------------------------
 
@@ -47,185 +61,86 @@ clean: ## Remove caches and experiment outputs (keeps the venv)
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov runs
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
-# --- stage demos -------------------------------------------------------------
+# --- the platform, stage by stage --------------------------------------------
 
-demo-0: ## Stage 0: three-neuron chain
+demo-0: ## Three neurons in a chain
 	$(UV) python -m doomworm.experiments.three_neurons
 
-demo-1: ## Stage 1: obstacle avoidance (PNG in runs/)
+demo-1: ## Obstacle avoidance (PNG in runs/)
 	$(UV) python -m doomworm.experiments.obstacle_agent --plot
 
-demo-2: ## Stage 2: food and hunger (PNG in runs/)
+demo-2: ## The food task: the curriculum world (PNG in runs/)
 	$(UV) python -m doomworm.experiments.food_agent --plot
 
-demo-3: ## Stage 3: reward comparison of three brains
+demo-3: ## Reward comparison of three brains
 	$(UV) python -m doomworm.experiments.reward_demo
 
-demo-5: ## Stage 5: connectome statistics
+demo-5: ## Connectome statistics
 	$(UV) python -m doomworm.experiments.connectome_stats
 
-demo-6: ## Stage 6: debug screen GIF (runs/stage6_debug.gif)
+demo-6: ## Debug screen GIF (runs/stage6_debug.gif)
 	$(UV) python -m doomworm.experiments.debug_screen_demo
 
-demo-7: ## Stage 7: sensory mapping and per-channel responders
+demo-7: ## Sensory mapping and per-channel responders
 	$(UV) python -m doomworm.experiments.sensory_mapping_demo
 
-demo-8: ## Stage 8: motor mapping, wheel commands per channel
+demo-8: ## Motor mapping, commands per channel
 	$(UV) python -m doomworm.experiments.motor_mapping_demo
 
-demo-9: ## Stage 9: untrained worm drives the 2D agent (PNG + GIF + JSONL log)
+demo-9: ## The untrained worm drives the agent (PNG + GIF + JSONL log)
 	$(UV) python -m doomworm.experiments.worm_agent --seed $(SEED) --plot --gif
 
-demo-12: ## Stage 12: brain trained on random maps, played on an unseen random map
-	$(UV) doomworm play --brain runs/worm_evolved_random.json --seed $(SEED) --plot
+demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every platform demo
 
-demo-13: ## Stage 13: the same brain sent to a target ("come to X") instead of food
-	$(UV) doomworm play --brain runs/worm_evolved_random.json --task target --seed $(SEED) --plot
+train-worm: ## The curriculum: evolve the connectome on the food task
+	$(UV) doomworm train --scenario worm --maps random
 
-demo-16: ## Stage 16: vacuum task (dirt, dock, battery) on an unseen apartment, stage-12 brain
-	$(UV) doomworm play --brain runs/worm_evolved_random.json --maps apartment --task clean --seed $(SEED) --steps 800 --plot
+compare: ## Real vs random vs shuffled vs dense topology
+	$(UV) doomworm compare
 
-demo-15: ## Stage 15: a brain on an unseen apartment map (rooms, doors, furniture)
-	$(UV) doomworm play --brain runs/worm_evolved_random.json --maps apartment --seed $(SEED) --plot
+# --- Doom --------------------------------------------------------------------
 
-demo-14: ## Stage 14: target task with a danger zone (runs/worm_evolved_danger.json)
-	$(UV) doomworm play --brain runs/worm_evolved_danger.json --seed $(SEED) --plot
+demo-b1: ## The hand-written floor on a simulator level, then a worm replay
+	$(UV) doomworm benchmark --scripted doomguy --maps $(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/$(LEVEL)
+	$(UV) doomworm play --brain $(WORM_BRAIN) --maps $(LEVEL) --task doom --seed $(SEED) --plot
 
-WORM_BRAIN ?= docs/brains/a1/worm_evolved_random.json
-A2_WORM ?= docs/brains/a2/worm_from_worm_evolved_random.json
+demo-b4: ## The same level inside the Doom engine (needs the doom group)
+	$(UV) doomworm benchmark --scripted doomguy --maps viz$(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/floors/eval_viz$(LEVEL)
+	$(UV) doomworm play --brain $(WORM_BRAIN) --maps viz$(LEVEL) --task doom --seed $(SEED) --plot
 
-demo-17: ## Stage 17: stage-12 brain under the noisy vacuum sensor suite
-	$(UV) doomworm play --brain $(WORM_BRAIN) --maps random --sensors noisy --seed $(SEED) --plot
+demo-b11: ## A stock ViZDoom scenario ($(STOCK)): the floor and a trained worm
+	$(UV) doomworm benchmark --scripted doomguy --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 4 --repeats 1 --out-dir runs/benchmark_doom/stock
+	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 4 --repeats 1 --out-dir runs/benchmark_doom/stock
 
-demo-18: ## Stage 18: benchmark the stage-12 brain alone -> runs/benchmark/
-	$(UV) doomworm benchmark --brain $(WORM_BRAIN) --name worm_stage12
+evolve-doom: ## Train $(CANDIDATE) on $(LEVEL), seed $(DOOM_SEED) -> runs/doom/
+	$(UV) doomworm evolve --candidate $(CANDIDATE) --maps $(LEVEL) --task doom --sensors ideal --steps 600 --workers $(WORKERS) --seed $(DOOM_SEED) --out runs/doom/$(LEVEL)/seed$(DOOM_SEED)/$(CANDIDATE).json
 
-demo-19: ## Stage 19: the same brain wrapped in the coverage planner
-	$(UV) doomworm benchmark --brain $(WORM_BRAIN) --name worm_stage12 --planner coverage
-
-demo-20: ## Stage 20: needs arbitration (battery > call > clean), worm and scripted driver
-	$(UV) doomworm benchmark --brain $(WORM_BRAIN) --name worm_stage12 --planner needs
-	$(UV) doomworm benchmark --scripted follower --planner needs
-
-demo-21: ## Stage 21.1: the Roomba-style classical controller, zero learning, on the benchmark
-	$(UV) doomworm benchmark --scripted roomba
-
-demo-22: ## Stage 22.1: A2 worm over the simulator link with recording, then the log replayed and compared
-	$(UV) doomworm drive --brain $(A2_WORM) --planner needs --seed 3002 --steps 300 --every 50 --record runs/drive/worm_sim_3002.jsonl
-	$(UV) doomworm compare-log --log runs/drive/worm_sim_3002.jsonl --out runs/drive/worm_sim_3002_vs_replay.md
-	$(UV) doomworm compare-log --log runs/drive/worm_sim_3002.jsonl --sensors noisy --out runs/drive/worm_sim_3002_vs_noisy.md
-	printf 'w\nw\nw\nd\nd\nw\nw\n' | $(UV) doomworm drive --teleop --seed 3002 --every 1 --record runs/drive/teleop_3002.jsonl
-
-LEVEL ?= doom4
-
-demo-b1: ## Track B, stage B1: the hand-written Doom player on a mini-Doom level (runs/benchmark_doom/)
-	$(UV) doomworm benchmark --scripted doomguy --maps $(LEVEL) --task doom --sensors ideal --steps 600 --out-dir runs/benchmark_doom/$(LEVEL)
-	$(UV) doomworm play --brain docs/brains/a1/worm_evolved_random.json --maps $(LEVEL) --task doom --seed $(SEED) --plot
-
-TRAIN_LEVEL ?= doom4
-DOOM_SEED ?= 0
-DOOM_BENCH = --task doom --sensors ideal --steps 600 --test-seeds 12 --repeats 1
-
-benchmark-doom: ## Track B, stage B2: the floors and every brain of runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/ on level $(LEVEL) -> runs/benchmark_doom/
+benchmark-doom: ## The floors and every brain of runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/ on $(LEVEL)
 	$(UV) doomworm benchmark --scripted doomguy --maps $(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/floors/eval_$(LEVEL)
 	$(UV) doomworm benchmark --scripted follower --maps $(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/floors/eval_$(LEVEL)
 	for b in $(wildcard runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/*.json); do \
 	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --maps $(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/train_$(TRAIN_LEVEL)/seed$(DOOM_SEED)/eval_$(LEVEL) || exit 1;; esac; done
 
-benchmark-vizdoom: ## Track B, stage B4: the same rows in the Doom engine (needs the doom group), level viz$(LEVEL)
+benchmark-vizdoom: ## The same rows in the Doom engine, level viz$(LEVEL)
 	$(UV) doomworm benchmark --scripted doomguy --maps viz$(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/floors/eval_viz$(LEVEL)
 	for b in $(wildcard runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/*.json); do \
 	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --maps viz$(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/train_$(TRAIN_LEVEL)/seed$(DOOM_SEED)/eval_viz$(LEVEL) || exit 1;; esac; done
 
-evolve-doom: ## Track B, stage B2: train $(CANDIDATE) bare (no planner) on $(LEVEL), seed $(DOOM_SEED) -> runs/doom/$(LEVEL)/seed$(DOOM_SEED)/ (PPO: doomworm ppo --maps $(LEVEL) --task doom --layer none)
-	$(UV) doomworm evolve --candidate $(CANDIDATE) --layer none --maps $(LEVEL) --task doom --sensors ideal --steps 600 --workers $(WORKERS) --seed $(DOOM_SEED) --out runs/doom/$(LEVEL)/seed$(DOOM_SEED)/$(CANDIDATE).json $(EVOLVE_ARGS)
+# --- watching ----------------------------------------------------------------
 
-demo-b4: ## Track B, stage B4: the scripted Doom player in the real Doom engine on level viz$(LEVEL) (needs the doom group)
-	$(UV) doomworm benchmark --scripted doomguy --maps viz$(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/floors/eval_viz$(LEVEL)
-	$(UV) doomworm play --brain docs/brains/a1/worm_evolved_random.json --maps viz$(LEVEL) --task doom --seed $(SEED) --plot
-
-STOCK ?= stock_defend
-
-demo-b11: ## Track B, stage B11: a stock ViZDoom scenario ($(STOCK)) under the same contract (needs the doom group)
-	$(UV) doomworm benchmark --scripted doomguy --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 4 --repeats 1 --out-dir runs/benchmark_doom/stock
-	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 4 --repeats 1 --out-dir runs/benchmark_doom/stock
-
-watch-stock: ## Track B: watch a brain play the stock scenario $(STOCK) in the Doom window
-	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
-
-WATCH_BRAIN ?= runs/doom/doom4/seed0/worm_from_worm_evolved_random.json
-WATCH_SEED ?= 3000
-
-watch-doomguy: ## Track B: watch the hand-written Doom player (it aims and kills) in the Doom window
-	$(UV) doomworm benchmark --scripted doomguy --maps viz$(LEVEL) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
-
-watch-doom: ## Track B: watch $(WATCH_BRAIN) play level viz$(LEVEL) in the Doom window (needs the doom group)
+watch-doom: ## Watch $(WATCH_BRAIN) play viz$(LEVEL) in the Doom window
 	$(UV) doomworm play --brain $(WATCH_BRAIN) --maps viz$(LEVEL) --task doom --seed $(WATCH_SEED) --steps 600 --watch
 
-selftest-sim: ## Stage 22.2 rehearsal: self-test, calibration and a room drive on the simulator link
-	$(UV) doomworm selftest --sensors car --seed 3001 --out runs/selftest_sim.md
-	printf '0.8\n60\n' | $(UV) doomworm calibrate --sensors car --seed 3001 --out runs/calibration_sim.json
-	printf 'w\nw\nw\nw\nd\nd\nw\nw\nw\n' | $(UV) doomworm drive --teleop --sensors car --room data/rooms/example_room.json --every 1 --record runs/drive/room_sim.jsonl
-	$(UV) doomworm plot-log --log runs/drive/room_sim.jsonl
-	$(UV) doomworm compare-log --log runs/drive/room_sim.jsonl
+watch-doomguy: ## Watch the hand-written floor, the one row that aims
+	$(UV) doomworm benchmark --scripted doomguy --maps viz$(LEVEL) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
 
-robustness-car: ## Stage 22.1f: sweep the car preset's assumed numbers around the two chosen brains -> runs/robustness/
-	$(UV) doomworm robustness --brain docs/brains/a2/worm_from_worm_evolved_random.json --planner needs --sensors car
-	$(UV) doomworm robustness --brain docs/brains/car/ppo.json --name ppo_car --planner needs --sensors car
+watch-stock: ## Watch a brain play the stock scenario $(STOCK)
+	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
 
-benchmark-car: ## Stage 22: every A2 candidate plus the scripted floors on the car sensor preset -> runs/benchmark_car/
-	$(UV) doomworm benchmark --scripted roomba --sensors car --out-dir runs/benchmark_car
-	$(UV) doomworm benchmark --scripted follower --planner needs --sensors car --out-dir runs/benchmark_car
-	for b in worm worm_from_worm_evolved_random rnn ppo; do \
-	  $(UV) doomworm benchmark --brain docs/brains/a2/$$b.json --planner needs --sensors car --out-dir runs/benchmark_car; done
-	for b in $(wildcard runs/a2_car/*.json); do \
-	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --name $$(basename $$b .json)_car --planner needs --sensors car --out-dir runs/benchmark_car;; esac; done
+# --- replay ------------------------------------------------------------------
 
-evolve-car: ## Stage 22: retrain $(CANDIDATE) on the car preset -> runs/a2_car/ (PPO: doomworm ppo --sensors car)
-	$(UV) doomworm evolve --candidate $(CANDIDATE) --sensors car --workers 4 --out runs/a2_car/$(CANDIDATE).json
+play: ## Replay $(WORM_BRAIN) on seed $(SEED) with a plot
+	$(UV) doomworm play --brain $(WORM_BRAIN) --seed $(SEED) --plot
 
-demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every stage demo
-
-# --- training and connectome -------------------------------------------------
-
-train: ## Stage 4: evolve the small network -> $(BRAIN)
-	$(UV) doomworm train --out $(BRAIN)
-
-train-worm: ## Stage 10: evolve the connectome weights -> runs/worm_evolved.json
-	$(UV) doomworm train --scenario worm --out runs/worm_evolved.json $(TRAIN_ARGS)
-
-train-worm-random: ## Stage 12: evolve the connectome on random maps -> runs/worm_evolved_random.json
-	$(UV) doomworm train --scenario worm --maps random --out runs/worm_evolved_random.json $(TRAIN_ARGS)
-
-train-worm-danger: ## Stage 14: continue from the random-map brain on target + danger
-	$(UV) doomworm train --scenario worm --maps random --task target --dangers 1 --init-brain runs/worm_evolved_random.json --out runs/worm_evolved_danger.json $(TRAIN_ARGS)
-
-train-worm-apartment: ## Stage 15: continue from the random-map brain on apartment maps
-	$(UV) doomworm train --scenario worm --maps apartment --init-brain runs/worm_evolved_random.json --out runs/worm_evolved_apartment.json $(TRAIN_ARGS)
-
-benchmark: ## Stage 18: benchmark $(BRAIN) on apartments/clean/vacuum -> runs/benchmark/
-	$(UV) doomworm benchmark --brain $(BRAIN) $(BENCH_ARGS)
-
-CANDIDATE ?= worm
-WORKERS ?= 4
-
-evolve-a2: ## Stage 21.2: train $(CANDIDATE) (worm|worm_random|worm_shuffled|worm_dense) under the needs layer -> runs/a2/
-	$(UV) doomworm evolve --candidate $(CANDIDATE) --workers $(WORKERS) $(EVOLVE_ARGS)
-
-benchmark-a2: ## Stage 21: every trained candidate in runs/a2/ plus the scripted floors -> runs/benchmark_a2/
-	$(UV) doomworm benchmark --scripted roomba --out-dir runs/benchmark_a2
-	$(UV) doomworm benchmark --scripted follower --planner needs --out-dir runs/benchmark_a2
-	for b in runs/a2/*.json; do case $$b in *.meta.json) ;; *) \
-	  $(UV) doomworm benchmark --brain $$b --planner needs --out-dir runs/benchmark_a2 || exit 1 ;; esac; done
-
-compare: ## Stage 11: real vs random vs shuffled vs free -> runs/compare/
-	$(UV) doomworm compare $(COMPARE_ARGS)
-
-play: ## Replay $(BRAIN) on seed $(SEED) with a plot
-	$(UV) doomworm play --brain $(BRAIN) --seed $(SEED) --plot
-
-stimulate: ## Stage 6: stimulate $(NEURON) and plot propagation
+stimulate: ## Stimulate $(NEURON) and plot propagation
 	$(UV) doomworm stimulate $(NEURON) --plot
-
-fetch-data: ## Re-download the Cook 2019 connectome into data/connectome/cook2019
-	uv run --with openpyxl scripts/fetch_connectome.py

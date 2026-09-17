@@ -26,5 +26,5 @@ def test_ppo_trains_saves_and_benchmarks(tmp_path: Path) -> None:
     left, right = brain.act({"sensor_front": 0.5, "battery": 0.9})
     assert -1.0 <= left <= 1.0
     assert -1.0 <= right <= 1.0
-    args = ["benchmark", "--brain", str(out), "--planner", "needs", "--test-seeds", "1"]
+    args = ["benchmark", "--brain", str(out), "--test-seeds", "1"]
     assert main([*args, "--repeats", "1", "--steps", "10", "--out-dir", str(tmp_path / "b")]) == 0
