@@ -106,6 +106,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="train under the memory layer: the brain also senses unvisited ground",
     )
     ev.add_argument("--variant-seed", type=int, default=0, help="seed of a control topology")
+    ev.add_argument(
+        "--trainable",
+        choices=["all", "interface", "sensory"],
+        default="all",
+        help="which synapses the search may move (stage 18): 5905, 1819 or 506",
+    )
+    ev.add_argument(
+        "--tune-gains",
+        action="store_true",
+        help="put the adapter gains in the genome instead of fixing them by hand",
+    )
     ev.add_argument("--maps", choices=MAP_CHOICES, default="doom4")
     ev.add_argument("--task", choices=TASK_CHOICES, default="doom")
     ev.add_argument("--sensors", choices=SENSOR_PRESETS, default="ideal")
@@ -115,6 +126,12 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--population", type=int, default=40)
     ev.add_argument("--generations", type=int, default=25)
     ev.add_argument("--sigma", type=float, default=0.02)
+    ev.add_argument(
+        "--search",
+        choices=["mutation", "cma"],
+        default="mutation",
+        help="fixed-sigma mutation (stage 4) or sep-CMA-ES (stage 18)",
+    )
     ev.add_argument("--init-sigma", type=float, default=None)
     ev.add_argument("--seed", type=int, default=0, help="evolution seed")
     ev.add_argument("--workers", type=int, default=1, help="processes for fitness evaluation")
@@ -225,6 +242,7 @@ def run_evolve_cli(args: argparse.Namespace) -> int:
         maps=args.maps,
         task=args.task,
         sensors=args.sensors,
+        params={"trainable": args.trainable, "tune_gains": args.tune_gains},
     )
     cfg = TrainConfig(
         layer="memory" if args.memory else "none",
@@ -238,6 +256,7 @@ def run_evolve_cli(args: argparse.Namespace) -> int:
         mutation_fraction=0.05 if args.candidate == "worm_dense" else 1.0,
         seed=args.seed,
         workers=args.workers,
+        search=args.search,
     )
     out = args.out or Path("runs") / "a2" / f"{spec.label()}.json"
     print(

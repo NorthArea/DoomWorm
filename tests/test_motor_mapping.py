@@ -1,5 +1,7 @@
 """Stage 8: neural activity -> wheels (Plan §14), brain ticks per env step (Plan §3.1)."""
 
+from typing import Any
+
 import pytest
 
 from doomworm.adapters import GroupMotorAdapter
@@ -22,7 +24,7 @@ def worm() -> Connectome:
     return load_cook2019()
 
 
-def make_adapter(**kwargs: float) -> GroupMotorAdapter:
+def make_adapter(**kwargs: Any) -> GroupMotorAdapter:
     return GroupMotorAdapter(["F"], ["R"], ["TL"], ["TR"], **kwargs)
 
 

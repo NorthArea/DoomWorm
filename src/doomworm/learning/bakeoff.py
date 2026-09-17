@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from functools import partial
 from multiprocessing import Pool
@@ -48,6 +48,7 @@ class TrainConfig:
     mutation_fraction: float = 1.0
     seed: int = 0
     workers: int = 1
+    search: str = "mutation"  # "mutation" (stage 4) or "cma" (sep-CMA-ES, stage 18)
 
     def evolution(self) -> EvolutionConfig:
         """The search hyper-parameters."""
@@ -109,6 +110,51 @@ def _pool_map(
     return [float(v) for v in pool.map(fn, list(genomes))]
 
 
+def _run_cma(
+    fitness: Callable[[np.ndarray], float],
+    initial: np.ndarray,
+    cfg: TrainConfig,
+    record: Callable[[GenerationStats, np.ndarray, float], None],
+    map_fn: Callable[..., Sequence[float]] | None,
+) -> EvolutionResult:
+    """The same harness, driven by sep-CMA-ES instead of fixed-sigma mutation."""
+    from doomworm.learning.cmaes import CMAConfig, cma_es
+
+    def on_generation(stats: Any, best: np.ndarray, best_fitness: float) -> None:
+        record(
+            GenerationStats(
+                generation=stats.generation,
+                best=stats.best,
+                mean=stats.mean,
+                worst=stats.worst,
+            ),
+            best,
+            best_fitness,
+        )
+
+    result = cma_es(
+        fitness,
+        initial,
+        CMAConfig(
+            generations=cfg.generations,
+            population=cfg.population,
+            sigma=cfg.init_sigma or 0.2,
+            weight_range=cfg.weight_range,
+            seed=cfg.seed,
+        ),
+        on_generation=on_generation,
+        map_fn=map_fn,
+    )
+    return EvolutionResult(
+        best_weights=result.best_weights,
+        best_fitness=result.best_fitness,
+        history=[
+            GenerationStats(generation=g.generation, best=g.best, mean=g.mean, worst=g.worst)
+            for g in result.history
+        ],
+    )
+
+
 def train_candidate(
     spec: CandidateSpec,
     cfg: TrainConfig,
@@ -153,16 +199,19 @@ def train_candidate(
         pool = Pool(cfg.workers)
         kwargs["map_fn"] = partial(_pool_map, pool)
     try:
-        result = evolve(
-            fitness,
-            brain.n_weights,
-            cfg.evolution(),
-            seed=cfg.seed,
-            on_generation_best=record,
-            initial=initial,
-            initial_sigma=cfg.init_sigma,
-            **kwargs,
-        )
+        if cfg.search == "cma":
+            result = _run_cma(fitness, initial, cfg, record, kwargs.get("map_fn"))
+        else:
+            result = evolve(
+                fitness,
+                brain.n_weights,
+                cfg.evolution(),
+                seed=cfg.seed,
+                on_generation_best=record,
+                initial=initial,
+                initial_sigma=cfg.init_sigma,
+                **kwargs,
+            )
     finally:
         if cfg.workers > 1:
             pool.close()

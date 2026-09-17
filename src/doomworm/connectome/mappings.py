@@ -278,3 +278,32 @@ def default_sensory_mapping() -> SensoryMapping:
     m.add(NOVELTY["right"], ["OLLR"], NOVELTY_GAIN)
     m.add(NOVELTY["front"], ["OLLL", "OLLR"], NOVELTY_GAIN)
     return m
+
+
+def interface_synapses(connectome: Connectome, scope: str = "interface") -> list[int]:
+    """Indices of the synapses a restricted search may move (stage 18).
+
+    ``sensory``    the synapses leaving the neurons a channel is injected into (506)
+    ``interface``  those plus the synapses entering a motor group (1819)
+    ``all``        every synapse (5905)
+
+    The connectome is too well connected for reachability to narrow anything --
+    within two hops of the sensors, 99.3 % of synapses can already influence a
+    motor group -- so the useful cut is the interface: how loudly the senses
+    speak and how loudly the muscles listen, with the animal's interneurons left
+    exactly as they are.
+    """
+    if scope not in ("sensory", "interface", "all"):
+        raise ValueError("scope must be 'sensory', 'interface' or 'all'")
+    if scope == "all":
+        return list(range(len(connectome.connections)))
+    sensory = default_sensory_mapping()
+    sources = {n for channel in sensory.channels() for n, _ in sensory.targets(channel)}
+    motor = default_motor_mapping()
+    sinks = set(motor.forward) | set(motor.reversal) | set(motor.turn_left)
+    sinks |= set(motor.turn_right) | set(motor.fire)
+    chosen = []
+    for index, connection in enumerate(connectome.connections):
+        if connection.source in sources or (scope == "interface" and connection.target in sinks):
+            chosen.append(index)
+    return chosen

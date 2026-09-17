@@ -144,15 +144,26 @@ def build_candidate(spec: CandidateSpec) -> TrainableBrain:
         connectome = make_variant(
             load_cook2019(), spec.kind.removeprefix("worm_"), spec.variant_seed
         )
+    params = dict(spec.params)
+    scope = params.pop("trainable", "all")
+    tune_gains = bool(params.pop("tune_gains", False))
     scenario = WormScenario(
         connectome=connectome,
         maps=spec.maps,
         task=spec.task,
         sensors=spec.sensors,
         dangers=spec.dangers,
-        **spec.params,
+        **params,
     )
     brain = WormBrain.from_scenario(scenario, name=spec.kind)
+    brain.tune_gains = tune_gains
+    if tune_gains:
+        brain.meta["tune_gains"] = True
+    if scope != "all":  # stage 18: move only the interface, keep the interneurons
+        from doomworm.connectome.mappings import interface_synapses
+
+        brain.trainable = interface_synapses(scenario.connectome, scope)
+        brain.meta["trainable"] = {"scope": scope, "weights": len(brain.trainable)}
     brain.meta["candidate"] = spec.kind
     if spec.kind != "worm":
         brain.meta["variant"] = {"kind": spec.kind, "seed": spec.variant_seed}

@@ -25,7 +25,8 @@ class GroupMotorAdapter:
     """Wheel commands from neuron groups (Plan §14).
 
     ``drive = gain_drive * (mean(forward) - mean(reversal))``
-    ``turn  = gain_turn  * (mean(turn_right) - mean(turn_left))``
+    ``turn  = gain_turn  * (mean(turn_right) - mean(turn_left)) * damping``
+    ``damping = 1 - aim_damping * mean(aim_group)``, floored at 0
     ``left  = clip(drive + turn)``, ``right = clip(drive - turn)`` in [-1, 1].
 
     A positive ``turn`` speeds up the left wheel, i.e. turns right. Negative
@@ -42,6 +43,8 @@ class GroupMotorAdapter:
         turn_right: Sequence[str],
         gain_drive: float = 10.0,
         gain_turn: float = 10.0,
+        aim_group: Sequence[str] = (),
+        aim_damping: float = 0.0,
     ) -> None:
         for name, group in (("forward", forward), ("reversal", reversal)):
             if not group:
@@ -52,6 +55,11 @@ class GroupMotorAdapter:
         self.turn_right = list(turn_right)
         self.gain_drive = gain_drive
         self.gain_turn = gain_turn
+        # Slowing the turn as the target comes onto the line: without it the body
+        # sweeps past the few degrees that count (stage 18). The animal does the
+        # same thing on food, through the dopaminergic head mechanosensors.
+        self.aim_group = list(aim_group)
+        self.aim_damping = aim_damping
 
     @staticmethod
     def _mean(activity: Mapping[str, float], group: Sequence[str]) -> float:
@@ -63,13 +71,16 @@ class GroupMotorAdapter:
         rev = self._mean(activity, self.reversal)
         left = self._mean(activity, self.turn_left)
         right = self._mean(activity, self.turn_right)
+        aim = self._mean(activity, self.aim_group) if self.aim_group else 0.0
+        damping = max(0.0, 1.0 - self.aim_damping * aim)
         return {
             "forward": fwd,
             "reversal": rev,
             "turn_left": left,
             "turn_right": right,
+            "aim": aim,
             "drive": self.gain_drive * (fwd - rev),
-            "turn": self.gain_turn * (right - left),
+            "turn": self.gain_turn * (right - left) * damping,
         }
 
     def __call__(self, activity: Mapping[str, float]) -> tuple[float, float]:

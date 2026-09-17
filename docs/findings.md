@@ -21,6 +21,10 @@ carry as a second track, are not here: they live in the git history up to
 | 2 a harder level (superseded) | `doom6`, before the fixes | real −40.1 ± 3.3; curriculum −24.6 ± 1.0 | ncp −21.3 ± 2.3; PPO −33.0 ± 6.4; rnn −46.2 ± 4.0 | −18.8 (curriculum −3.3) | **loss** | `results/b/b2_doom_2026-09-16.md` |
 | 3 the real engine (superseded) | the same seeded layouts run by ViZDoom, no retraining | curriculum 7.1 ± 3.5 — the best trained brain on `vizdoom4` | PPO 0.8 ± 2.6; rnn −1.1 ± 0.9; ncp −2.2 ± 0.5 | +6.3 | **win among trained brains** (still under the floor's +27.4): the engine reverses the simulator's order and the worm family comes out on top | same, `runs/benchmark_doom/train_doom4/*/eval_vizdoom*` |
 | 4 a map nobody drew | the stock ViZDoom scenario `defend_the_center`, brains from `doom4`/seed 0, 4 episodes each | real 3.2 ± 16.8 with 2.0 kills; curriculum −32.4 with no shot fired | rnn −29.6 and PPO −37.3, neither ever fires; shuffled 14.9 with 4.0 kills | +32.8 vs PPO, −19.6 vs the floor | **win over the trained nets, loss to the floor**: outside our own generator only the worm family pulls the trigger at all. Four episodes, one seed — a direction, not a measurement | `runs/benchmark_doom/stock/leaderboard.md` |
+| 7 the ceiling, with everything outside the brain tuned (stage 18) | `doom4`, three seeds, the same 1000 evaluations as every row above. Two levers, neither of which touches the network: a genome cut to the 1819 interface synapses (those leaving a sensory neuron or entering a motor group, with the animal's interneurons left alone), and sep-CMA-ES in place of fixed-sigma mutation | **CMA + interface +0.66 ± 3.4** — the worm's first positive row in the project; CMA alone −0.56; mutation + interface −0.63; the shipped protocol −2.80. On `doom6` CMA alone −22.10 against −38.43, a gain of 16 | (the nets are not re-run: these levers are about searching the connectome) | +3.5 over the shipped protocol on `doom4`, +16 on `doom6` | **the ceiling is the architecture, not the optimiser** — which is what this row was built to establish. A search with an adaptive step and a per-coordinate scale, proven on the sphere and on a 10^6-conditioned ellipsoid, lands in the same place the crude one did: about zero on `doom4`, no kills on the classic map, and not one exit anywhere. Still under the `doomguy` floor (+4.8) | `runs/squeeze/benchmark/`, `runs/squeeze2/benchmark/` |
+| 7 what the strong search changed | same rows, looking at behaviour rather than score | CMA fires to the bottom of the magazine (36-50 shots) and collects exploration and survival; mutation on the interface genome fires 8.4 times and kills three times as often (0.19 against 0.08) | — | — | **a different strategy, not a better one**: CMA found the safe, unaimed policy and found it reliably (spread ±1.1 against ±7.9). Aiming survives better under the weaker search, which suits a reward where a hit is rare and exploration is steady | same |
+| 7 gains as genes | the adapter's `gain_drive`, `gain_turn` and trigger gain put in the genome as `base * 8 ** gene`, so the search picks them instead of the author | −6.93 ± 7.3, the worst row of the lane | — | −7.6 against the same setup without them | **failed**: on an exponential scale a small step changes the turn rate several-fold, and the search falls into a bad region it cannot climb out of. A linear parametrisation or a narrower range might work; this one does not | same |
+| 6 genome size (stage 18) | how much of the connectome the search may move, mutation, three seeds | interface (1819 synapses) `doom4` −0.63, `doom6` −31.55 | full genome (5905) −2.80 and −38.43; sensory only (506) −13.01 and −40.66 | +2.2 and +6.9 for the interface cut | **worth it**: tuning how loudly the senses speak and the muscles listen beats tuning everything, at the same budget. Path-reachability cannot narrow it further — within two hops of the sensors 99.3 % of synapses can already reach a motor group | `runs/squeeze/benchmark/` |
 | 5 memory as a layer (stage 16) | a place memory outside the brain: it marks the cells odometry has visited and reports the nearest *unvisited* ground as a gradient, in the same form as the food smell. The brain reads it and still decides. Trained and benchmarked under the condition, `doom4`, 3 seeds | worm+memory: `doom6` −24.28 ± 7.3 (best row on that level, was −38.43), `doom2` +1.28, `doom4` −8.36 (worse than without) | shuffled+memory −35.17 on `doom6`, −6.86 on `doom4`: the same layer *hurts* the shuffled control everywhere | +14.2 on `doom6`, −5.6 on `doom4` | **the hypothesis failed on its own terms**: exits stayed at 0.00 on every level, which is what the layer was built to buy. What it did buy is wall-grinding — collisions fell 6-50x (doom4 19.6 -> 0.3, doom6 25.4 -> 4.1) — and a large gain on the hardest level, and only for the real wiring | `runs/memory/benchmark/` |
 | 5 hybrids | a frozen trained brain as a reflex module under a small net; only the net trained | hybrid 43.2 ± 1.2 | the same net alone 37.7 ± 1.4 | +5.5 over the bare net | **the worm helps as a part, and only up to itself**: it lifts a from-scratch net by 5.5 points, exactly to the worm's own level, and steadies it across seeds. Measured on the conditions of the old second track; to be re-run on Doom | `runs/c7/benchmark/leaderboard.md` |
 | 6 shooting, before the fixes | what the trigger actually does on `doom4` | real 0.00 kills on 3.1 shots; curriculum 0.03 on 29.9 | PPO 0.00 on 11.2; rnn and ncp never fire | floor: 0.50 kills on 5.7 shots | **superseded** — every row above was measured while the trigger was unreachable and the monster was only a source of pain. See the two fixes below; stage 12 re-measures them | same |
@@ -85,6 +89,36 @@ ground, and the exit is a particular place; going round a wall means moving
 and the brain has neither a held goal nor a way to come round. The layer
 removed the symptom — grinding against a wall — without supplying the thing
 that was missing.
+
+## The ceiling, measured with a strong search (2026-09-17)
+
+Everything in this section leaves the network alone: the topology, the neuron
+model and the composition of the circuit are the animal's. What changed is how
+the weights are found and how the world is translated for it.
+
+| lever | result |
+|---|---|
+| genome cut to the interface (1819 of 5905) | +2.2 on `doom4`, +6.9 on `doom6` |
+| sep-CMA-ES instead of fixed-sigma mutation | +2.2 more on `doom4`, +16 on `doom6` |
+| the two together | **+0.66 on `doom4`** — the worm's first positive row |
+| adapter gains as genes | −7.6: worse, on an exponential scale the search falls off a cliff |
+| a place memory as a layer (stage 16) | collisions 6-50x down, no exits |
+| aim-damped turn | worse (43 degrees against 26): the aim neurons fire for other reasons too |
+| motor turn gain, by hand | the body does come round — best bearing 65 degrees at gain 6, 21 at gain 48 — but never into the four degrees a hit needs |
+
+And the wall is in the same place as before. No exits anywhere, no kills on the
+classic map, and the hand-written floor at +4.8 still ahead. The search is not
+what is holding it back: sep-CMA-ES adapts its step and scales every coordinate
+separately, it solves a 10^6-conditioned ellipsoid that the old mutation cannot
+touch, and on this task it converges three times more tightly (±1.1 against
+±7.9) to a slightly better number.
+
+One behavioural finding is worth more than the scores. Under the strong search
+the worm empties its magazine and collects exploration and survival; under the
+weak one, on the interface genome, it fires a third as often and kills three
+times as much. The reward pays steadily for wandering and rarely for a hit, so
+the better the optimiser, the more surely it finds the safe policy. Aiming
+survives *because* the search is bad at following that gradient.
 
 ## Why it is bad at this, in numbers
 
