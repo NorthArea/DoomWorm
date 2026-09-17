@@ -113,7 +113,7 @@ def run_benchmark(
     result = BenchmarkResult(name=name, config=cfg)
     for seed in cfg.test_seeds:
         for repeat in range(cfg.repeats):
-            world = build_world(seed, cfg.maps, cfg.task, cfg.dangers)
+            world = build_world(seed, cfg.maps, cfg.task, cfg.dangers, body=sensor_config.body)
             # Every preset goes through the suite: "ideal" is noiseless, not sensorless,
             # so planner-wrapped brains get odometry and bumper channels there too.
             suite = SensorSuite(sensor_config, seed=seed * 1000 + repeat)

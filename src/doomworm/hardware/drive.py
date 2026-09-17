@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
+from doomworm.body import DifferentialDrive, drive_of
 from doomworm.episode import BrainLike
 from doomworm.hardware.link import RobotLink
 
@@ -131,13 +132,16 @@ def drive(
         out.write(json.dumps({"meta": header}) + "\n")
     try:
         for tick in range(steps):
-            wheels = controller.act(channels)
+            intent = drive_of(controller.act(channels), float(getattr(controller, "fire", 0.0)))
             if getattr(controller, "stopped", False):
                 break
+            # The wire still carries a wheel pair; a four-wheel machine mixes the same
+            # intent on its own side (stage 24, `doomworm.body`).
+            left, right = DifferentialDrive().wheels(intent)
             raw = getattr(link, "raw_last", None)
             row = DriveRow(
                 tick=tick,
-                wheels=(float(wheels[0]), float(wheels[1])),
+                wheels=(left, right),
                 channels=dict(channels),
                 raw=None if raw is None else raw.to_dict(),
                 truth=link.truth(),
@@ -147,7 +151,7 @@ def drive(
                 out.write(json.dumps(row.to_dict()) + "\n")
             if on_tick is not None:
                 on_tick(row)
-            channels = link.step(*wheels)
+            channels = link.step(left, right)
             if getattr(link, "done", False):
                 break
     finally:

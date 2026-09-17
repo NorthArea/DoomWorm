@@ -374,9 +374,7 @@ def test_the_trigger_answers_the_gun_line_before_any_training() -> None:
         mapping = default_sensory_mapping()
         if not through_the_door:  # the mapping this project used before stage B2c
             mapping.routes = [r for r in mapping.routes if r.neuron not in ("RIPL", "RIPR")]
-        scenario = WormScenario(
-            sensory_mapping=mapping, maps="doom4", task="doom", sensors="ideal"
-        )
+        scenario = WormScenario(sensory_mapping=mapping, maps="doom4", task="doom", sensors="ideal")
         aims, fires = [], []
         for seed in (3000, 3001, 3002):
             brain = WormBrain.from_scenario(scenario)
@@ -421,9 +419,7 @@ def test_an_untrained_worm_turns_its_body_toward_the_enemy() -> None:
         mapping = default_sensory_mapping()
         if not with_prey:
             mapping.routes = [r for r in mapping.routes if not r.channel.startswith("prey_")]
-        scenario = WormScenario(
-            sensory_mapping=mapping, maps="doom4", task="doom", sensors="ideal"
-        )
+        scenario = WormScenario(sensory_mapping=mapping, maps="doom4", task="doom", sensors="ideal")
         brain = WormBrain.from_scenario(scenario)
         brain.reset()
         world = World(

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from doomworm.adapters import SensoryAdapter
+from doomworm.body import Drive, drive_of
 from doomworm.brain import Simulator
 from doomworm.environments.sensors import SensorSuite
 from doomworm.environments.simple_2d import Observation, World
@@ -214,8 +215,8 @@ class BrainLike(Protocol):
         """Forget episode state."""
         ...
 
-    def act(self, channels: Mapping[str, float]) -> tuple[float, float]:
-        """Channels -> wheels."""
+    def act(self, channels: Mapping[str, float]) -> tuple[float, float] | Drive:
+        """Channels -> the brain's intent (a wheel pair, before stage 24)."""
         ...
 
 
@@ -227,7 +228,7 @@ def run_brain_episode(
     sensors: SensorSuite | None = None,
     record_activity: bool = False,
 ) -> list[Record]:
-    """Closed loop for any Brain (Plan §3.3): channels -> brain.act -> wheels (+ fire) -> world."""
+    """Closed loop for any Brain (Plan §3.3): channels -> brain.act -> the world's body."""
     trace: list[Record] = []
     brain.reset()
     obs = world.observe()
@@ -235,8 +236,9 @@ def run_brain_episode(
         sensors.reset(world)
     for tick in range(steps):
         channels = obs.as_channels() if sensors is None else sensors.read(world, obs)
-        motors = brain.act(channels)
-        obs = world.step(*motors, fire=fire_of(brain))
+        intent = drive_of(brain.act(channels), float(getattr(brain, "fire", 0.0)))
+        obs = world.drive(intent)
+        motors = world.last_command
         tick_reward = _score(reward, world, obs)
         activity = getattr(brain, "activity", None) if record_activity else None
         trace.append(

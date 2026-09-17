@@ -34,6 +34,7 @@ class SensorConfig:
     """Shape and imperfections of the suite; presets below."""
 
     name: str = "ideal"
+    body: str = "differential"  # the vehicle the platform drives (Plan §20.5.1)
     ray_angles: tuple[float, ...] = (math.pi / 4, 0.0, -math.pi / 4)  # left .. right
     ray_range: float = 4.0
     noise_sigma: float = 0.0  # relative gaussian noise on proximity readings
@@ -91,6 +92,7 @@ NOISY = SensorConfig(
 # right, line-tracking modules under the nose as cliff sensors, no bumper, no
 # encoders, no IMU; the K210 camera recognises the dock marker within its view.
 CAR = SensorConfig(
+    body="mecanum",  # QD001: four mecanum wheels, so it can also move sideways
     name="car",
     ray_angles=tuple(math.radians(a) for a in (30.0, 0.0, -30.0)),
     ray_range=4.0,

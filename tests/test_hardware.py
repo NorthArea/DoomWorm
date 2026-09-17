@@ -104,7 +104,11 @@ def test_sim_link_reproduces_the_episode_loop() -> None:
     link = SimLink(build_world(3000, "apartment", "clean"), VACUUM, sensor_seed=7)
     rows = drive(link, brain, steps=60)
     assert len(rows) == len(trace)
-    assert [r.wheels for r in rows] == pytest.approx([t.motors for t in trace])
+    # Since stage 24 the loop logs the wheels its body produced, which round-trip
+    # through the intent and can differ from the brain's own pair by one ULP; the
+    # motion itself is bit-identical, which the pose check below pins down.
+    flat = [v for r in rows for v in r.wheels]
+    assert flat == pytest.approx([v for t in trace for v in t.motors], abs=1e-12)
     assert rows[-1].truth is not None, "the simulator link knows the true pose"
     assert link.truth()[:2] == pytest.approx((trace[-1].x, trace[-1].y))
 

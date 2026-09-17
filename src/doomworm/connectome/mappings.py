@@ -14,7 +14,7 @@ ventral head bends. ``front`` drives both members of every pair.
     target_*        -> same neurons as food_* (Plan §19: the target is the
                        new attractive signal; the worm cannot tell them apart)
     danger_*        -> ASHL / ASHR / both  (nociceptive; used from stage 14)
-    prey_*          -> ASGL / ASGR / both  (track B: the enemy as an attractant, so the
+    prey_*          -> CEPDL / CEPDR / both (track B: the enemy as an attractant, so the
                                             worm's own taxis can turn the body onto it)
     aim             -> ADLL, ADLR          (track B: enemy on the gun line)
                        RIPL, RIPR          (the only connection into the pharynx, where
@@ -251,14 +251,18 @@ def default_sensory_mapping() -> SensoryMapping:
     # the gun bolted to it can only aim by turning, and turning toward something is what
     # the chemosensory pathway does; the escape pathway does the opposite.
     #
-    # The pair was chosen by measurement, not by the story: of the 31 free sensory pairs,
-    # only some make the *untrained* connectome turn the right way (mean wheel difference
-    # over 30 ticks with an enemy 50 degrees off, left case / right case): ASG +0.047 /
-    # -0.014, CEPD +0.037 / -0.023, ASK +0.021 / -0.016 orient; ADF (+0.094 by score) and
-    # OLL only bias the body rightwards in both cases, which is not orienting at all.
-    # ASG wins on modality too: an amphid chemosensory pair for a 1/distance gradient,
-    # the same reading the food channels get. Gain 3 saturates the response (stage B2d).
-    m.add(PREY["left"], ["ASGL"], PREY_GAIN)
-    m.add(PREY["right"], ["ASGR"], PREY_GAIN)
-    m.add(PREY["front"], ["ASGL", "ASGR"], PREY_GAIN)
+    # The pair was chosen by outcome, not by the story. Scoring the 31 free sensory pairs
+    # by hits landed on a standing target from five bearings (200 ticks each, untrained):
+    # CEPD 20 hits / 27 shots, PLM 12/22, ADE 4/20, everything else <= 3, and the bare
+    # connectome 0. Adding any second pair to CEPD destroys it (0 hits). CEPD is also the
+    # cleanest orienting pair measured on its own (+0.037 / -0.023 mean wheel difference
+    # with the enemy 50 degrees off the bow, left case / right case).
+    #
+    # The biology agrees: CEP are the dopaminergic head mechanosensors that report a
+    # bacterial lawn under the nose and slow the animal on food. "Prey right here, slow
+    # down and turn onto it" is the behaviour they already own. Gain 3; 6 changes nothing
+    # (graded activity clips at 1). Stage B2d.
+    m.add(PREY["left"], ["CEPDL"], PREY_GAIN)
+    m.add(PREY["right"], ["CEPDR"], PREY_GAIN)
+    m.add(PREY["front"], ["CEPDL", "CEPDR"], PREY_GAIN)
     return m

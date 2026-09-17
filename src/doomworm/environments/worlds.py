@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from doomworm.body import build_body
 from doomworm.environments.maze import ApartmentConfig, MapConfig, apartment_world, random_world
 from doomworm.environments.simple_2d import AgentState, Dock, Obstacle, World
 
@@ -11,20 +12,28 @@ N_FOOD = 2
 BATTERY_DRAIN = 0.002  # 500 ticks from full to empty (Plan §8 range)
 
 
-def build_world(seed: int, maps: str = "fixed", task: str = "food", dangers: int = 0) -> World:
+def build_world(
+    seed: int,
+    maps: str = "fixed",
+    task: str = "food",
+    dangers: int = 0,
+    body: str = "differential",
+) -> World:
     """Seeded world for any brain: ``fixed`` (stage 4 layout), ``random`` (§18), ``apartment``.
 
     ``doom1`` .. ``doom6`` are the mini-Doom levels (Plan §21-23, §27-32); their task
     is ``doom`` (exit, enemies, the gun) and ``dangers`` adds hazard zones on top.
     ``vizdoom1`` .. ``vizdoom6`` are the same layouts run by the Doom engine (Plan §24);
     ``stock_*`` are the scenarios shipped with ViZDoom, maps nobody here drew (Plan §33).
+    ``body`` is the vehicle the world drives (stage 24): the platform's sensor preset
+    names it, so the car moves on four mecanum wheels and the vacuum on two.
     """
     if maps.startswith("stock_"):  # stage B11: a scenario shipped with ViZDoom (Plan §33)
         from doomworm.environments.doom.stock import stock_world
 
         if task != "doom":
             raise ValueError("a doom level needs task 'doom'")
-        return stock_world(seed, maps)
+        return _with_body(stock_world(seed, maps), body)
     if maps.startswith("doom") or maps.startswith("vizdoom"):
         from doomworm.environments.doom.levels import doom_world
 
@@ -33,22 +42,24 @@ def build_world(seed: int, maps: str = "fixed", task: str = "food", dangers: int
         if maps.startswith("vizdoom"):  # the same level run by the Doom engine (optional group)
             from doomworm.environments.doom.vizdoom_world import vizdoom_world
 
-            return vizdoom_world(seed, maps)
+            return _with_body(vizdoom_world(seed, maps), body)
         world = doom_world(seed, maps)
         world.dangers = [world.spawn_danger() for _ in range(dangers)]
-        return world
+        return _with_body(world, body)
     if task == "doom":
         raise ValueError("task 'doom' needs a doom level (maps doom1..doom6)")
     if maps == "random":
-        return apply_task(random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0)), task, dangers)
+        world = random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0))
+        return _with_body(apply_task(world, task, dangers), body)
     if maps == "apartment":
-        return apply_task(apartment_world(seed, ApartmentConfig(n_food=N_FOOD)), task, dangers)
+        world = apartment_world(seed, ApartmentConfig(n_food=N_FOOD))
+        return _with_body(apply_task(world, task, dangers), body)
     if maps.startswith("room:"):  # stage 22: a real room from a file (hardware/room.py)
         from doomworm.hardware.room import load_room, room_world
 
         world = room_world(load_room(maps[len("room:") :]), seed, task)
         world.dangers = [world.spawn_danger() for _ in range(dangers)]
-        return world
+        return _with_body(world, body)
     if maps != "fixed":
         raise ValueError("maps must be 'fixed', 'random', 'apartment' or 'room:<file>'")
     world = World(
@@ -67,7 +78,13 @@ def build_world(seed: int, maps: str = "fixed", task: str = "food", dangers: int
             break
     world.agent = AgentState(x=x, y=y, heading=heading)
     world.foods = [world.spawn_food() for _ in range(N_FOOD)]
-    return apply_task(world, task, dangers)
+    return _with_body(apply_task(world, task, dangers), body)
+
+
+def _with_body(world: World, body: str) -> World:
+    """Attach the platform's vehicle to a freshly built world."""
+    world.body = build_body(body)
+    return world
 
 
 def apply_task(world: World, task: str, dangers: int) -> World:

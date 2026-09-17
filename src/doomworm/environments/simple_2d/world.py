@@ -25,6 +25,8 @@ import random
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
+from doomworm.body import Body, DifferentialDrive, Drive
+
 
 @dataclass(frozen=True)
 class Obstacle:
@@ -282,6 +284,10 @@ class World:
         self.agent = agent if agent is not None else AgentState(x=3.0, y=10.0)
         self.obstacles = list(obstacles)
         self.walls = list(walls)
+        # The vehicle this world runs: two wheels unless a preset says otherwise
+        # (the car of Plan §20.5.1 is mecanum and can move sideways).
+        self.body: Body = DifferentialDrive()
+        self.last_drive = Drive()
         # Arbitrary-angle solid lines. Generated levels use axis-aligned walls; a map
         # that comes from the Doom engine (stage B11) has angled ones (Plan §33).
         self.segments: list[tuple[float, float, float, float]] = []
@@ -368,21 +374,36 @@ class World:
     # --- dynamics -----------------------------------------------------------
 
     def step(self, motor_left: float, motor_right: float, fire: bool = False) -> Observation:
-        """Apply motor commands in [-1, 1] (negative = reverse) for one tick.
+        """Apply a differential-drive wheel pair for one tick (the pre-stage-24 call).
 
         ``fire`` pulls the trigger (Plan §22); it does nothing unless the world has
         ``fire_enabled`` and the cooldown has elapsed.
         """
         left = _clamp(motor_left, -1.0, 1.0)
         right = _clamp(motor_right, -1.0, 1.0)
+        return self.drive(Drive.from_wheels(left, right, 1.0 if fire else 0.0))
+
+    def drive(self, intent: Drive) -> Observation:
+        """Apply a brain's intent for one tick, through whatever body this world has.
+
+        ``turn`` is half the wheel difference, which is what the motor adapter has
+        always produced, so ``angular`` keeps its old value: a wheel pair routed
+        through :meth:`Drive.from_wheels` moves the agent exactly as before.
+        Sideways motion only happens on a body that has it (Plan §20.5.1).
+        """
+        intent = intent.clipped()
+        left, right = DifferentialDrive().wheels(intent)
         self.last_command = (left, right)
-        linear = (left + right) / 2.0 * self.speed
-        angular = (right - left) / self.wheel_base * self.speed
+        self.last_drive = intent
+        linear = intent.forward * self.speed
+        angular = 2.0 * intent.turn / self.wheel_base * self.speed
+        lateral = intent.strafe * self.speed if self.body.strafes else 0.0
 
         heading = self.agent.heading + angular
-        x = self.agent.x + math.cos(heading) * linear
-        y = self.agent.y + math.sin(heading) * linear
+        x = self.agent.x + math.cos(heading) * linear - math.sin(heading) * lateral
+        y = self.agent.y + math.sin(heading) * linear + math.cos(heading) * lateral
         candidate = AgentState(x=x, y=y, heading=heading)
+        fire = intent.pulls_trigger
 
         collided = self._collides(candidate)
         if collided:

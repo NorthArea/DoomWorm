@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from doomworm.body import DifferentialDrive, drive_of
 from doomworm.environments.sensors import IDEAL, VACUUM, SensorSuite
 from doomworm.environments.worlds import build_world
 from doomworm.episode import run_brain_episode
@@ -229,13 +230,14 @@ def test_marker_search_spins_near_the_estimated_dock_without_a_sighting() -> Non
     base = dict.fromkeys(SensorSuite(CAR).channel_names, 0.0)
     frame = base | {"odom_x": 5.0, "odom_y": 5.0, "odom_heading": 0.0, "battery": 0.2}
     layer.needs.dock = (6.0, 5.0)  # "here", by dead reckoning; no marker in sight
-    wheels = [layer.act(frame | {"odom_heading": 0.4 * k}) for k in range(12)]
+    intents = [layer.act(frame | {"odom_heading": 0.4 * k}) for k in range(12)]
+    wheels = [DifferentialDrive().wheels(drive_of(i)) for i in intents]
     spins = [w for w in wheels if w[0] * w[1] < 0.0]
     assert len(spins) >= 6, f"searching = spinning in place, got {wheels}"
     assert layer.needs.state == "charge"
     # the marker appears: homing takes over, no more spinning
     seen = frame | {"odom_heading": 4.8, "dock_front": 0.3}
-    w = layer.act(seen)
+    w = DifferentialDrive().wheels(drive_of(layer.act(seen)))
     assert w[0] > 0.0, f"drive at the marker, got {w}"
     assert w[1] > 0.0, f"drive at the marker, got {w}"
 

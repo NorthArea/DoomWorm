@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
+from doomworm.body import Drive
 from doomworm.candidates.base import Wheels
 from doomworm.environments.sensors import SensorConfig
 from doomworm.episode import BrainLike
@@ -259,8 +260,12 @@ class PlannerLayer:
 
     # --- Brain interface ----------------------------------------------------------
 
-    def act(self, channels: Mapping[str, float]) -> Wheels:
-        """Map, plan every few ticks, inject the gradient, let the inner brain drive."""
+    def act(self, channels: Mapping[str, float]) -> Wheels | Drive:
+        """Map, plan every few ticks, inject the gradient, let the inner brain drive.
+
+        The layer's own manoeuvres speak wheels; the inner brain may speak either,
+        and the loop turns both into an intent (stage 24, ``doomworm.body``).
+        """
         self.observe(channels)
         if self.tick % self.replan_every == 0 or self.waypoint is None:
             self.plan()

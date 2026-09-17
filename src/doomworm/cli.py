@@ -65,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument(
         "--watch",
         action="store_true",
-        help="on a vizdoom level: open the Doom window and run at 35 tics a second",
+        help="on an engine level (vizdoom*, stock_*): open the Doom window, 35 tics a second",
     )
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
@@ -97,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument(
         "--watch",
         action="store_true",
-        help="on a vizdoom level: open the Doom window and run at 35 tics a second",
+        help="on an engine level (vizdoom*, stock_*): open the Doom window, 35 tics a second",
     )
 
     ev = sub.add_parser("evolve", help="train a bake-off candidate on the benchmark world")
@@ -468,8 +468,9 @@ def run_compare_log_cli(args: argparse.Namespace) -> int:
 
 def enable_watch(maps: str | None) -> None:
     """``--watch``: draw the episode in the Doom window instead of running it headless."""
-    if maps is None or not maps.startswith("vizdoom"):
-        raise SystemExit("--watch needs a Doom-engine level: --maps vizdoom1..vizdoom6")
+    engine = maps is not None and (maps.startswith("vizdoom") or maps.startswith("stock_"))
+    if not engine:  # the simulator levels have no window: the engine is what draws
+        raise SystemExit("--watch needs a Doom-engine level: --maps vizdoom1..vizdoom6 or stock_*")
     try:
         from doomworm.environments.doom.vizdoom_world import set_watch
     except ImportError as e:  # pragma: no cover - depends on the optional group
