@@ -124,8 +124,6 @@ def evolve(level: str, seed: int, name: str, candidate: str, extra: tuple[str, .
         "evolve",
         "--candidate",
         candidate,
-        "--layer",
-        "none",
         "--maps",
         level,
         "--task",
