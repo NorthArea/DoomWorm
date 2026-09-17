@@ -132,7 +132,7 @@ def drive(
         out.write(json.dumps({"meta": header}) + "\n")
     try:
         for tick in range(steps):
-            intent = drive_of(controller.act(channels), float(getattr(controller, "fire", 0.0)))
+            intent = drive_of(controller.act(channels))
             if getattr(controller, "stopped", False):
                 break
             # The wire still carries a wheel pair; a four-wheel machine mixes the same

@@ -1,1 +1,1 @@
-"""Environments: simple_2d, maze, doom. Emit observations, accept actions."""
+"""Environments: simple_2d, maze, rooms. Emit observations, accept actions."""

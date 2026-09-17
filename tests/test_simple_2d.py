@@ -177,11 +177,6 @@ def test_observation_channels_include_food_and_hunger() -> None:
         "dock_left",
         "dock_front",
         "dock_right",
-        "ammo",
-        "aim",
-        "prey_left",
-        "prey_front",
-        "prey_right",
     }
 
 
@@ -229,7 +224,7 @@ def test_no_respawn_by_default() -> None:
 
 
 def test_angled_solid_lines_block_rays_and_sight() -> None:
-    """Stage B11: a map that comes from the Doom engine has walls at any angle."""
+    """Solid lines at any angle (rooms measured from a real flat may have them)."""
     world = World(width=20.0, height=20.0, agent=AgentState(x=5.0, y=5.0, heading=0.0))
     assert world.segments == [], "generated levels use axis-aligned walls only"
     assert world.ray_distance(0.0) == pytest.approx(4.0), "nothing there: the sensor range"

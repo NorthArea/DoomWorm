@@ -43,8 +43,6 @@ class TickScorer(Protocol):
         cleaned: int,
         docked: bool,
         battery: float,
-        hit: int,
-        killed: int,
     ) -> float:
         """Score one tick."""
         ...
@@ -79,19 +77,6 @@ class Record:
     cleaned: int = 0
     coverage: float = 0.0
     activity: dict[str, float] | None = None
-    fired: bool = False
-    hit: int = 0
-    killed: int = 0
-    enemies: tuple[tuple[float, float], ...] = ()
-
-
-def fire_of(brain: object) -> bool:
-    """The trigger a brain pulled on its last ``act`` (Plan §22): ``brain.fire`` > 0.5.
-
-    A brain without a ``fire`` attribute never shoots, so every stage 0-22 brain keeps
-    working unchanged in a mini-Doom world.
-    """
-    return float(getattr(brain, "fire", 0.0)) > 0.5
 
 
 def _score(reward: TickScorer | None, world: World, obs: Observation) -> float:
@@ -109,8 +94,6 @@ def _score(reward: TickScorer | None, world: World, obs: Observation) -> float:
         cleaned=obs.cleaned,
         docked=obs.docked,
         battery=obs.battery,
-        hit=obs.hit,
-        killed=obs.killed,
     )
 
 
@@ -148,10 +131,6 @@ def _record(
         docked=obs.docked,
         cleaned=obs.cleaned,
         coverage=world.coverage,
-        fired=obs.fired,
-        hit=obs.hit,
-        killed=obs.killed,
-        enemies=tuple((e.x, e.y) for e in world.enemies),
     )
 
 
@@ -176,13 +155,12 @@ def run_episode(
 ) -> list[Record]:
     """Step the closed loop until ``steps`` ticks or starvation; return the trace.
 
-    The episode ends early when the agent is dead (starved or out of health) or
-    through the exit. ``reward``, when given, scores every tick (Plan §9) and the
+    The episode ends early when the agent is dead (starved or out of health).
+    ``reward``, when given, scores every tick (Plan §9) and the
     per-tick value lands in :attr:`Record.reward`. ``record_activity`` stores every
     neuron's activity per tick for the debug screen (Plan §41). ``brain_steps`` runs
     that many brain ticks per environment step with the same sensory input
     (Plan §3.1); the motor adapter sees the mean activity over the window.
-    This loop never fires (stages 0-17); :func:`run_brain_episode` does.
     """
     if brain_steps < 1:
         raise ValueError("brain_steps must be >= 1")
@@ -236,7 +214,7 @@ def run_brain_episode(
         sensors.reset(world)
     for tick in range(steps):
         channels = obs.as_channels() if sensors is None else sensors.read(world, obs)
-        intent = drive_of(brain.act(channels), float(getattr(brain, "fire", 0.0)))
+        intent = drive_of(brain.act(channels))
         obs = world.drive(intent)
         motors = world.last_command
         tick_reward = _score(reward, world, obs)

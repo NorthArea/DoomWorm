@@ -645,7 +645,7 @@ def run_play(args: argparse.Namespace) -> int:
         params = brain.meta["params"]
         scenario = WormScenario(**params)
         world = scenario.make_world(args.seed)
-        # the Brain loop: same trace as the old loop, plus the trigger output when present
+        # the Brain loop: same trace as the old loop
         trace = run_brain_episode(
             world, brain, args.steps, tracker, sensors=scenario.make_sensors(args.seed)
         )

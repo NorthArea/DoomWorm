@@ -72,7 +72,6 @@ def make_env(cfg: PPOConfig) -> gym.Env[np.ndarray, np.ndarray]:
         sensors=cfg.sensors,
         steps=cfg.steps,
         channel_names=bounded_channels(cfg.sensors),
-        fire=cfg.task == "doom",  # track B: a third action is the trigger
     )
     env: gym.Env[np.ndarray, np.ndarray] = base
     if cfg.layer != "none":
@@ -121,19 +120,15 @@ class PPOBrain:
         self.channel_names = channel_names
         self.name = name
         self.meta = meta
-        self.fire = 0.0
 
     def reset(self) -> None:
         """Stateless policy (MLP)."""
-        self.fire = 0.0
 
     def act(self, channels: Mapping[str, float]) -> Wheels:
-        """One forward pass; a three-dimensional policy also sets the trigger."""
+        """One forward pass."""
         obs = np.array([channels.get(c, 0.0) for c in self.channel_names], dtype=np.float64)
         action, _ = self.model.predict(obs, deterministic=True)
         out = np.clip(np.asarray(action, dtype=float), -1.0, 1.0)
-        if out.size > 2:
-            self.fire = float(out[2])
         return float(out[0]), float(out[1])
 
     @classmethod

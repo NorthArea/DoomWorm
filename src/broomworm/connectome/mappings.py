@@ -14,11 +14,8 @@ ventral head bends. ``front`` drives both members of every pair.
     target_*        -> same neurons as food_* (Plan §19: the target is the
                        new attractive signal; the worm cannot tell them apart)
     danger_*        -> ASHL / ASHR / both  (nociceptive; used from stage 14)
-    prey_*          -> CEPDL / CEPDR / both (track B: the enemy as an attractant, so the
                                             worm's own taxis can turn the body onto it)
-    aim             -> ADLL, ADLR          (track B: enemy on the gun line)
                        RIPL, RIPR          (the only connection into the pharynx, where
-                                            the trigger group lives: stage B2c)
 
 Mappings serialise to JSON so an experiment can ship its own table.
 """
@@ -39,8 +36,6 @@ OBSTACLE = {"left": "sensor_left", "front": "sensor_front", "right": "sensor_rig
 FOOD = {"left": "food_left", "front": "food_front", "right": "food_right"}
 DANGER = {"left": "danger_left", "front": "danger_front", "right": "danger_right"}
 TARGET = {"left": "target_left", "front": "target_front", "right": "target_right"}
-PREY = {"left": "prey_left", "front": "prey_front", "right": "prey_right"}
-PREY_GAIN = 3.0  # measured: the response saturates here (LIF activity clips at 1)
 DOCK = {"left": "dock_left", "front": "dock_front", "right": "dock_right"}
 
 
@@ -150,15 +145,12 @@ class MotorMapping:
     ``forward`` and ``reversal`` set the drive, ``turn_left`` / ``turn_right``
     the differential. Dorsal (SMDD) is read as left and ventral (SMDV) as
     right: an admitted artifice, the worm bends its head dorso-ventrally.
-    ``fire`` (Plan §22, track B) is the trigger group: pharyngeal pumping
-    motor neurons, read as "bite"; empty for a brain without a gun.
     """
 
     forward: list[str] = field(default_factory=list)
     reversal: list[str] = field(default_factory=list)
     turn_left: list[str] = field(default_factory=list)
     turn_right: list[str] = field(default_factory=list)
-    fire: list[str] = field(default_factory=list)
 
     def groups(self) -> dict[str, list[str]]:
         """Group name -> neurons."""
@@ -167,7 +159,6 @@ class MotorMapping:
             "reversal": self.reversal,
             "turn_left": self.turn_left,
             "turn_right": self.turn_right,
-            "fire": self.fire,
         }
 
     def neurons(self) -> set[str]:
@@ -179,7 +170,7 @@ class MotorMapping:
         missing = sorted(n for n in self.neurons() if n not in connectome)
         if missing:
             raise KeyError(f"motor mapping references unknown neurons: {missing}")
-        empty = [name for name, group in self.groups().items() if not group and name != "fire"]
+        empty = [name for name, group in self.groups().items() if not group]
         if empty:
             raise ValueError(f"empty motor groups: {empty}")
 
@@ -217,7 +208,6 @@ def default_motor_mapping() -> MotorMapping:
         + [f"DA{i:02d}" for i in range(1, 10)],
         turn_left=["SMDDL", "SMDDR", "RIVL"],
         turn_right=["SMDVL", "SMDVR", "RIVR"],
-        fire=["M3L", "M3R", "M4", "MCL", "MCR"],
     )
 
 
@@ -240,29 +230,4 @@ def default_sensory_mapping() -> SensoryMapping:
     m.add(DANGER["left"], ["ASHL"])
     m.add(DANGER["right"], ["ASHR"])
     m.add(DANGER["front"], ["ASHL", "ASHR"])
-    # Track B: the gun line. The amphid pair reads it, and the same signal is delivered to
-    # RIPL/RIPR because they are the animal's only door into the pharynx (5 crossing
-    # connections in the whole connectome), where the trigger group M3/M4/MC lives. With
-    # ADL alone the trigger is blind to the target: untrained fire 0.134 with an enemy on
-    # the line against 0.157 with none. Through RIP the same untrained worm answers 0.906
-    # against 0.143 (docs/assumptions.md 2026-09-16, stage B2c).
-    m.add("aim", ["ADLL", "ADLR", "RIPL", "RIPR"])
-    # The same monster that ASH reads as pain, read again as prey, by side. A body with
-    # the gun bolted to it can only aim by turning, and turning toward something is what
-    # the chemosensory pathway does; the escape pathway does the opposite.
-    #
-    # The pair was chosen by outcome, not by the story. Scoring the 31 free sensory pairs
-    # by hits landed on a standing target from five bearings (200 ticks each, untrained):
-    # CEPD 20 hits / 27 shots, PLM 12/22, ADE 4/20, everything else <= 3, and the bare
-    # connectome 0. Adding any second pair to CEPD destroys it (0 hits). CEPD is also the
-    # cleanest orienting pair measured on its own (+0.037 / -0.023 mean wheel difference
-    # with the enemy 50 degrees off the bow, left case / right case).
-    #
-    # The biology agrees: CEP are the dopaminergic head mechanosensors that report a
-    # bacterial lawn under the nose and slow the animal on food. "Prey right here, slow
-    # down and turn onto it" is the behaviour they already own. Gain 3; 6 changes nothing
-    # (graded activity clips at 1). Stage B2d.
-    m.add(PREY["left"], ["CEPDL"], PREY_GAIN)
-    m.add(PREY["right"], ["CEPDR"], PREY_GAIN)
-    m.add(PREY["front"], ["CEPDL", "CEPDR"], PREY_GAIN)
     return m

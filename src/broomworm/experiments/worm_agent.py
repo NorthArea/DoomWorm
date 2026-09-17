@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from broomworm.adapters import FireAdapter, GroupMotorAdapter, SensoryAdapter
+from broomworm.adapters import GroupMotorAdapter, SensoryAdapter
 from broomworm.brain import Network, Simulator
 from broomworm.connectome import (
     Connectome,
@@ -59,7 +59,7 @@ class WormScenario:
         decay: float = 0.5,
         gain_drive: float = 6.0,
         gain_turn: float = 6.0,
-        gain_fire: float = 10.0,
+        gain_fire: float | None = None,  # ignored: kept so brains saved with it still load
         brain_steps: int = 5,
         maps: str = "fixed",
         task: str = "food",
@@ -79,8 +79,6 @@ class WormScenario:
         self.motor = GroupMotorAdapter(
             m.forward, m.reversal, m.turn_left, m.turn_right, gain_drive, gain_turn
         )
-        # the trigger (Plan §22) reads the pharyngeal group; absent when the mapping has none
-        self.trigger: FireAdapter | None = FireAdapter(m.fire, gain_fire) if m.fire else None
         self.brain_steps = brain_steps
         if maps not in ("fixed", "random", "apartment") and not maps.startswith("room:"):
             raise ValueError("maps must be 'fixed', 'random', 'apartment' or 'room:<file>'")
@@ -100,7 +98,6 @@ class WormScenario:
             "decay": decay,
             "gain_drive": gain_drive,
             "gain_turn": gain_turn,
-            "gain_fire": gain_fire,
             "brain_steps": brain_steps,
             "maps": maps,
             "task": task,
@@ -165,10 +162,6 @@ def summarise(trace: list[Record], world: World) -> dict[str, float]:
         "dockings": world.dockings,
         "charging": world.charging_ticks,
         "collisions": world.collisions,
-        "kills": world.kills,
-        "hits": world.hits,
-        "shots": world.shots,
-        "exited": int(world.exited),
         "reward": sum(r.reward for r in trace),
         "mean_left": float(np.mean([r.motors[0] for r in trace])),
         "mean_right": float(np.mean([r.motors[1] for r in trace])),

@@ -2,17 +2,16 @@
 
 Until stage 24 every brain returned two wheel commands, because the first
 platform was a differential-drive vacuum. That put a vehicle into the brain's
-contract: a Doom player has no wheels, and the car of Plan §20.5.1 has four
-mecanum ones that can also move sideways.
+contract, and the car of Plan v1 §20.5.1 has four mecanum wheels that can also
+move sideways.
 
 The contract is now vehicle-neutral. A brain returns a :class:`Drive` -- how
-much it wants to go forward, turn, strafe, and whether it pulls the trigger --
+much it wants to go forward, turn and strafe --
 and a *body* turns that into whatever actuators exist:
 
-    Drive(forward, turn, strafe, fire)
+    Drive(forward, turn, strafe)
         -> DifferentialDrive  -> (left, right)          two wheels
         -> MecanumDrive       -> (fl, fr, rl, rr)       four wheels, sideways
-        -> DoomBody           -> engine buttons
 
 A body that cannot strafe ignores the component, and a brain with no way to ask
 for it leaves it at zero: the worm has no lateral gait, so its strafe is always
@@ -25,7 +24,7 @@ mixed and *then* clipped, as before -- so every published row still replays.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Protocol, cast
 
 
@@ -38,36 +37,25 @@ class Drive:
     """A brain's intent, in units no vehicle owns.
 
     ``forward`` +1 is full ahead, -1 full back. ``turn`` and ``strafe`` are
-    positive to the left. ``fire`` is the trigger level; the loop pulls it above
-    0.5. Every component is in [-1, 1].
+    positive to the left. Every component is in [-1, 1].
     """
 
     forward: float = 0.0
     turn: float = 0.0
     strafe: float = 0.0
-    fire: float = 0.0
 
     def clipped(self) -> Drive:
         """The same intent with every component inside [-1, 1]."""
-        return Drive(_clip(self.forward), _clip(self.turn), _clip(self.strafe), _clip(self.fire))
-
-    def with_fire(self, fire: float) -> Drive:
-        """The same intent with the trigger replaced."""
-        return replace(self, fire=fire)
-
-    @property
-    def pulls_trigger(self) -> bool:
-        """The loop's threshold (Plan §22)."""
-        return self.fire > 0.5
+        return Drive(_clip(self.forward), _clip(self.turn), _clip(self.strafe))
 
     @classmethod
-    def from_wheels(cls, left: float, right: float, fire: float = 0.0) -> Drive:
+    def from_wheels(cls, left: float, right: float) -> Drive:
         """Read a differential-drive pair as an intent (the pre-stage-24 brains).
 
         Exact inverse of :meth:`DifferentialDrive.wheels` while the wheels are
         inside [-1, 1], which is where a brain's output already is.
         """
-        return cls(forward=(left + right) / 2.0, turn=(right - left) / 2.0, fire=fire)
+        return cls(forward=(left + right) / 2.0, turn=(right - left) / 2.0)
 
 
 class Body(Protocol):
@@ -137,13 +125,13 @@ def build_body(name: str) -> Body:
     return BODIES[name]()
 
 
-def drive_of(value: object, fire: float = 0.0) -> Drive:
+def drive_of(value: object) -> Drive:
     """Whatever a brain returned, as a :class:`Drive`.
 
-    A brain from before stage 24 returns a wheel pair and carries its trigger on
-    the side; a brain written after it returns the intent directly.
+    A brain from before stage 24 returns a wheel pair; a brain written after it
+    returns the intent directly.
     """
     if isinstance(value, Drive):
-        return value if value.fire or not fire else value.with_fire(fire)
+        return value
     pair = cast("Sequence[float]", value)
-    return Drive.from_wheels(float(pair[0]), float(pair[1]), fire)
+    return Drive.from_wheels(float(pair[0]), float(pair[1]))

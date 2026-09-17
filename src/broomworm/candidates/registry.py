@@ -101,7 +101,7 @@ def build_candidate(spec: CandidateSpec) -> TrainableBrain:
         return build_hybrid(
             spec.init,
             SensorSuite(PRESETS[spec.sensors]).channel_names,
-            outputs=3 if spec.task == "doom" else 2,
+            outputs=2,
             seed=spec.variant_seed,
             world={
                 "maps": spec.maps,
@@ -124,7 +124,7 @@ def build_candidate(spec: CandidateSpec) -> TrainableBrain:
         from broomworm.environments.sensors import PRESETS, SensorSuite
 
         inputs = SensorSuite(PRESETS[spec.sensors]).channel_names
-        outputs = 3 if spec.task == "doom" else 2  # track B: a third output is the trigger
+        outputs = 2
         if spec.kind == "rnn":
             return RNNBrain(inputs, seed=spec.variant_seed, outputs=outputs, **spec.params)
         try:

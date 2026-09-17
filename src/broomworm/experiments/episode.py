@@ -65,9 +65,6 @@ def render_ascii(world: World, trace: list[Record], cols: int = 60, rows: int = 
     if world.target is not None:
         r, c = cell(world.target.x, world.target.y)
         grid[r][c] = "X"
-    for e in world.enemies:
-        r, c = cell(e.x, e.y)
-        grid[r][c] = "E"
     for d in world.dangers:
         for r in range(rows):
             for c in range(cols):
@@ -108,14 +105,6 @@ def save_plot(world: World, trace: list[Record], path: Path, title: str) -> None
         ax.add_patch(Circle((world.dock.x, world.dock.y), world.dock.radius, color="tab:cyan"))
     for d in world.dangers:
         ax.add_patch(Circle((d.x, d.y), d.radius, color="tab:purple", alpha=0.3, hatch="//"))
-    for e in world.enemies:
-        ax.add_patch(Circle((e.x, e.y), e.radius, color="tab:red", alpha=0.8))
-    if trace and trace[0].enemies:
-        for ex, ey in trace[0].enemies:
-            ax.plot(ex, ey, "v", color="tab:red", ms=8, mfc="none")
-    shots = [r for r in trace if r.hit]
-    if shots:
-        ax.plot([r.x for r in shots], [r.y for r in shots], "r+", ms=10, label="hit")
     xs, ys = [r.x for r in trace], [r.y for r in trace]
     ax.plot(xs, ys, "-", color="tab:blue", lw=1)
     eaten = [r for r in trace if r.ate]

@@ -355,8 +355,3 @@ class PlannerLayer:
     def activity(self) -> dict[str, float] | None:
         """Expose the inner brain's activity for the debug screen."""
         return getattr(self.inner, "activity", None)
-
-    @property
-    def fire(self) -> float:
-        """The inner brain's trigger (track B); the layer never shoots on its own."""
-        return float(getattr(self.inner, "fire", 0.0))

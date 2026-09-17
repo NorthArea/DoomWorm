@@ -4,7 +4,7 @@ The question of the axis is whether the connectome is worth anything as a
 *part* of a learner rather than as the whole of it. The hybrid answers it in
 the cheapest form the platform allows: a brain that is already trained (the
 curriculum worm) runs every step with its weights frozen, its wheel commands
-(and trigger) are handed to a small network from scratch as three extra
+are handed to a small network from scratch as three extra
 channels, and only that network is trained. The genome is the policy's, so the
 training harness, the benchmark and the layer stay untouched.
 
@@ -27,7 +27,7 @@ from broomworm.candidates.rnn import RNNBrain
 if TYPE_CHECKING:
     from broomworm.candidates.registry import TrainableBrain
 
-REFLEX_CHANNELS = ("reflex_left", "reflex_right", "reflex_fire")
+REFLEX_CHANNELS = ("reflex_left", "reflex_right")
 
 
 class HybridBrain:
@@ -46,7 +46,6 @@ class HybridBrain:
         self.reflex_path = reflex_path
         self.name = name
         self.meta = dict(meta or {}) | {"candidate": "hybrid", "reflex": reflex_path}
-        self.fire = 0.0
         self.last_reflex: Wheels = (0.0, 0.0)
         self.last_channels: dict[str, float] = {}
 
@@ -56,7 +55,6 @@ class HybridBrain:
         """Clear both halves."""
         self.reflex.reset()
         self.policy.reset()
-        self.fire = 0.0
         self.last_reflex = (0.0, 0.0)
         self.last_channels = {}
 
@@ -67,12 +65,8 @@ class HybridBrain:
         self.last_channels = dict(channels) | {
             "reflex_left": left,
             "reflex_right": right,
-            "reflex_fire": float(getattr(self.reflex, "fire", 0.0)),
         }
         wheels = self.policy.act(self.last_channels)
-        self.fire = (
-            self.policy.fire if self.policy.outputs == 3 else self.last_channels["reflex_fire"]
-        )
         return wheels
 
     @property

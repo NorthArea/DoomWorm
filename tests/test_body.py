@@ -14,10 +14,8 @@ from broomworm.body import (
 
 
 def test_intent_is_vehicle_neutral_and_clipped() -> None:
-    drive = Drive(forward=0.5, turn=-0.25, strafe=0.1, fire=0.9)
-    assert drive.pulls_trigger
-    assert not Drive(fire=0.4).pulls_trigger
-    assert drive.with_fire(0.0).forward == 0.5
+    drive = Drive(forward=0.5, turn=-0.25, strafe=0.1)
+    assert drive.forward == 0.5
     assert Drive(forward=2.0, turn=-3.0).clipped() == Drive(forward=1.0, turn=-1.0)
 
 
@@ -55,10 +53,8 @@ def test_mecanum_adds_sideways_and_folds_back_to_a_pair() -> None:
 def test_a_brain_may_speak_either_language() -> None:
     assert drive_of((0.2, 0.8)).forward == pytest.approx(0.5)
     assert drive_of((0.2, 0.8)).turn == pytest.approx(0.3)
-    assert drive_of((0.2, 0.8), fire=0.9).pulls_trigger
-    intent = Drive(forward=0.1, turn=0.2, strafe=0.3, fire=0.8)
+    intent = Drive(forward=0.1, turn=0.2, strafe=0.3)
     assert drive_of(intent) is intent
-    assert drive_of(Drive(forward=0.1), fire=0.7).fire == 0.7
 
 
 def test_bodies_are_named() -> None:

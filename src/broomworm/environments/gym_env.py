@@ -1,8 +1,7 @@
 """Gymnasium wrapper around the 2D world (Plan §3.3, stage 18).
 
 Observation: a fixed-order vector of sensor channels. Action: two wheel
-commands in [-1, 1], plus a trigger in [0, 1] for a world with a gun (track B,
-``fire=True``). Episodes end when the agent is dead or through the exit
+commands in [-1, 1]. Episodes end when the agent is dead
 (terminated) or the step cap is hit (truncated). Everything is seeded through
 ``reset(seed=...)``.
 """
@@ -35,14 +34,12 @@ class BroomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         steps: int = 800,
         reward_config: RewardConfig | None = None,
         channel_names: Sequence[str] | None = None,
-        fire: bool = False,
     ) -> None:
         super().__init__()
         self.world_factory = world_factory
         self.sensor_preset = sensors
         self.steps = steps
         self.reward_config = reward_config or RewardConfig()
-        self.fire = fire
         probe = SensorSuite(PRESETS[sensors])
         self.channel_names = list(channel_names or probe.channel_names)
         n = len(self.channel_names)
@@ -50,12 +47,7 @@ class BroomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         low = np.array([-np.inf if c in unbounded else 0.0 for c in self.channel_names])
         high = np.array([np.inf if c in unbounded else 1.0 for c in self.channel_names])
         self.observation_space = gym.spaces.Box(low, high, shape=(n,), dtype=np.float64)
-        if fire:
-            self.action_space = gym.spaces.Box(
-                np.array([-1.0, -1.0, 0.0]), np.array([1.0, 1.0, 1.0]), dtype=np.float64
-            )
-        else:
-            self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float64)
+        self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float64)
         self.world: World | None = None
         self.suite: SensorSuite | None = None
         self.tracker = RewardTracker(self.reward_config)
@@ -92,11 +84,10 @@ class BroomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         return self._vector(self.last_channels), {"seed": self._seed}
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
-        """Apply wheel commands (and the trigger, if any) for one environment step."""
+        """Apply wheel commands for one environment step."""
         assert self.world is not None, "call reset() first"
         left, right = float(action[0]), float(action[1])
-        fire = self.fire and len(action) > 2 and float(action[2]) > 0.5
-        obs = self.world.step(left, right, fire=fire)
+        obs = self.world.step(left, right)
         self._obs = obs
         self.tick += 1
         reward = self.tracker.step(
@@ -111,8 +102,6 @@ class BroomwormEnv(gym.Env[np.ndarray, np.ndarray]):
             cleaned=obs.cleaned,
             docked=obs.docked,
             battery=obs.battery,
-            hit=obs.hit,
-            killed=obs.killed,
         )
         terminated = self.world.finished
         truncated = self.tick >= self.steps and not terminated
@@ -124,10 +113,6 @@ class BroomwormEnv(gym.Env[np.ndarray, np.ndarray]):
             "collisions": self.world.collisions,
             "damage": self.world.damage_taken,
             "dockings": self.world.dockings,
-            "kills": self.world.kills,
-            "hits": self.world.hits,
-            "shots": self.world.shots,
-            "exited": self.world.exited,
             "total_reward": self.tracker.total,
         }
         self.last_channels = self._channels()

@@ -40,22 +40,21 @@ class NCPBrain:
         from ncps.torch import CfC
         from ncps.wirings import AutoNCP
 
-        if outputs not in (2, 3):
-            raise ValueError("outputs must be 2 (wheels) or 3 (wheels + fire)")
+        if outputs != 2:
+            raise ValueError("outputs must be 2 (wheels)")
         torch.set_num_threads(1)
         torch.manual_seed(seed)
         self.inputs = [c for c in inputs if c not in UNBOUNDED]
         self.units = units
         self.seed = seed
-        self.outputs = outputs  # 3: the third motor neuron is the trigger (track B)
+        self.outputs = outputs
         self.name = name
         self.meta = dict(meta or {}) | {"candidate": "ncp"}
         self.wiring = AutoNCP(units, outputs, seed=seed)
         self.model = CfC(len(self.inputs), self.wiring, batch_first=True)
         self.model.eval()
         self._torch = torch
-        self.bias_out = np.array([forward, forward, 0.0][:outputs])
-        self.fire = 0.0
+        self.bias_out = np.array([forward, forward])
         self.hidden: Any = None
         self.activity_vector = np.zeros(units)
 
@@ -64,7 +63,6 @@ class NCPBrain:
     def reset(self) -> None:
         """Clear the cell state."""
         self.hidden = None
-        self.fire = 0.0
         self.activity_vector = np.zeros(self.units)
 
     def act(self, channels: Mapping[str, float]) -> Wheels:
@@ -75,8 +73,6 @@ class NCPBrain:
             out, self.hidden = self.model(x, self.hidden)
         self.activity_vector = self.hidden[0].numpy().astype(float)
         motors = np.clip(out[0, 0].numpy().astype(float) + self.bias_out, -1.0, 1.0)
-        if self.outputs == 3:
-            self.fire = float(motors[2])
         return float(motors[0]), float(motors[1])
 
     @property

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import math
 import statistics
@@ -20,7 +21,7 @@ from broomworm.learning.reward import RewardConfig, RewardTracker
 
 METRICS = (
     "reward", "ticks", "coverage", "food", "targets", "collisions", "damage",
-    "dockings", "distance", "rooms", "survived", "kills", "hits", "shots", "exited",
+    "dockings", "distance", "rooms", "survived",
 )  # fmt: skip
 
 
@@ -60,10 +61,6 @@ class EpisodeRow:
     distance: float
     rooms: int
     survived: int
-    kills: int = 0  # track B (mini-Doom) counters; 0 for every other task
-    hits: int = 0
-    shots: int = 0
-    exited: int = 0
 
 
 @dataclass
@@ -134,10 +131,6 @@ def run_benchmark(
                 distance=distance,
                 rooms=rooms_visited(world, [(r.x, r.y) for r in trace]),
                 survived=int(not world.dead),
-                kills=world.kills,
-                hits=world.hits,
-                shots=world.shots,
-                exited=int(world.exited),
             )
             result.rows.append(row)
             if on_episode is not None:
@@ -154,14 +147,12 @@ LEADERBOARD_COLUMNS = (
     "survived",
     "ticks",
 )
-DOOM_COLUMNS = ("reward", "exited", "kills", "hits", "shots", "damage", "survived", "ticks")
 
 
 def leaderboard(results: Sequence[BenchmarkResult]) -> str:
-    """Markdown table sorted by mean reward, best first (Doom rows get the Doom columns)."""
+    """Markdown table sorted by mean reward, best first."""
     ranked = sorted(results, key=lambda r: -r.mean("reward"))
-    doom = bool(ranked) and all(r.config.task == "doom" for r in ranked)
-    columns = DOOM_COLUMNS if doom else LEADERBOARD_COLUMNS
+    columns = LEADERBOARD_COLUMNS
     head = "| # | brain | episodes | " + " | ".join(columns) + " |"
     sep = "|---|---|---|" + "---|" * len(columns)
     lines = [head, sep]
@@ -200,7 +191,10 @@ def load_results(out_dir: Path) -> list[BenchmarkResult]:
             **{**data["config"], "test_seeds": tuple(data["config"]["test_seeds"])}
         )
         res = BenchmarkResult(name=data["name"], config=cfg)
-        res.rows = [EpisodeRow(**row) for row in data["rows"]]
+        fields = {f.name for f in dataclasses.fields(EpisodeRow)}
+        res.rows = [
+            EpisodeRow(**{k: v for k, v in row.items() if k in fields}) for row in data["rows"]
+        ]
         results.append(res)
     return results
 
