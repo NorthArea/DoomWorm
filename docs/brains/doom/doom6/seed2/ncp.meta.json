@@ -1,0 +1,37 @@
+{
+  "candidate": "ncp",
+  "layer": "none",
+  "train": {
+    "layer": "none",
+    "train_seeds": [
+      100,
+      101,
+      102
+    ],
+    "train_repeats": 1,
+    "steps": 600,
+    "population": 40,
+    "generations": 25,
+    "sigma": 0.02,
+    "init_sigma": null,
+    "weight_range": [
+      -1.0,
+      1.0
+    ],
+    "mutation_fraction": 1.0,
+    "seed": 2,
+    "workers": 6,
+    "spec": {
+      "kind": "ncp",
+      "init": null,
+      "variant_seed": 0,
+      "maps": "doom6",
+      "task": "doom",
+      "sensors": "ideal",
+      "dangers": 0,
+      "params": {}
+    }
+  },
+  "fitness": -19.466666666666665,
+  "generations": 25
+}

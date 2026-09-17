@@ -1,0 +1,54 @@
+{
+  "scenario": "worm",
+  "params": {
+    "tonic_avb": 0.1,
+    "obstacle_gain": 3.0,
+    "food_gain": 1.0,
+    "gain": 0.45,
+    "decay": 0.5,
+    "gain_drive": 6.0,
+    "gain_turn": 6.0,
+    "gain_fire": 10.0,
+    "brain_steps": 5,
+    "maps": "doom6",
+    "task": "doom",
+    "dangers": 0,
+    "sensors": "ideal"
+  },
+  "source": "docs/brains/a1/worm_evolved_random.json",
+  "candidate": "worm",
+  "layer": "none",
+  "train": {
+    "layer": "none",
+    "train_seeds": [
+      100,
+      101,
+      102
+    ],
+    "train_repeats": 1,
+    "steps": 600,
+    "population": 40,
+    "generations": 25,
+    "sigma": 0.02,
+    "init_sigma": null,
+    "weight_range": [
+      -1.0,
+      1.0
+    ],
+    "mutation_fraction": 1.0,
+    "seed": 1,
+    "workers": 6,
+    "spec": {
+      "kind": "worm",
+      "init": "docs/brains/a1/worm_evolved_random.json",
+      "variant_seed": 0,
+      "maps": "doom6",
+      "task": "doom",
+      "sensors": "ideal",
+      "dangers": 0,
+      "params": {}
+    }
+  },
+  "fitness": 5.833333333333336,
+  "generations": 25
+}
