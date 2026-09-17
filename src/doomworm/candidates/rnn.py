@@ -116,32 +116,41 @@ class RNNBrain:
 
     # --- persistence ---------------------------------------------------------------
 
-    def save(self, path: Path | str) -> None:
-        """JSON with kind, architecture, weights and meta."""
-        data = {
+    def to_dict(self) -> dict[str, Any]:
+        """Kind, architecture, weights and meta (also the inline form inside a hybrid)."""
+        return {
             "kind": "rnn",
             "inputs": self.inputs,
             "hidden": self.hidden,
             "brain_steps": self.brain_steps,
             "decay": self.decay,
+            "outputs": self.outputs,
             "weights": self.get_weights(),
             "meta": self.meta,
         }
-        Path(path).write_text(json.dumps(data) + "\n")
 
     @classmethod
-    def from_file(cls, path: Path | str) -> RNNBrain:
-        """Load a saved RNN brain."""
-        data = json.loads(Path(path).read_text())
+    def from_dict(cls, data: Mapping[str, Any], name: str = "rnn") -> RNNBrain:
+        """Rebuild from :meth:`to_dict`."""
         if data.get("kind") != "rnn":
-            raise ValueError(f"{path} is not an rnn brain")
+            raise ValueError("not an rnn brain")
         brain = cls(
             data["inputs"],
             data["hidden"],
             data["brain_steps"],
             data["decay"],
-            name=Path(path).stem,
+            name=name,
             meta=data.get("meta"),
+            outputs=int(data.get("outputs", 2)),
         )
         brain.set_weights(data["weights"])
         return brain
+
+    def save(self, path: Path | str) -> None:
+        """JSON with kind, architecture, weights and meta."""
+        Path(path).write_text(json.dumps(self.to_dict()) + "\n")
+
+    @classmethod
+    def from_file(cls, path: Path | str) -> RNNBrain:
+        """Load a saved RNN brain."""
+        return cls.from_dict(json.loads(Path(path).read_text()), name=Path(path).stem)

@@ -16,7 +16,9 @@ TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, wo
 def test_every_candidate_is_a_trainable_brain(kind: str) -> None:
     if kind == "ncp":
         pytest.importorskip("ncps")
-    brain = build_candidate(CandidateSpec(kind))
+    # the hybrid is the one candidate that is built on top of another brain (axis C7)
+    init = "docs/brains/a2/worm_from_worm_evolved_random.json" if kind == "hybrid" else None
+    brain = build_candidate(CandidateSpec(kind, init=init))
     assert isinstance(brain, Trainable)
     assert brain.n_weights == len(brain.get_weights()) > 1000
     assert brain.meta["candidate"] == kind

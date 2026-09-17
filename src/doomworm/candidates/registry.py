@@ -40,7 +40,7 @@ class TrainableBrain(Trainable, Protocol):
 
 WORM_VARIANTS = ("worm", "worm_random", "worm_shuffled", "worm_dense")
 OPTIONAL = ("ncp",)  # need the rl dependency group
-CANDIDATES = (*WORM_VARIANTS, "rnn", *OPTIONAL)
+CANDIDATES = (*WORM_VARIANTS, "rnn", "hybrid", *OPTIONAL)
 
 
 @dataclass(frozen=True)
@@ -62,15 +62,22 @@ class CandidateSpec:
 
 
 def load_candidate(path: Path | str, **world: Any) -> BrainLike:
-    """Load any saved candidate brain by its file format."""
+    """Load any saved candidate brain by the ``kind`` its file opens with."""
     head = Path(path).read_text(encoding="utf-8")[:200]
-    if '"kind": "rnn"' in head:
+    # the first key, not any key: a hybrid carries its policy's kind inside itself
+    match = re.match(r'\s*\{\s*"kind"\s*:\s*"(\w+)"', head)
+    kind = match.group(1) if match else "worm"
+    if kind == "rnn":
         return RNNBrain.from_file(path)
-    if '"kind": "ncp"' in head:
+    if kind == "hybrid":
+        from doomworm.candidates.hybrid import HybridBrain
+
+        return HybridBrain.from_file(path, **world)
+    if kind == "ncp":
         from doomworm.candidates.ncp import NCPBrain
 
         return NCPBrain.from_file(path)
-    if '"kind": "ppo"' in head:
+    if kind == "ppo":
         try:
             from doomworm.learning.rl import PPOBrain
         except ImportError as e:  # pragma: no cover - depends on the optional group
@@ -83,6 +90,27 @@ def build_candidate(spec: CandidateSpec) -> TrainableBrain:
     """Instantiate a candidate; the saved brain (if any) supplies the weights."""
     if spec.kind not in CANDIDATES:
         raise ValueError(f"unknown candidate {spec.kind!r}, choose from {CANDIDATES}")
+    if spec.kind == "hybrid":
+        # For a hybrid ``init`` is the frozen reflex, not a starting point (axis C7).
+        from doomworm.candidates.hybrid import build_hybrid
+
+        if spec.init is None:
+            raise ValueError("the hybrid candidate needs a reflex brain: --init-brain <path>")
+        from doomworm.environments.sensors import PRESETS, SensorSuite
+
+        return build_hybrid(
+            spec.init,
+            SensorSuite(PRESETS[spec.sensors]).channel_names,
+            outputs=3 if spec.task == "doom" else 2,
+            seed=spec.variant_seed,
+            world={
+                "maps": spec.maps,
+                "task": spec.task,
+                "sensors": spec.sensors,
+                "dangers": spec.dangers,
+            },
+            **spec.params,
+        )
     if spec.init is not None:
         brain = load_candidate(
             spec.init, maps=spec.maps, task=spec.task, sensors=spec.sensors, dangers=spec.dangers
@@ -96,15 +124,16 @@ def build_candidate(spec: CandidateSpec) -> TrainableBrain:
         from doomworm.environments.sensors import PRESETS, SensorSuite
 
         inputs = SensorSuite(PRESETS[spec.sensors]).channel_names
+        outputs = 3 if spec.task == "doom" else 2  # track B: a third output is the trigger
         if spec.kind == "rnn":
-            return RNNBrain(inputs, seed=spec.variant_seed, **spec.params)
+            return RNNBrain(inputs, seed=spec.variant_seed, outputs=outputs, **spec.params)
         try:
             from doomworm.candidates.ncp import NCPBrain
         except ImportError as e:  # pragma: no cover - depends on the optional group
             raise ImportError(
                 "the ncp candidate needs the optional rl group: uv sync --group rl"
             ) from e
-        return NCPBrain(inputs, seed=spec.variant_seed, **spec.params)
+        return NCPBrain(inputs, seed=spec.variant_seed, outputs=outputs, **spec.params)
     from doomworm.experiments.worm_agent import WormScenario
 
     connectome = None
