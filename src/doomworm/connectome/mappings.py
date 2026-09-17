@@ -14,7 +14,9 @@ ventral head bends. ``front`` drives both members of every pair.
     target_*        -> same neurons as food_* (Plan §19: the target is the
                        new attractive signal; the worm cannot tell them apart)
     danger_*        -> ASHL / ASHR / both  (nociceptive; used from stage 14)
-    prey_*          -> CEPDL / CEPDR / both (track B: the enemy as an attractant, so the
+    novelty_*       -> OLLL / OLLR / both  (stage 16: unvisited ground, from the memory
+                                            layer -- the worm has no place memory of its own)
+    prey_*          -> CEPDL / CEPDR / both (the enemy as an attractant, so the
                                             worm's own taxis can turn the body onto it)
     aim             -> ADLL, ADLR          (track B: enemy on the gun line)
                        RIPL, RIPR          (the only connection into the pharynx, where
@@ -41,6 +43,8 @@ DANGER = {"left": "danger_left", "front": "danger_front", "right": "danger_right
 TARGET = {"left": "target_left", "front": "target_front", "right": "target_right"}
 PREY = {"left": "prey_left", "front": "prey_front", "right": "prey_right"}
 PREY_GAIN = 3.0  # measured: the response saturates here (LIF activity clips at 1)
+NOVELTY = {"left": "novelty_left", "front": "novelty_front", "right": "novelty_right"}
+NOVELTY_GAIN = 3.0
 DOCK = {"left": "dock_left", "front": "dock_front", "right": "dock_right"}
 
 
@@ -265,4 +269,12 @@ def default_sensory_mapping() -> SensoryMapping:
     m.add(PREY["left"], ["CEPDL"], PREY_GAIN)
     m.add(PREY["right"], ["CEPDR"], PREY_GAIN)
     m.add(PREY["front"], ["CEPDL", "CEPDR"], PREY_GAIN)
+    # Stage 16: where the agent has *not* been, supplied by the memory layer as a
+    # gradient in the same form as the food smell. The animal has no place memory;
+    # the layer holds it and the brain only reads it. OLL was the best of the free
+    # sensory pairs by reward on an untrained worm (doom1 -18.5 -> +0.5, doom2
+    # -19.0 -> -2.5, doom4 -21.1 -> -5.9); a brain with no route here is unchanged.
+    m.add(NOVELTY["left"], ["OLLL"], NOVELTY_GAIN)
+    m.add(NOVELTY["right"], ["OLLR"], NOVELTY_GAIN)
+    m.add(NOVELTY["front"], ["OLLL", "OLLR"], NOVELTY_GAIN)
     return m

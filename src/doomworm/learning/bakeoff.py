@@ -29,7 +29,7 @@ from doomworm.episode import BrainLike
 from doomworm.learning.benchmark import BenchmarkConfig, run_benchmark
 from doomworm.learning.evolution import EvolutionConfig, EvolutionResult, GenerationStats, evolve
 
-LAYERS = ("none",)
+LAYERS = ("none", "memory")
 
 
 @dataclass(frozen=True)
@@ -61,9 +61,13 @@ class TrainConfig:
 
 
 def wrap(brain: BrainLike, spec: CandidateSpec, layer: str) -> BrainLike:
-    """Kept for the saved-brain metadata: a candidate now always trains bare."""
-    if layer != "none":
-        raise ValueError("the engineered layer belonged to the vacuum; only 'none' is left")
+    """The condition a candidate is trained and benchmarked under (Plan §9)."""
+    if layer not in LAYERS:
+        raise ValueError(f"layer must be one of {LAYERS}")
+    if layer == "memory":
+        from doomworm.layer import MemoryLayer
+
+        return MemoryLayer(brain)
     return brain
 
 

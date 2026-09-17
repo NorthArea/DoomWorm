@@ -73,6 +73,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="benchmark a hand-written brain instead of --brain (follower = test driver)",
     )
     bench.add_argument("--name", default=None, help="row name (default: file stem)")
+    bench.add_argument(
+        "--memory",
+        action="store_true",
+        help="wrap the brain in the memory layer (the condition it was trained under)",
+    )
     bench.add_argument("--maps", choices=MAP_CHOICES, default="doom4")
     bench.add_argument("--task", choices=TASK_CHOICES, default="doom")
     bench.add_argument("--dangers", type=int, default=0)
@@ -94,6 +99,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="worm, worm_random, worm_shuffled, worm_dense, rnn, ncp (rl group)",
     )
     ev.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
+    ev.add_argument(
+        "--memory",
+        action="store_true",
+        help="train under the memory layer: the brain also senses unvisited ground",
+    )
     ev.add_argument("--variant-seed", type=int, default=0, help="seed of a control topology")
     ev.add_argument("--maps", choices=MAP_CHOICES, default="doom4")
     ev.add_argument("--task", choices=TASK_CHOICES, default="doom")
@@ -180,6 +190,11 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
         name = args.name or args.brain.stem
     else:
         raise SystemExit("benchmark: give --brain <file> or --scripted <name>")
+    if args.memory:
+        from doomworm.layer import MemoryLayer
+
+        brain = MemoryLayer(brain)
+        name += "+memory"
     print(f"benchmark {name}: {cfg.episodes} episodes on {cfg.maps}/{cfg.task}/{cfg.sensors}")
     result = run_benchmark(
         brain,
@@ -211,6 +226,7 @@ def run_evolve_cli(args: argparse.Namespace) -> int:
         sensors=args.sensors,
     )
     cfg = TrainConfig(
+        layer="memory" if args.memory else "none",
         train_seeds=tuple(range(100, 100 + args.train_seeds)),
         train_repeats=args.train_repeats,
         steps=args.steps,

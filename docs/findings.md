@@ -21,6 +21,7 @@ carry as a second track, are not here: they live in the git history up to
 | 2 a harder level (superseded) | `doom6`, before the fixes | real −40.1 ± 3.3; curriculum −24.6 ± 1.0 | ncp −21.3 ± 2.3; PPO −33.0 ± 6.4; rnn −46.2 ± 4.0 | −18.8 (curriculum −3.3) | **loss** | `results/b/b2_doom_2026-09-16.md` |
 | 3 the real engine (superseded) | the same seeded layouts run by ViZDoom, no retraining | curriculum 7.1 ± 3.5 — the best trained brain on `vizdoom4` | PPO 0.8 ± 2.6; rnn −1.1 ± 0.9; ncp −2.2 ± 0.5 | +6.3 | **win among trained brains** (still under the floor's +27.4): the engine reverses the simulator's order and the worm family comes out on top | same, `runs/benchmark_doom/train_doom4/*/eval_vizdoom*` |
 | 4 a map nobody drew | the stock ViZDoom scenario `defend_the_center`, brains from `doom4`/seed 0, 4 episodes each | real 3.2 ± 16.8 with 2.0 kills; curriculum −32.4 with no shot fired | rnn −29.6 and PPO −37.3, neither ever fires; shuffled 14.9 with 4.0 kills | +32.8 vs PPO, −19.6 vs the floor | **win over the trained nets, loss to the floor**: outside our own generator only the worm family pulls the trigger at all. Four episodes, one seed — a direction, not a measurement | `runs/benchmark_doom/stock/leaderboard.md` |
+| 5 memory as a layer (stage 16) | a place memory outside the brain: it marks the cells odometry has visited and reports the nearest *unvisited* ground as a gradient, in the same form as the food smell. The brain reads it and still decides. Trained and benchmarked under the condition, `doom4`, 3 seeds | worm+memory: `doom6` −24.28 ± 7.3 (best row on that level, was −38.43), `doom2` +1.28, `doom4` −8.36 (worse than without) | shuffled+memory −35.17 on `doom6`, −6.86 on `doom4`: the same layer *hurts* the shuffled control everywhere | +14.2 on `doom6`, −5.6 on `doom4` | **the hypothesis failed on its own terms**: exits stayed at 0.00 on every level, which is what the layer was built to buy. What it did buy is wall-grinding — collisions fell 6-50x (doom4 19.6 -> 0.3, doom6 25.4 -> 4.1) — and a large gain on the hardest level, and only for the real wiring | `runs/memory/benchmark/` |
 | 5 hybrids | a frozen trained brain as a reflex module under a small net; only the net trained | hybrid 43.2 ± 1.2 | the same net alone 37.7 ± 1.4 | +5.5 over the bare net | **the worm helps as a part, and only up to itself**: it lifts a from-scratch net by 5.5 points, exactly to the worm's own level, and steadies it across seeds. Measured on the conditions of the old second track; to be re-run on Doom | `runs/c7/benchmark/leaderboard.md` |
 | 6 shooting, before the fixes | what the trigger actually does on `doom4` | real 0.00 kills on 3.1 shots; curriculum 0.03 on 29.9 | PPO 0.00 on 11.2; rnn and ncp never fire | floor: 0.50 kills on 5.7 shots | **superseded** — every row above was measured while the trigger was unreachable and the monster was only a source of pain. See the two fixes below; stage 12 re-measures them | same |
 
@@ -77,6 +78,13 @@ The connectome family aims two to nine times better than its own controls in
 every run, and the curriculum worm is the best of them everywhere. On raw
 reward there is no such ordering. That is the project's one stable signal so
 far, and it is about *what it does with a shot*, not about winning.
+
+Memory did not buy the exit. The novelty gradient pulls toward unexplored
+ground, and the exit is a particular place; going round a wall means moving
+*against* the target gradient for a while while still holding it as the goal,
+and the brain has neither a held goal nor a way to come round. The layer
+removed the symptom — grinding against a wall — without supplying the thing
+that was missing.
 
 ## Why it is bad at this, in numbers
 
