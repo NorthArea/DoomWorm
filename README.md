@@ -14,9 +14,11 @@ every number that changes a verdict lands in `docs/findings.md`.
 ## What is here
 
 ```text
-the world            a 2D simulator with walls, monsters, a gun and an exit,
-                     and the same seeded layouts run by the real Doom engine
-                     through ViZDoom (no framebuffer: structured observations)
+the world            a 2D simulator with walls, monsters, a gun and an exit;
+                     the same seeded layouts run by the real Doom engine through
+                     ViZDoom; the scenarios ViZDoom ships; and the classic
+                     game's own maps, e1m1..e4m9, from the Freedoom data
+                     (no framebuffer anywhere: structured observations only)
 the brain contract   channels in, Drive(forward, turn, strafe, fire) out
 the body             a vehicle turns that intent into actuators or engine buttons
 the candidates       the connectome, its topology controls (random, shuffled,
@@ -35,23 +37,38 @@ buys and what it costs.
 ## Run it
 
 ```bash
-uv sync --all-groups          # core + dev; add --group doom for the engine
+make setup                    # venv, the connectome, the Doom data — everything
 make check                    # ruff, mypy, pytest
-make demo-b1 LEVEL=doom4      # the hand-written floor on a simulator level
-make demo-b4 LEVEL=doom4      # the same level inside the Doom engine
-make watch-doom LEVEL=doom4   # watch a trained worm play, in a real window
-make watch-doomguy            # watch the floor, which actually aims
-make demo-b11 STOCK=stock_defend   # a scenario shipped with ViZDoom
 ```
 
-Training and benchmarking:
+Then look at it:
 
 ```bash
-uv run doomworm evolve --candidate worm --maps doom4 --out runs/worm.json
-uv run doomworm benchmark --brain runs/worm.json --maps doom6
-uv run doomworm ppo --maps doom4          # needs the rl group
-uv run doomworm play --brain runs/worm.json --maps vizdoom4 --watch
+make demo-b1 LEVEL=doom4           # the hand-written floor on a simulator level
+make demo-b4 LEVEL=doom4           # the same level inside the Doom engine
+make demo-b11 STOCK=stock_defend   # a scenario shipped with ViZDoom
+make demo-classic CLASSIC=e1m1     # the classic game's own first map
 ```
+
+Watch it play, in a real Doom window at the game's own speed:
+
+```bash
+make watch-doomguy            # the floor, the one player that actually aims
+make watch-doom LEVEL=doom4   # a trained worm
+make watch-classic CLASSIC=e1m1
+```
+
+Train and measure:
+
+```bash
+make evolve-doom CANDIDATE=worm LEVEL=doom4   # one brain
+make benchmark-doom LEVEL=doom6               # every brain of a seed, on a level
+make lane-bakeoff                             # the full three-seed bake-off (hours, resumable)
+make lane-memory                              # stage 16: with and without the memory layer
+make report                                   # rebuild the tables in docs/results/
+```
+
+`make help` lists every target.
 
 ## Where the numbers are
 

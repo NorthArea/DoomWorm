@@ -38,12 +38,26 @@ SCENARIOS: dict[str, tuple[str, str]] = {
     "stock_home": ("my_way_home", "map01"),  # rooms and corridors, no enemies: navigation only
 }
 STOCK_LEVELS = tuple(SCENARIOS)
+
+# The classic game: Freedoom's free replacement for the original Doom data, fetched
+# with `scripts/fetch_freedoom.py`. `e1m1` .. `e4m9` are the episode maps as the game
+# ships them -- nobody's scenario, no exit we can reach (the classic exit is a switch),
+# so these are combat and navigation levels for us.
+IWAD = Path(__file__).resolve().parents[4] / "data/wads/freedoom1.wad"
+CLASSIC_LEVELS = tuple(f"e{e}m{m}" for e in range(1, 5) for m in range(1, 10))
+
+
+def is_classic_level(maps: str) -> bool:
+    """True for `e1m1` .. `e4m9`."""
+    return maps in CLASSIC_LEVELS
+
+
 MARGIN = 2.0  # world units of padding between the map's bounding box and the world's border
 
 
 def is_stock_level(maps: str) -> bool:
-    """True for a stock-scenario level name."""
-    return maps in SCENARIOS
+    """True for a bundled scenario or a classic episode map."""
+    return maps in SCENARIOS or maps in CLASSIC_LEVELS
 
 
 def scenario_wad(level: str) -> Path:
@@ -54,14 +68,27 @@ def scenario_wad(level: str) -> Path:
     return Path(vzd.scenarios_path) / f"{stem}.wad"
 
 
+def _configure(game: Any, level: str) -> None:
+    """Point the engine at the right data: a bundled scenario, or the classic IWAD."""
+    if level in SCENARIOS:
+        _, map_lump = SCENARIOS[level]
+        game.set_doom_scenario_path(str(scenario_wad(level)))
+        game.set_doom_map(map_lump)
+        return
+    if not IWAD.exists():
+        raise FileNotFoundError(
+            f"{IWAD} is missing: run `uv run scripts/fetch_freedoom.py` for the classic maps"
+        )
+    game.set_doom_game_path(str(IWAD))
+    game.set_doom_map(level.upper())
+
+
 def _probe(level: str, seed: int) -> dict[str, Any]:
-    """Open the scenario once and read its geometry, its monsters and the player."""
+    """Open the level once and read its geometry, its monsters and the player."""
     import vizdoom as vzd
 
-    _, map_lump = SCENARIOS[level]
     game = vzd.DoomGame()
-    game.set_doom_scenario_path(str(scenario_wad(level)))
-    game.set_doom_map(map_lump)
+    _configure(game, level)
     game.set_window_visible(False)
     game.set_sound_enabled(False)
     game.set_screen_resolution(vzd.ScreenResolution.RES_160X120)
@@ -131,15 +158,17 @@ def stock_world(seed: int, level: str = "stock_defend", tics: int = 1) -> Vizdoo
     loop's step cap is reached, and the reward is what the platform already
     pays for -- hits, kills, damage taken, collisions, new ground covered.
     """
-    if level not in SCENARIOS:
-        raise ValueError(f"unknown stock level {level!r}, choose from {STOCK_LEVELS}")
+    if not is_stock_level(level):
+        raise ValueError(f"unknown level {level!r}, choose from {STOCK_LEVELS} or e1m1..e4m9")
     layout, offset = _layout(_probe(level, seed))
     return VizdoomWorld(
         layout,
         seed,
         level=level,
         tics=tics,
-        wad=scenario_wad(level),
+        wad=scenario_wad(level) if level in SCENARIOS else IWAD,
+        map_lump=SCENARIOS[level][1] if level in SCENARIOS else level.upper(),
+        as_iwad=level not in SCENARIOS,
         exit_ends=False,
         offset=offset,
     )

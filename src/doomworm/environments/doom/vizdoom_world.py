@@ -67,7 +67,9 @@ def wad_dir() -> Path:
     return Path(tempfile.gettempdir()) / "doomworm_vizdoom"
 
 
-def _new_game(wad: Path, seed: int, timeout: int) -> Any:
+def _new_game(
+    wad: Path, seed: int, timeout: int, map_lump: str = "MAP01", as_iwad: bool = False
+) -> Any:
     import vizdoom as vzd
 
     global _open_game
@@ -75,8 +77,11 @@ def _new_game(wad: Path, seed: int, timeout: int) -> Any:
         _open_game.close()
         _open_game = None
     game = vzd.DoomGame()
-    game.set_doom_scenario_path(str(wad))
-    game.set_doom_map("MAP01")
+    if as_iwad:  # the classic game data, not a scenario patched over it
+        game.set_doom_game_path(str(wad))
+    else:
+        game.set_doom_scenario_path(str(wad))
+    game.set_doom_map(map_lump)
     game.set_window_visible(_watch)
     game.set_sound_enabled(_watch)
     game.set_screen_resolution(
@@ -122,6 +127,8 @@ class VizdoomWorld(World):
             "stationary" enemy); Doom monsters always walk once awake.
         wad: an existing map to run instead of writing one from the layout
             (stage B11 runs a stock Doom scenario, which nobody generated).
+        map_lump: which map inside it (``MAP01``, or ``E1M1`` in the classic game).
+        as_iwad: the file is the game data itself, not a scenario over it.
         exit_ends: whether reaching the target ends the episode; a stock
             scenario has no exit to reach.
         offset: world units added to every engine position, so a map whose
@@ -137,6 +144,8 @@ class VizdoomWorld(World):
         timeout: int = 20_000,
         ambush: bool = True,
         wad: Path | None = None,
+        map_lump: str = "MAP01",
+        as_iwad: bool = False,
         exit_ends: bool = True,
         offset: tuple[float, float] = (0.0, 0.0),
     ) -> None:
@@ -165,7 +174,7 @@ class VizdoomWorld(World):
             if wad is not None
             else write_wad(layout, wad_dir() / f"{level}_{seed}.wad", ambush=ambush)
         )
-        self.game = _new_game(self.wad, seed, timeout)
+        self.game = _new_game(self.wad, seed, timeout, map_lump=map_lump, as_iwad=as_iwad)
         self.engine_done = False
         self._dead_ids: set[int] = set()
         self._vars = self._read_vars()

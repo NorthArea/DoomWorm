@@ -15,15 +15,19 @@ WATCH_BRAIN ?= docs/brains/doom/doom4/seed0/worm_from_worm_evolved_random.json
 WATCH_SEED ?= 3000
 DOOM_BENCH = --task doom --sensors ideal --steps 600 --test-seeds 12 --repeats 1
 
-.PHONY: help sync hooks fetch-data test test-fast cov lint format typecheck check clean \
+.PHONY: help setup sync hooks fetch-data fetch-doom test test-fast cov lint format typecheck check clean \
 	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos \
-	    demo-b1 demo-b4 demo-b11 watch-doom watch-doomguy watch-stock \
-	    benchmark-doom benchmark-vizdoom evolve-doom train-worm compare play stimulate
+	    demo-b1 demo-b4 demo-b11 demo-classic watch-doom watch-doomguy watch-stock watch-classic \
+	    benchmark-doom benchmark-vizdoom benchmark-classic evolve-doom train-worm compare play stimulate \
+	    lane-bakeoff lane-memory report
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 # --- setup -------------------------------------------------------------------
+
+setup: sync fetch-data fetch-doom ## Everything a fresh clone needs: venv, connectome, Doom data
+	@echo "ready: try 'make demo-b1' or 'make watch-doomguy'"
 
 sync: ## Install/refresh the venv from uv.lock (all groups)
 	uv sync --all-groups
@@ -33,6 +37,9 @@ hooks: sync ## Install pre-commit hooks into .git
 
 fetch-data: ## Download the connectome dataset
 	$(UV) python scripts/fetch_connectome.py
+
+fetch-doom: ## Download the Freedoom IWADs, needed for the classic maps e1m1..e4m9
+	$(UV) scripts/fetch_freedoom.py
 
 # --- quality -----------------------------------------------------------------
 
@@ -126,6 +133,28 @@ benchmark-vizdoom: ## The same rows in the Doom engine, level viz$(LEVEL)
 	for b in $(wildcard runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/*.json); do \
 	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --maps viz$(LEVEL) $(DOOM_BENCH) --out-dir runs/benchmark_doom/train_$(TRAIN_LEVEL)/seed$(DOOM_SEED)/eval_viz$(LEVEL) || exit 1;; esac; done
 
+CLASSIC ?= e1m1
+
+demo-classic: ## The classic game: the floor and a trained worm on $(CLASSIC) (needs make fetch-doom)
+	$(UV) doomworm benchmark --scripted doomguy --maps $(CLASSIC) --task doom --sensors ideal --steps 600 --test-seeds 3 --repeats 1 --out-dir runs/classic
+	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(CLASSIC) --task doom --sensors ideal --steps 600 --test-seeds 3 --repeats 1 --out-dir runs/classic
+
+benchmark-classic: ## Every brain of runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/ on the classic map $(CLASSIC)
+	$(UV) doomworm benchmark --scripted doomguy --maps $(CLASSIC) $(DOOM_BENCH) --out-dir runs/classic
+	for b in $(wildcard runs/doom/$(TRAIN_LEVEL)/seed$(DOOM_SEED)/*.json); do \
+	  case $$b in *.meta.json) ;; *) $(UV) doomworm benchmark --brain $$b --maps $(CLASSIC) $(DOOM_BENCH) --out-dir runs/classic || exit 1;; esac; done
+
+# --- experiment lanes (hours; they resume if interrupted) ---------------------
+
+lane-bakeoff: ## Train every candidate on doom4 and doom6, three seeds, then benchmark them all
+	$(UV) scripts/doom_b2_resume.py
+
+lane-memory: ## Stage 16: the worm and its shuffle, with and without the memory layer
+	$(UV) scripts/memory_lane.py
+
+report: ## Rebuild the result tables in docs/results/b/ from the benchmark rows
+	$(UV) python scripts/doom_report.py runs/benchmark_doom --out docs/results/b/b2_doom.md
+
 # --- watching ----------------------------------------------------------------
 
 watch-doom: ## Watch $(WATCH_BRAIN) play viz$(LEVEL) in the Doom window
@@ -136,6 +165,12 @@ watch-doomguy: ## Watch the hand-written floor, the one row that aims
 
 watch-stock: ## Watch a brain play the stock scenario $(STOCK)
 	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(STOCK) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
+
+watch-classic: ## Watch a brain play the classic map $(CLASSIC) (needs make fetch-doom)
+	$(UV) doomworm benchmark --brain $(WATCH_BRAIN) --maps $(CLASSIC) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
+
+watch-classic-floor: ## Watch the hand-written floor play the classic map $(CLASSIC)
+	$(UV) doomworm benchmark --scripted doomguy --maps $(CLASSIC) --task doom --sensors ideal --steps 600 --test-seeds 1 --repeats 1 --out-dir runs/watch --watch
 
 # --- replay ------------------------------------------------------------------
 

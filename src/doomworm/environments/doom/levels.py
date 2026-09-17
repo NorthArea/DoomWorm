@@ -34,6 +34,7 @@ def is_doom_level(maps: str) -> bool:
         maps in LEVELS
         or maps in tuple(f"vizdoom{n}" for n in range(1, 7))
         or maps.startswith("stock_")  # stage B11: a scenario shipped with ViZDoom (Plan §33)
+        or (len(maps) == 4 and maps[0] == "e" and maps[2] == "m" and maps[1::2].isdigit())
     )
 
 

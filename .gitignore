@@ -27,3 +27,7 @@ runs/
 
 # ViZDoom engine settings written next to the process
 _vizdoom.ini
+
+# Doom data, fetched with scripts/fetch_freedoom.py (28 MB each)
+data/wads/
+*.wad

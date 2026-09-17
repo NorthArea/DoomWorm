@@ -72,3 +72,26 @@ def test_build_world_knows_the_stock_levels() -> None:
     assert world.segments
     with pytest.raises(ValueError, match="task 'doom'"):
         build_world(7, "stock_defend", "clean")
+
+
+def test_the_classic_maps_are_levels_like_any_other() -> None:
+    """The game's own maps, from the Freedoom data (`make fetch-doom`)."""
+    from doomworm.environments.doom.stock import IWAD, is_classic_level
+
+    assert is_classic_level("e1m1")
+    assert is_classic_level("e4m9")
+    assert not is_classic_level("e1m10")
+    assert not is_classic_level("stock_defend")
+    if not IWAD.exists():
+        pytest.skip("no Freedoom data: run `make fetch-doom`")
+
+    world = build_world(1, "e1m1", "doom")
+    assert len(world.segments) > 100, "a real map has hundreds of walls"
+    assert world.enemies, "and monsters standing in it"
+    assert world.has_gun
+    channels = world.observe().as_channels()
+    assert 0.0 <= channels["sensor_front"] <= 1.0
+    before = (world.agent.x, world.agent.y)
+    for _ in range(10):
+        world.step(1.0, 1.0)
+    assert (world.agent.x, world.agent.y) != before

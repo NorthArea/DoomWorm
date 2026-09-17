@@ -25,6 +25,7 @@ MAP_CHOICES = (
     *(f"doom{n}" for n in range(1, 7)),  # mini-Doom on the simulator (track B)
     *(f"vizdoom{n}" for n in range(1, 7)),  # the same levels in the Doom engine (doom group)
     "stock_defend", "stock_corridor", "stock_home",  # stock ViZDoom scenarios (B11)
+    *(f"e{e}m{m}" for e in range(1, 5) for m in range(1, 10)),  # the classic episode maps
 )  # fmt: skip
 TASK_CHOICES = ("food", "target", "doom")
 SCRIPTED = ("follower", "doomguy")

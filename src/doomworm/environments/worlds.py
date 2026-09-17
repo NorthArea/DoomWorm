@@ -28,7 +28,7 @@ def build_world(
     ``body`` is the vehicle the world drives (stage 24): the platform's sensor preset
     names it, so the car moves on four mecanum wheels and the vacuum on two.
     """
-    if maps.startswith("stock_"):  # stage B11: a scenario shipped with ViZDoom (Plan §33)
+    if maps.startswith("stock_") or _is_classic(maps):  # a map nobody here drew (Plan §33)
         from doomworm.environments.doom.stock import stock_world
 
         if task != "doom":
@@ -73,6 +73,13 @@ def build_world(
     world.agent = AgentState(x=x, y=y, heading=heading)
     world.foods = [world.spawn_food() for _ in range(N_FOOD)]
     return _with_body(apply_task(world, task, dangers), body)
+
+
+def _is_classic(maps: str) -> bool:
+    """``e1m1`` .. ``e4m9``: the classic episode maps, from the Freedoom data."""
+    from doomworm.environments.doom.stock import is_classic_level
+
+    return is_classic_level(maps)
 
 
 def _with_body(world: World, body: str) -> World:
