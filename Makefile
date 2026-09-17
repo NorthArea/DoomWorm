@@ -5,6 +5,7 @@ UV := uv run
 BRAIN ?= runs/small_evolved.json
 SEED ?= 1003
 NEURON ?= ASHL
+LINK ?= fake
 
 .PHONY: help sync hooks test test-fast cov lint format typecheck check clean \
 	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demo-12 demo-13 demo-14 demo-15 demo-16 demo-17 demo-18 demo-19 demo-20 demo-21 demo-221guy demos benchmark-car evolve-car selftest-sim robustness-car train train-worm train-worm-random train-worm-danger train-worm-apartment benchmark benchmark-a2 compare evolve-a2 play stimulate fetch-data
@@ -191,6 +192,23 @@ play: ## Replay $(BRAIN) on seed $(SEED) with a plot
 
 stimulate: ## Stage 6: stimulate $(NEURON) and plot propagation
 	$(UV) broomworm stimulate $(NEURON) --plot
+
+ARDUINO := .tools/arduino-cli --config-file .tools/arduino/arduino-cli.yaml
+FQBN := esp32:esp32:esp32
+PORT ?= /dev/cu.usbserial-0001
+
+arduino-setup: ## Stage 23.2: project-local arduino-cli + ESP32 core + ESP32Servo (no global install)
+	mkdir -p .tools/arduino && test -x .tools/arduino-cli || (curl -sSL https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_macOS_ARM64.tar.gz | tar xz -C .tools arduino-cli)
+	$(ARDUINO) core update-index && $(ARDUINO) core install esp32:esp32 && $(ARDUINO) lib install ESP32Servo
+
+firmware: ## Stage 23.2: compile firmware/esp32_car for the ESP32 Max V1.0 (ESP32 Dev Module)
+	$(ARDUINO) compile --fqbn $(FQBN) --warnings default firmware/esp32_car
+
+firmware-flash: ## Stage 23.2: flash the car (GPIO0 "00" to GND + RST first; PORT=/dev/cu.usbserial-XXXX)
+	$(ARDUINO) upload --fqbn $(FQBN) --port $(PORT) firmware/esp32_car
+
+motor-map: ## Stage 23.2 bench: map the shield's shift-register bits to wheels (LINK=fake|tcp)
+	$(UV) broomworm motor-map --link $(LINK)
 
 fetch-data: ## Re-download the Cook 2019 connectome into data/connectome/cook2019
 	uv run --with openpyxl scripts/fetch_connectome.py

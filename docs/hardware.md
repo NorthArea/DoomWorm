@@ -32,6 +32,32 @@ in [-1, 1]; mecanum wheels under tank steering behave like a differential drive.
 The camera is never an input of the brain (Plan §2.1, §34): it feeds the
 engineered layer's dock beacon only.
 
+## Inventory from the documentation (stage 23.1, desk part, 2026-09-17)
+
+Everything below comes from ACEBOTT's pages and two published unboxings, not
+from our box. Each line is to be confirmed on unboxing; the "verified" column
+stays empty until then.
+
+| Part | What the documentation says | Source | Verified |
+|---|---|---|---|
+| Controller | ACEBOTT ESP32 Max V1.0: ESP32, 240 MHz dual core, 4 MB flash, Wi-Fi + BT 4.2, CH340 USB (Type-C), input 6-18 V, 34 GPIO; ADC2 unusable while Wi-Fi is on; GPIO 34/35/36/39 input-only; I2C 21/22; no BOOT button (GPIO0 "00" to GND + RST to flash); Arduino IDE board "ESP32 Dev Module" | acebott.com/docs QA007/QA008/QA009; dev.to unboxing | |
+| Shield | QA052 "ESP32 Car Shield V1.0": five DC motor interfaces via a shift register (sample code SHCP 18, STCP 17, DATA 5, EN 16) + PWM (PWM1 19); three servo headers; one ultrasonic header; one three-way line-tracking header; three I2C, three 3-pin digital, two 3-pin analog headers; one serial port; max input 15 V, max output 3 A | acebott.com/docs QA052 | |
+| Motors and wheels | four TT gear motors 1:48, four mecanum wheels; driven as left pair / right pair by our protocol (tank steering) | acebott.com; Robocraze listing | |
+| Rangefinder | HC-SR04 ultrasonic (datasheet: 2-400 cm, ~15 degree cone, 60 ms between pings recommended); mount on a servo assumed (the kit has three servo headers and "avoid obstacles in multiple directions") | dev.to unboxing; datasheet | servo or fixed? |
+| Line tracking | three-way module on the shield's trace header; outer channels used as cliff sensors | acebott.com/docs QA052 | polarity |
+| IR remote | IR receiver + remote in the box | dev.to unboxing | |
+| Extras | LED headlights, buzzer, acrylic three-plate chassis | dev.to unboxing | |
+| Battery | holder for 18650 cells, cells not included (two cells assumed: 7.4 V nominal, 8.4 V full) | dev.to and OpenELAB unboxings | count, holder wiring, voltage sense pin |
+| Vision (QD003) | K210 AI vision module: face, colour, QR and traffic-sign recognition, colour tracking; adds AI on top of the QD002 camera; connection to the ESP32 presumably the shield's serial port | acebott.com QD002/QD003 review | protocol, baud, message format |
+| Programming | Arduino IDE (ESP32 core), ACECode blocks, Python; Wi-Fi app control; the app connects to the car's own access point | acebott.com | |
+
+Consequences already applied: the firmware drives the motors through the
+shift register (`firmware/esp32_car`), the `car` preset keeps three swept
+rays, binary wall IR, cliff from the line module and command odometry; the
+HC-SR04 reach stays capped at 0.8 m by the tick (a 4 m ping takes 23 ms).
+Still open until the box is here: the servo mount, the shift-register bit map,
+the line-module polarity, the K210 message format, the battery sense pin.
+
 ## Units (assumed, not measured)
 
 `Calibration.for_preset("car")` (`hardware/calibration.py`):
@@ -95,6 +121,12 @@ Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
 `make evolve-car CANDIDATE=...`); results in `docs/results/a3/stage22_car_2026-09-15.md`.
 
 ## Day one on the car (everything below is ready, nothing needs the machine to prepare)
+
+Wheels first: the QA052 shield sets motor directions through a shift register
+whose bit map is undocumented. Before anything drives, `broomworm motor-map
+--link tcp` (`make motor-map`) energises the eight bits one by one, asks which
+wheel turned which way, and prints the `MOTOR_FWD` / `MOTOR_BWD` lines for the
+sketch. Rehearsal without the car: `broomworm motor-map --link fake`.
 
 1. **Flash** `firmware/esp32_car/` after filling in the pins (firmware/README.md).
    Join the car's Wi-Fi (`broomworm` / `broomworm123`).

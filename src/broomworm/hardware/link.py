@@ -183,6 +183,18 @@ class LineLink:
             )
         return self.calibration.channels(self.raw_last)
 
+    def command(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Send any command and return the robot's raw JSON reply (bench tools, not the loop)."""
+        self.writer.write(json.dumps(payload) + "\n")
+        self.writer.flush()
+        line = self.reader.readline()
+        if not line:
+            raise ConnectionError(f"{self.name}: the robot closed the link")
+        data = json.loads(line)
+        if isinstance(data, dict) and "error" in data:
+            raise ValueError(f"{self.name}: the robot rejected {payload['cmd']!r}: {data['error']}")
+        return dict(data)
+
     def _integrate_command(self) -> None:
         """No encoders on the machine: dead reckoning from the last wheel command."""
         cal = self.calibration

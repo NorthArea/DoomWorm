@@ -27,3 +27,4 @@ runs/
 
 # ViZDoom engine settings written next to the process
 _vizdoom.ini
+.tools/

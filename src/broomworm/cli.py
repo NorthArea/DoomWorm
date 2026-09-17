@@ -12,6 +12,7 @@ broomworm compare-log --log X       replay a drive log in the simulator, compare
 broomworm robustness --brain X      sweep the sensor preset's assumed numbers, table of the drops
 broomworm selftest --link tcp       day-one check of the machine: protocol, sensors, wheels
 broomworm calibrate --link tcp      measure metres per unit and the wheel base
+broomworm motor-map --link tcp      bench: which shift-register bit turns which wheel
 broomworm plot-log --log X          picture of a drive log (path, rays, wheels)
 broomworm stimulate ASHL            stimulate connectome neurons, show propagation
 """
@@ -176,6 +177,13 @@ def build_parser() -> argparse.ArgumentParser:
     st.add_argument("--frames", type=int, default=10, help="frames to watch at rest")
     st.add_argument("--out", type=Path, default=None, help="write the report here")
 
+    mm = sub.add_parser("motor-map", help="bench: which shift-register bit turns which wheel")
+    mm.add_argument("--link", choices=["fake", "tcp"], default="fake")
+    mm.add_argument("--host", default="192.168.4.1")
+    mm.add_argument("--port", type=int, default=5000)
+    mm.add_argument("--duty", type=float, default=0.5)
+    mm.add_argument("--ms", type=int, default=400, help="how long each bit is energised")
+
     cal = sub.add_parser("calibrate", help="measure metres per unit and the wheel base")
     add_link_args(cal)
     cal.add_argument("--ticks", type=int, default=20, help="ticks of each run")
@@ -314,6 +322,27 @@ def run_selftest_cli(args: argparse.Namespace) -> int:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(text, encoding="utf-8")
     return 0 if report.ok else 1
+
+
+def run_motor_map_cli(args: argparse.Namespace) -> int:
+    """Probe the eight direction bits and print the tables for the sketch."""
+    from broomworm.environments.sensors import CAR
+    from broomworm.environments.worlds import build_world
+    from broomworm.hardware import Calibration, FakeRobot, connect_tcp, motor_map, serve_fake
+    from broomworm.hardware.link import SimLink
+
+    if args.link == "tcp":
+        link = connect_tcp(args.host, args.port, Calibration.for_preset("car"))
+    else:
+        sim = SimLink(build_world(3001, "apartment", "clean"), CAR, sensor_seed=0)
+        link = serve_fake(FakeRobot(sim, Calibration.for_preset("car")))
+    try:
+        report = motor_map(link, duty=args.duty, ms=args.ms)
+    finally:
+        link.close()
+    print(f"# motor map over {link.name}\n")
+    print(report.markdown())
+    return 0 if not report.problems else 1
 
 
 def run_calibrate_cli(args: argparse.Namespace) -> int:
@@ -703,6 +732,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_selftest_cli(args)
     if args.command == "robustness":
         return run_robustness_cli(args)
+    if args.command == "motor-map":
+        return run_motor_map_cli(args)
     if args.command == "calibrate":
         return run_calibrate_cli(args)
     if args.command == "plot-log":

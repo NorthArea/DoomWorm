@@ -11,11 +11,22 @@ uv run broomworm drive --link tcp --sensors car --teleop --record runs/drive/rea
 uv run broomworm drive --link tcp --sensors car --brain runs/a2_car/<best>.json --planner needs
 ```
 
-Status: written before the kit was unboxed. **Not compiled, not run on
-hardware.** Before flashing:
+Status: **compiles** against the Arduino core for ESP32 (2.x and 3.x) with a
+project-local `arduino-cli` (`make firmware`); **not run on hardware**.
+Board: ACEBOTT ESP32 Max V1.0 = "ESP32 Dev Module" (FQBN `esp32:esp32:esp32`,
+CH340 USB). Shield: QA052 "ESP32 Car Shield V1.0": motor directions through a
+shift register (SHCP 18, STCP 17, DATA 5, EN 16), speed on PWM pin 19.
 
-1. Take every `PIN_*` and the motor-driver wiring from the ACEBOTT tutorial
-   PDF of your board revision (the `TODO` block at the top of the sketch).
+Flashing: the Max V1.0 has no BOOT button. Connect the pin labelled "00"
+(GPIO0) to GND, press RST, `make firmware-flash PORT=/dev/cu.usbserial-XXXX`,
+remove the jumper, press RST again.
+
+Before the first drive:
+
+1. Establish the shift-register bit map (`MOTOR_FWD` / `MOTOR_BWD`):
+   `broomworm motor-map --link tcp` energises each bit alone and asks which
+   wheel turned; paste the two lines it prints into the sketch and re-flash. Confirm the EN polarity and
+   whether the shield has a second PWM pin (`PIN_PWM2`).
 2. Check the polarity of the line-tracking module (HIGH or LOW on a dark /
    missing floor) and the trip distance of the IR obstacle module.
 3. Measure the servo settle time and the real top speed; put the speed into

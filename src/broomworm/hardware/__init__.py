@@ -9,8 +9,9 @@ from broomworm.hardware.calibrate import calibrate, load_calibration, save_calib
 from broomworm.hardware.calibration import Calibration, RawReading
 from broomworm.hardware.compare import ComparisonReport, compare_logs, replay_in_sim
 from broomworm.hardware.drive import DriveRow, Teleop, drive, raw_keys, read_drive_log
-from broomworm.hardware.fake_robot import FakeRobot
+from broomworm.hardware.fake_robot import FakeRobot, serve_fake
 from broomworm.hardware.link import LineLink, RobotLink, SimLink, connect_tcp
+from broomworm.hardware.motor_map import MotorMapReport, motor_map
 from broomworm.hardware.plot import plot_drive_log
 from broomworm.hardware.room import Room, load_room, room_world
 from broomworm.hardware.selftest import SelfTestReport, selftest
@@ -21,6 +22,7 @@ __all__ = [
     "DriveRow",
     "FakeRobot",
     "LineLink",
+    "MotorMapReport",
     "RawReading",
     "RobotLink",
     "Room",
@@ -33,6 +35,7 @@ __all__ = [
     "drive",
     "load_calibration",
     "load_room",
+    "motor_map",
     "plot_drive_log",
     "raw_keys",
     "read_drive_log",
@@ -40,4 +43,5 @@ __all__ = [
     "room_world",
     "save_calibration",
     "selftest",
+    "serve_fake",
 ]
