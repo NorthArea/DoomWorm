@@ -221,3 +221,18 @@ def test_no_respawn_by_default() -> None:
     w.step(0.0, 0.0)
     w.step(1.0, 1.0)
     assert w.foods == []
+
+
+def test_angled_solid_lines_block_rays_and_sight() -> None:
+    """Stage B11: a map that comes from the Doom engine has walls at any angle."""
+    world = World(width=20.0, height=20.0, agent=AgentState(x=5.0, y=5.0, heading=0.0))
+    assert world.segments == [], "generated levels use axis-aligned walls only"
+    assert world.ray_distance(0.0) == pytest.approx(4.0), "nothing there: the sensor range"
+
+    world.segments = [(7.0, 3.0, 7.0, 7.0)]  # a 4-unit line two units ahead
+    assert world.ray_distance(0.0) == pytest.approx(2.0)
+    assert world.ray_distance(math.radians(30)) == pytest.approx(2.0 / math.cos(math.radians(30)))
+    assert world.ray_distance(math.radians(60)) == pytest.approx(4.0), "ray passes its end"
+    assert world.ray_distance(math.pi) == pytest.approx(4.0), "behind the agent"
+    assert not world.line_of_sight(9.0, 5.0)
+    assert world.line_of_sight(6.0, 5.0)

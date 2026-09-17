@@ -4,6 +4,7 @@ doomworm train                     evolve weights (stage 4 small network)
 doomworm train --scenario worm     evolve the connectome weights (stage 10)
 doomworm compare                   real vs random vs shuffled vs free topology (stage 11)
 doomworm benchmark --brain X       run any saved brain through the benchmark (stage 18)
+doomworm benchmark --maps doom4 --task doom --scripted doomguy   mini-Doom level (track B)
 doomworm evolve --candidate worm   train a bake-off candidate on the benchmark world (stage 21)
 doomworm ppo                       train the PPO candidate (optional rl group, stage 21.4)
 doomworm play --brain brain.json   replay a saved brain on a seeded world
@@ -26,6 +27,14 @@ from typing import Any
 from doomworm import __version__
 
 SENSOR_PRESETS = ("ideal", "vacuum", "noisy", "car")
+MAP_CHOICES = (
+    "fixed", "random", "apartment",
+    *(f"doom{n}" for n in range(1, 7)),  # mini-Doom on the simulator (track B)
+    *(f"vizdoom{n}" for n in range(1, 7)),  # the same levels in the Doom engine (doom group)
+    "stock_defend", "stock_corridor", "stock_home",  # stock ViZDoom scenarios (B11)
+)  # fmt: skip
+TASK_CHOICES = ("food", "target", "clean", "doom")
+SCRIPTED = ("follower", "roomba", "doomguy")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,14 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
     play.add_argument("--steps", type=int, default=600)
     play.add_argument("--every", type=int, default=50)
     play.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
-    play.add_argument(
-        "--maps", choices=["fixed", "random", "apartment"], default=None, help="override brain"
-    )
-    play.add_argument(
-        "--task", choices=["food", "target", "clean"], default=None, help="override brain"
-    )
+    play.add_argument("--maps", choices=MAP_CHOICES, default=None, help="override brain")
+    play.add_argument("--task", choices=TASK_CHOICES, default=None, help="override brain")
     play.add_argument("--dangers", type=int, default=None, help="override brain")
     play.add_argument("--sensors", choices=SENSOR_PRESETS, default=None, help="override brain")
+    play.add_argument(
+        "--watch",
+        action="store_true",
+        help="on a vizdoom level: open the Doom window and run at 35 tics a second",
+    )
 
     cmp = sub.add_parser("compare", help="train and compare connectome topologies")
     add_compare_args(cmp)
@@ -65,13 +75,13 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--brain", type=Path, default=None, help="worm brain JSON")
     bench.add_argument(
         "--scripted",
-        choices=["follower", "roomba"],
+        choices=SCRIPTED,
         default=None,
         help="benchmark a hand-written brain instead of --brain (follower = test driver)",
     )
     bench.add_argument("--name", default=None, help="row name (default: file stem)")
-    bench.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
-    bench.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    bench.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    bench.add_argument("--task", choices=TASK_CHOICES, default="clean")
     bench.add_argument("--dangers", type=int, default=0)
     bench.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     bench.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
@@ -84,6 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="none",
         help="wrap with the map layer",
     )
+    bench.add_argument(
+        "--watch",
+        action="store_true",
+        help="on a vizdoom level: open the Doom window and run at 35 tics a second",
+    )
 
     ev = sub.add_parser("evolve", help="train a bake-off candidate on the benchmark world")
     ev.add_argument(
@@ -94,8 +109,8 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
     ev.add_argument("--variant-seed", type=int, default=0, help="seed of a control topology")
     ev.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
-    ev.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
-    ev.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    ev.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    ev.add_argument("--task", choices=TASK_CHOICES, default="clean")
     ev.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     ev.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
     ev.add_argument("--train-repeats", type=int, default=1, help="noise seeds per training map")
@@ -110,8 +125,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     ppo = sub.add_parser("ppo", help="train the PPO candidate (needs the rl group)")
     ppo.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
-    ppo.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
-    ppo.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    ppo.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    ppo.add_argument("--task", choices=TASK_CHOICES, default="clean")
     ppo.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
     ppo.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
     ppo.add_argument("--steps", type=int, default=800)
@@ -134,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     drv = sub.add_parser("drive", help="drive the simulator or the machine through one link")
     add_link_args(drv)
     drv.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
-    drv.add_argument("--scripted", choices=["follower", "roomba"], default=None)
+    drv.add_argument("--scripted", choices=SCRIPTED, default=None)
     drv.add_argument("--teleop", action="store_true", help="wasd / 'l r' pairs from stdin")
     drv.add_argument("--planner", choices=["none", "coverage", "needs"], default="none")
     drv.add_argument("--steps", type=int, default=800)
@@ -154,12 +169,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     rb = sub.add_parser("robustness", help="sweep the assumed sensor numbers around a brain")
     rb.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
-    rb.add_argument("--scripted", choices=["follower", "roomba"], default=None)
+    rb.add_argument("--scripted", choices=SCRIPTED, default=None)
     rb.add_argument("--name", default=None)
     rb.add_argument("--planner", choices=["none", "coverage", "needs"], default="needs")
     rb.add_argument("--sensors", choices=SENSOR_PRESETS, default="car")
-    rb.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
-    rb.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    rb.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    rb.add_argument("--task", choices=TASK_CHOICES, default="clean")
     rb.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
     rb.add_argument("--repeats", type=int, default=2)
     rb.add_argument("--steps", type=int, default=800)
@@ -199,9 +214,9 @@ def add_link_args(parser: argparse.ArgumentParser) -> None:
         "--calibration", type=Path, default=None, help="JSON from doomworm calibrate"
     )
     parser.add_argument("--seed", type=int, default=3000, help="world seed (sim link)")
-    parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="apartment")
+    parser.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
     parser.add_argument("--room", type=Path, default=None, help="room file instead of --maps")
-    parser.add_argument("--task", choices=["food", "target", "clean"], default="clean")
+    parser.add_argument("--task", choices=TASK_CHOICES, default="clean")
     parser.add_argument("--sensor-seed", type=int, default=0)
 
 
@@ -254,6 +269,11 @@ def run_robustness_cli(args: argparse.Namespace) -> int:
 
         inner = RoombaBrain()
         name = args.name or "roomba"
+    elif args.scripted == "doomguy":
+        from doomworm.candidates import DoomguyBrain
+
+        inner = DoomguyBrain()
+        name = args.name or "doomguy"
     elif args.brain is not None:
         from doomworm.candidates import load_candidate
 
@@ -361,6 +381,10 @@ def run_drive_cli(args: argparse.Namespace) -> int:
         from doomworm.candidates import RoombaBrain
 
         controller = RoombaBrain()
+    elif args.scripted == "doomguy":
+        from doomworm.candidates import DoomguyBrain
+
+        controller = DoomguyBrain()
     elif args.brain is not None:
         from doomworm.candidates import load_candidate
 
@@ -442,11 +466,24 @@ def run_compare_log_cli(args: argparse.Namespace) -> int:
     return 0
 
 
+def enable_watch(maps: str | None) -> None:
+    """``--watch``: draw the episode in the Doom window instead of running it headless."""
+    if maps is None or not maps.startswith("vizdoom"):
+        raise SystemExit("--watch needs a Doom-engine level: --maps vizdoom1..vizdoom6")
+    try:
+        from doomworm.environments.doom.vizdoom_world import set_watch
+    except ImportError as e:  # pragma: no cover - depends on the optional group
+        raise SystemExit("--watch needs the doom group: uv sync --group doom") from e
+    set_watch(True)
+
+
 def run_benchmark_cli(args: argparse.Namespace) -> int:
     """Benchmark a saved brain (worm JSON) and update the leaderboard."""
     from doomworm.episode import BrainLike
     from doomworm.learning import BenchmarkConfig, run_benchmark, save_result, write_leaderboard
 
+    if args.watch:
+        enable_watch(args.maps)
     cfg = BenchmarkConfig(
         maps=args.maps,
         task=args.task,
@@ -467,6 +504,11 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
 
         brain = RoombaBrain()
         name = args.name or "roomba"
+    elif args.scripted == "doomguy":
+        from doomworm.candidates import DoomguyBrain
+
+        brain = DoomguyBrain()
+        name = args.name or "doomguy"
     elif args.brain is not None:
         from doomworm.candidates import load_candidate
 
@@ -603,6 +645,7 @@ def run_stimulate(args: argparse.Namespace) -> int:
 def run_play(args: argparse.Namespace) -> int:
     """Load a brain JSON and run one episode on the scenario named in its metadata."""
     from doomworm.brain import Simulator, load_brain
+    from doomworm.episode import Record, run_brain_episode
     from doomworm.experiments.episode import print_trace, render_ascii, run_episode, save_plot
     from doomworm.experiments.evolve_small import SmallFoodScenario
     from doomworm.experiments.worm_agent import WormScenario
@@ -611,33 +654,46 @@ def run_play(args: argparse.Namespace) -> int:
     net, meta = load_brain(args.brain)
     scenario_name = meta.get("scenario", "small_food")
     scenario: Scenario
+    trace: list[Record]
+    tracker = RewardTracker()
     if scenario_name == "small_food":
         scenario = SmallFoodScenario()
+        world = scenario.make_world(args.seed)
+        trace = run_episode(
+            world,
+            Simulator(net),
+            scenario.sensory,
+            scenario.motor,
+            args.steps,
+            tracker,
+            brain_steps=scenario.brain_steps,
+            sensors=None,  # the small scenario has no sensor suite
+        )
     elif scenario_name == "worm":
-        params = dict(meta.get("params", {}))
-        if args.maps is not None:
-            params["maps"] = args.maps
-        if args.task is not None:
-            params["task"] = args.task
-        if args.dangers is not None:
-            params["dangers"] = args.dangers
-        if args.sensors is not None:
-            params["sensors"] = args.sensors
+        from doomworm.candidates import WormBrain
+
+        overrides = {
+            k: v
+            for k, v in (
+                ("maps", args.maps),
+                ("task", args.task),
+                ("dangers", args.dangers),
+                ("sensors", args.sensors),
+            )
+            if v is not None
+        }
+        brain = WormBrain.from_file(args.brain, **overrides)
+        params = brain.meta["params"]
+        if args.watch:
+            enable_watch(params.get("maps"))
         scenario = WormScenario(**params)
+        world = scenario.make_world(args.seed)
+        # the Brain loop: same trace as the old loop, plus the trigger on Doom levels
+        trace = run_brain_episode(
+            world, brain, args.steps, tracker, sensors=scenario.make_sensors(args.seed)
+        )
     else:
         raise SystemExit(f"unknown scenario {scenario_name!r}")
-    world = scenario.make_world(args.seed)
-    tracker = RewardTracker()
-    trace = run_episode(
-        world,
-        Simulator(net),
-        scenario.sensory,
-        scenario.motor,
-        args.steps,
-        tracker,
-        brain_steps=scenario.brain_steps,
-        sensors=scenario.make_sensors(args.seed),
-    )
 
     from doomworm.experiments.worm_agent import summarise
 

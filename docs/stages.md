@@ -64,12 +64,13 @@ and dense variants are trained as controls in every later run.
 |---|------|-------|------|--------|
 | 23.1 | C5 robustness: sweep of the car preset's assumed numbers around the two chosen brains (`doomworm robustness`), 3 seeds | `tests/test_robustness.py` | `make robustness-car` | done: tie split by parameter (worm calmer under noise and delay, PPO under drift and narrow camera); `docs/findings.md` C5, `docs/results/a3/robustness_2026-09-16/` |
 | 23.2 | C6 cost of training: 12 training maps x 2 noise repeats for the worm and PPO on the car preset, 3 seeds; environment-step accounting | `tests/test_bakeoff.py` | `make evolve-car CANDIDATE=worm` (`--train-seeds 12 --train-repeats 2`) | done: worm 44.4 ± 5.6 > PPO 37.5 ± 8.4 (tie leaning worm) at 64x the env steps; `docs/findings.md` C6, `docs/results/a3/benchmark_car12_2026-09-16/`, brains `docs/brains/car_12maps/` |
-| 23.3 | C7 hybrids: worm as the motivational layer over a net; worm + small net | | | todo |
 
 ## Track B: Doom player (after phase A1)
 
-| # | Stage | Status |
-|---|-------|--------|
-| B1 | ViZDoom platform: Gymnasium env, structured observations, scenarios (Plan §21-33) | todo |
-| B2 | Candidate brains on the Doom benchmark | todo |
-| B3 | Visual input (Plan §34) | todo |
+| # | Stage | Tests | Demo | Status |
+|---|-------|-------|------|--------|
+| B1 | Mini-Doom without Doom on the 2D platform (Plan §21-23, §27-32): enemies (line of sight, hurt in range, walk), the gun (hitscan on the body, cooldown), the exit that ends the episode, six seeded levels `doom1`..`doom6`, `aim` and `ammo` channels, reward hit/kill, the trigger on every candidate (worm: pharyngeal group; rnn/ncp: third output; PPO: third action), the hand-written `doomguy` floor, benchmark counters kills/hits/shots/exited | `tests/test_doom.py` | `make demo-b1 LEVEL=doom4` | done 2026-09-16 |
+| B4 | The Doom engine behind the same World contract (Plan §24-26): PWAD written from the seeded layout (no stock map), ViZDoom in PLAYER mode headless, structured observations from game variables and the object list (no framebuffer), wheels -> thrust / turn-rate delta buttons calibrated to the simulator's speed, ATTACK = the trigger; levels `vizdoom1`..`vizdoom6` = the same layouts as `doom1`..`doom6`; optional `doom` dependency group | `tests/test_vizdoom.py` (engine tests skipped without the group) | `make demo-b4 LEVEL=doom4` | done 2026-09-16 (software side); every mini-Doom brain runs in the engine unchanged |
+| B5-B10 | Doom levels 1-6 (Plan §27-32) | | | the `vizdoom1`..`vizdoom6` rows of B4 |
+| B11 | Doom level 7 (Plan §33): a scenario shipped with ViZDoom, a map nobody here drew. The engine's blocking sector lines become the world's angled walls (`World.segments`), its object list the enemies, its game variables the pose/health/ammo; sensing, `aim`, the trigger and the reward are the platform's existing code, still no framebuffer. Levels `stock_defend`, `stock_corridor`, `stock_home` | `tests/test_stock.py` (skipped without the doom group) | `make demo-b11 STOCK=stock_defend`, `make watch-stock` | done 2026-09-16 on `stock_defend` (4 episodes each, brains from `doom4`/seed 0): floor `doomguy` 22.8 > worm_shuffled 14.9 (4.0 kills) > worm 3.2 (2.0 kills) > follower 1.1 > rnn −29.6 > curriculum worm −32.4 > PPO −37.3. Only the worm family fires; rnn and PPO never do. Plan §33's bar (survive, move, avoid walls, react, occasionally attack) is partly met by the bare worm. `runs/benchmark_doom/stock/leaderboard.md` |
+| B3 / B12 | Visual input (Plan §34-36) | | | todo, only after B2 numbers are in the map |

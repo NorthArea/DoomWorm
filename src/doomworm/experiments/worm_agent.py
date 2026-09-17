@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from doomworm.adapters import GroupMotorAdapter, SensoryAdapter
+from doomworm.adapters import FireAdapter, GroupMotorAdapter, SensoryAdapter
 from doomworm.brain import Network, Simulator
 from doomworm.connectome import (
     Connectome,
@@ -31,6 +31,7 @@ from doomworm.connectome import (
     default_sensory_mapping,
     load_cook2019,
 )
+from doomworm.environments.doom.levels import LEVELS, is_doom_level
 from doomworm.environments.maze import rooms_visited
 from doomworm.environments.sensors import PRESETS, SensorSuite
 from doomworm.environments.simple_2d import World
@@ -59,6 +60,7 @@ class WormScenario:
         decay: float = 0.5,
         gain_drive: float = 6.0,
         gain_turn: float = 6.0,
+        gain_fire: float = 10.0,
         brain_steps: int = 5,
         maps: str = "fixed",
         task: str = "food",
@@ -78,12 +80,16 @@ class WormScenario:
         self.motor = GroupMotorAdapter(
             m.forward, m.reversal, m.turn_left, m.turn_right, gain_drive, gain_turn
         )
+        # the trigger (Plan §22) reads the pharyngeal group; absent when the mapping has none
+        self.trigger: FireAdapter | None = FireAdapter(m.fire, gain_fire) if m.fire else None
         self.brain_steps = brain_steps
-        if maps not in ("fixed", "random", "apartment"):
-            raise ValueError("maps must be 'fixed', 'random' or 'apartment'")
+        if maps not in ("fixed", "random", "apartment") and not is_doom_level(maps):
+            raise ValueError(
+                "maps must be 'fixed', 'random', 'apartment', doom1..6, vizdoom1..6 or stock_*"
+            )
         self.maps = maps
-        if task not in ("food", "target", "clean"):
-            raise ValueError("task must be 'food', 'target' or 'clean'")
+        if task not in ("food", "target", "clean", "doom"):
+            raise ValueError("task must be 'food', 'target', 'clean' or 'doom'")
         self.task = task
         self.dangers = dangers
         if sensors not in PRESETS:
@@ -97,6 +103,7 @@ class WormScenario:
             "decay": decay,
             "gain_drive": gain_drive,
             "gain_turn": gain_turn,
+            "gain_fire": gain_fire,
             "brain_steps": brain_steps,
             "maps": maps,
             "task": task,
@@ -161,6 +168,10 @@ def summarise(trace: list[Record], world: World) -> dict[str, float]:
         "dockings": world.dockings,
         "charging": world.charging_ticks,
         "collisions": world.collisions,
+        "kills": world.kills,
+        "hits": world.hits,
+        "shots": world.shots,
+        "exited": int(world.exited),
         "reward": sum(r.reward for r in trace),
         "mean_left": float(np.mean([r.motors[0] for r in trace])),
         "mean_right": float(np.mean([r.motors[1] for r in trace])),
@@ -176,8 +187,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every", type=int, default=25)
     parser.add_argument("--tonic-avb", type=float, default=0.1)
     parser.add_argument("--obstacle-gain", type=float, default=3.0)
-    parser.add_argument("--maps", choices=["fixed", "random", "apartment"], default="fixed")
-    parser.add_argument("--task", choices=["food", "target", "clean"], default="food")
+    parser.add_argument(
+        "--maps", choices=["fixed", "random", "apartment", *LEVELS], default="fixed"
+    )
+    parser.add_argument("--task", choices=["food", "target", "clean", "doom"], default="food")
     parser.add_argument("--dangers", type=int, default=0)
     parser.add_argument("--sensors", choices=list(PRESETS), default="ideal")
     parser.add_argument("--plot", action="store_true", help="save runs/stage9_worm_<seed>.png")

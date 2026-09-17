@@ -24,3 +24,6 @@ htmlcov/
 # Experiment outputs (results are saved here, see docs/)
 runs/
 *.log
+
+# ViZDoom engine settings written next to the process
+_vizdoom.ini

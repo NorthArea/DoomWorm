@@ -88,6 +88,24 @@ class Danger:
     radius: float = 1.0
 
 
+@dataclass
+class Enemy:
+    """Mini-Doom monster (Plan §21-23, §29-31): sensed like a danger, hurts in range, can be shot.
+
+    Not solid. Every tick the agent is within ``attack_range`` with line of sight it
+    loses ``damage`` health. With ``speed`` > 0 it walks toward the agent while it sees
+    it (stage B9). ``health`` hits kill it.
+    """
+
+    x: float
+    y: float
+    radius: float = 0.6  # a Doom zombie is 20 map units wide (0.625 u); the body the shot must hit
+    health: int = 3
+    speed: float = 0.0
+    attack_range: float = 3.0
+    damage: float = 0.05
+
+
 @dataclass(frozen=True)
 class Dock:
     """Charging dock (Plan §20.3, stage 16): persistent, beacon of limited range."""
@@ -233,6 +251,12 @@ class World:
         dangers: Sequence[Danger] = (),
         damage_rate: float = 0.25,
         dock: Dock | None = None,
+        enemies: Sequence[Enemy] = (),
+        fire_enabled: bool = False,
+        fire_range: float = 6.0,
+        fire_cooldown: int = 5,
+        ammo: int = 50,
+        exit_ends: bool = False,
         seed: int | None = None,
         agent_radius: float = 0.5,
         sensor_range: float = 4.0,
@@ -256,6 +280,19 @@ class World:
         self.health = 1.0
         self.damage_taken = 0
         self.dock = dock
+        # mini-Doom (Plan §21-23): monsters, the gun and the exit
+        self.enemies = list(enemies)
+        self.has_gun = fire_enabled
+        self.ammo_max = ammo
+        self.ammo = ammo if fire_enabled else 0
+        self.fire_range = fire_range
+        self.fire_cooldown = fire_cooldown
+        self.exit_ends = exit_ends
+        self.shots = 0
+        self.hits = 0
+        self.kills = 0
+        self.exited = False
+        self._cooldown = 0
         self.dirt: DirtMap | None = None
         self.charging_ticks = 0
         self.dockings = 0
@@ -302,10 +339,24 @@ class World:
         """True once health is gone (danger) or hunger has saturated."""
         return self.health <= 0.0 or self.starved
 
+    @property
+    def fire_enabled(self) -> bool:
+        """True while the agent carries a loaded gun (a Doom pistol starts with 50 rounds)."""
+        return self.has_gun and self.ammo > 0
+
+    @property
+    def finished(self) -> bool:
+        """True when the episode is over: dead, or through the exit (mini-Doom)."""
+        return self.dead or self.exited
+
     # --- dynamics -----------------------------------------------------------
 
-    def step(self, motor_left: float, motor_right: float) -> Observation:
-        """Apply motor commands in [-1, 1] (negative = reverse) for one tick."""
+    def step(self, motor_left: float, motor_right: float, fire: bool = False) -> Observation:
+        """Apply motor commands in [-1, 1] (negative = reverse) for one tick.
+
+        ``fire`` pulls the trigger (Plan §22); it does nothing unless the world has
+        ``fire_enabled`` and the cooldown has elapsed.
+        """
         left = _clamp(motor_left, -1.0, 1.0)
         right = _clamp(motor_right, -1.0, 1.0)
         self.last_command = (left, right)
@@ -327,6 +378,8 @@ class World:
         self.hunger = _clamp(self.hunger + self.hunger_rate, 0.0, 1.0)
         ate = self._eat()
         reached = self._reach()
+        fired, hit, killed = self._fire(fire)
+        self._move_enemies()
         damaged = self._take_damage()
         cleaned = self._clean()
         docked = self._charge()
@@ -338,7 +391,88 @@ class World:
             damaged=damaged,
             cleaned=cleaned,
             docked=docked,
+            fired=fired,
+            hit=hit,
+            killed=killed,
         )
+
+    # --- mini-Doom (Plan §21-23) ------------------------------------------------
+
+    def line_of_sight(self, x: float, y: float) -> bool:
+        """True when no wall or obstacle lies between the agent and the point."""
+        ax, ay = self.agent.x, self.agent.y
+        distance = math.dist((ax, ay), (x, y))
+        if distance <= 1e-9:
+            return True
+        return self.ray_distance(math.atan2(y - ay, x - ax), limit=distance) >= distance
+
+    def _fire(self, fire: bool) -> tuple[bool, int, int]:
+        """Hitscan along the heading (like Doom's pistol): the nearest visible body on the ray."""
+        if self._cooldown > 0:
+            self._cooldown -= 1
+        if not (fire and self.fire_enabled) or self._cooldown > 0:
+            return False, 0, 0
+        self._cooldown = self.fire_cooldown
+        self.ammo -= 1
+        self.shots += 1
+        ax, ay = self.agent.x, self.agent.y
+        on_ray = []
+        for e in self.enemies:
+            distance = math.dist((ax, ay), (e.x, e.y))
+            if distance > self.fire_range:
+                continue
+            bearing = _wrap_angle(math.atan2(e.y - ay, e.x - ax) - self.agent.heading)
+            if abs(bearing) <= math.atan2(e.radius, distance) and self.line_of_sight(e.x, e.y):
+                on_ray.append((distance, e))
+        if not on_ray:
+            return True, 0, 0
+        _, target = min(on_ray, key=lambda pair: pair[0])
+        target.health -= 1
+        self.hits += 1
+        if target.health > 0:
+            return True, 1, 0
+        self.enemies.remove(target)
+        self.kills += 1
+        return True, 1, 1
+
+    def _move_enemies(self) -> None:
+        """A walking enemy closes in on the agent while it sees it; walls stop it."""
+        ax, ay = self.agent.x, self.agent.y
+        for e in self.enemies:
+            if e.speed <= 0.0:
+                continue
+            distance = math.dist((ax, ay), (e.x, e.y))
+            if distance <= e.attack_range / 2.0 or not self.line_of_sight(e.x, e.y):
+                continue
+            step = min(e.speed, distance)
+            nx = e.x + (ax - e.x) / distance * step
+            ny = e.y + (ay - e.y) / distance * step
+            if self.clearance(nx, ny) > e.radius:
+                e.x, e.y = nx, ny
+
+    def spawn_enemy(
+        self,
+        *,
+        radius: float = 0.5,
+        health: int = 3,
+        speed: float = 0.0,
+        margin: float = 1.0,
+        min_distance: float = 5.0,
+        tries: int = 200,
+    ) -> Enemy:
+        """Draw an enemy position clear of solids, away from the agent and the exit."""
+        for _ in range(tries):
+            x = self.rng.uniform(radius + margin, self.width - radius - margin)
+            y = self.rng.uniform(radius + margin, self.height - radius - margin)
+            if self.clearance(x, y) <= radius + margin:
+                continue
+            if math.dist((x, y), (self.agent.x, self.agent.y)) <= min_distance:
+                continue
+            t = self.target
+            if t is not None and math.dist((x, y), (t.x, t.y)) <= radius + margin + 1.0:
+                continue
+            return Enemy(x=x, y=y, radius=radius, health=health, speed=speed)
+        raise RuntimeError("could not place enemy after many tries")
 
     def _clean(self) -> int:
         if self.dirt is None:
@@ -364,9 +498,13 @@ class World:
         inside = any(
             math.dist((ax, ay), (d.x, d.y)) < d.radius + self.agent_radius for d in self.dangers
         )
-        if not inside:
+        loss = self.damage_rate if inside else 0.0
+        for e in self.enemies:
+            if math.dist((ax, ay), (e.x, e.y)) <= e.attack_range and self.line_of_sight(e.x, e.y):
+                loss += e.damage
+        if loss <= 0.0:
             return False
-        self.health = _clamp(self.health - self.damage_rate, 0.0, 1.0)
+        self.health = _clamp(self.health - loss, 0.0, 1.0)
         self.damage_taken += 1
         return True
 
@@ -390,6 +528,8 @@ class World:
         if math.dist((self.agent.x, self.agent.y), (t.x, t.y)) >= self.agent_radius + t.radius:
             return False
         self.targets_reached += 1
+        if self.exit_ends:
+            self.exited = True
         self.target = self.spawn_target(t.radius) if self.respawn_target else None
         return True
 
@@ -458,11 +598,13 @@ class World:
         f_left, f_front, f_right = self._sense_food()
         t_left, t_front, t_right = self._sense_target()
         d_left, d_front, d_right = self._sense_danger()
+        p_left, p_front, p_right = self._sense_prey()
         k_left, k_front, k_right = self._sense_dock()
         return Observation(
             sensor_left=left,
             sensor_front=front,
             sensor_right=right,
+            aim=self._aim(),
             food_left=f_left,
             food_front=f_front,
             food_right=f_right,
@@ -489,11 +631,56 @@ class World:
             return 0.0, 0.0, 0.0
         return self._sector_signal(d.x, d.y)
 
+    def _aim(self) -> float:
+        """How centred the nearest visible enemy is: 1 dead ahead, 0 at the sector edge or none.
+
+        The one extra structured number a shooter needs (Plan §25, §30): the sectors
+        say "ahead", this says how far off the gun line, without a framebuffer.
+        """
+        ax, ay = self.agent.x, self.agent.y
+        best = 0.0
+        best_distance = math.inf
+        for e in self.enemies:
+            distance = math.dist((ax, ay), (e.x, e.y))
+            if distance >= best_distance or not self.line_of_sight(e.x, e.y):
+                continue
+            bearing = _wrap_angle(math.atan2(e.y - ay, e.x - ax) - self.agent.heading)
+            if abs(bearing) <= FOOD_FRONT_HALF_ANGLE:
+                best_distance = distance
+                best = 1.0 - abs(bearing) / FOOD_FRONT_HALF_ANGLE
+        return best
+
     def _sense_danger(self) -> tuple[float, float, float]:
-        if not self.dangers:
+        """Nearest hazard: a danger zone (a smell, through walls) or a visible monster.
+
+        The enemy is a danger under another name, but it is *seen*: a monster
+        behind a wall is not on the channels (Plan §2.4, §25).
+        """
+        points = [(d.x, d.y) for d in self.dangers]
+        points += [(e.x, e.y) for e in self.enemies if self.line_of_sight(e.x, e.y)]
+        if not points:
             return 0.0, 0.0, 0.0
         ax, ay = self.agent.x, self.agent.y
-        nearest = min(self.dangers, key=lambda d: math.dist((ax, ay), (d.x, d.y)))
+        nx, ny = min(points, key=lambda p: math.dist((ax, ay), p))
+        return self._sector_signal(nx, ny)
+
+    def _sense_prey(self) -> tuple[float, float, float]:
+        """The nearest visible enemy read as an attractant, by side (track B, stage B2d).
+
+        The same monster already arrives on ``danger_*``, which the default mapping
+        routes to the nociceptive pair ASH -- the animal's escape pathway. A brain
+        that must line its body up with a target needs the opposite reading as well:
+        prey on the left, prey ahead, prey on the right, on the gradient the worm's
+        own taxis machinery knows how to climb. Without a loaded gun there is no
+        prey, only a hazard.
+        """
+        if not self.has_gun:
+            return 0.0, 0.0, 0.0
+        ax, ay = self.agent.x, self.agent.y
+        seen = [e for e in self.enemies if self.line_of_sight(e.x, e.y)]
+        if not seen:
+            return 0.0, 0.0, 0.0
+        nearest = min(seen, key=lambda e: math.dist((ax, ay), (e.x, e.y)))
         return self._sector_signal(nearest.x, nearest.y)
 
     def _sense_food(self) -> tuple[float, float, float]:
@@ -525,11 +712,15 @@ class World:
         distance = self.ray_distance(self.agent.heading + angle_offset)
         return _clamp(1.0 - distance / self.sensor_range, 0.0, 1.0)
 
-    def ray_distance(self, angle: float) -> float:
-        """Distance from the agent centre to the nearest surface along ``angle``."""
+    def ray_distance(self, angle: float, limit: float | None = None) -> float:
+        """Distance from the agent centre to the nearest surface along ``angle``.
+
+        Capped at ``limit`` (default: the sensor range); line-of-sight checks pass
+        the distance to the point they test.
+        """
         ox, oy = self.agent.x, self.agent.y
         dx, dy = math.cos(angle), math.sin(angle)
-        best = self.sensor_range
+        best = self.sensor_range if limit is None else limit
 
         for o in self.obstacles:
             t = _ray_circle(ox, oy, dx, dy, o.x, o.y, o.radius)
@@ -549,6 +740,27 @@ class World:
             if t is not None:
                 best = min(best, t)
         return best
+
+
+def _ray_segment(
+    ox: float,
+    oy: float,
+    dx: float,
+    dy: float,
+    segment: tuple[float, float, float, float],
+) -> float | None:
+    """Distance along the ray to a solid line, or None when it does not cross it."""
+    ax, ay, bx, by = segment
+    sx, sy = bx - ax, by - ay
+    denom = dx * sy - dy * sx
+    if abs(denom) < 1e-12:  # parallel
+        return None
+    wx, wy = ax - ox, ay - oy
+    t = (wx * sy - sx * wy) / denom
+    u = (wx * dy - dx * wy) / denom
+    if t < 0.0 or not 0.0 <= u <= 1.0:
+        return None
+    return t
 
 
 def _ray_circle(

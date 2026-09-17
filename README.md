@@ -67,6 +67,8 @@ make benchmark BRAIN=runs/worm_evolved_random.json          # stage 18: benchmar
 make benchmark-a2                                           # stage 21: A2 bake-off of every candidate
 make demo-22                                                # stage 22.1: drive over the robot link, replay the log
 make selftest-sim                                           # stage 22.2 rehearsal: self-test, calibration, room drive
+make demo-b1 LEVEL=doom4                                    # track B: mini-Doom level 4 (enemy + gun) on the simulator
+make demo-b4 LEVEL=doom4                                    # track B: the same level in the Doom engine (uv sync --group doom)
 uv run doomworm play --brain runs/small_evolved.json --seed 1003 --plot
 ```
 
@@ -90,11 +92,12 @@ src/doomworm/
   connectome/      C. elegans loader, internal graph, name mappings, topology controls
   adapters/        sensory (channels -> currents), motor (activity -> wheels)
   environments/    simple_2d world, maze/apartment maps, sensor suite + presets
-                   (ideal | vacuum | noisy | car), worlds.py factories, gym_env.py
+                   (ideal | vacuum | noisy | car), worlds.py factories, gym_env.py,
+                   doom/ (track B): mini-Doom levels, PWAD writer, the Doom engine world
   layer/           the engineered layer outside the brain: occupancy grid, path and
                    coverage planning, needs arbitration, PlannerLayer (dock autopilot,
                    bumper reflex, marker search), GradientFollower
-  candidates/      the brains compared on the benchmark: worm, rnn, ncp, roomba,
+  candidates/      the brains compared on the benchmark: worm, rnn, ncp, roomba, doomguy,
                    Brain / Trainable protocols, registry + load_candidate (PPO via rl group)
   learning/        reward, evolution, benchmark + leaderboard, bake-off harness,
                    PPO (rl group), multi-seed summary

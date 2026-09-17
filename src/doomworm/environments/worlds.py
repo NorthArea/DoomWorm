@@ -12,7 +12,33 @@ BATTERY_DRAIN = 0.002  # 500 ticks from full to empty (Plan §8 range)
 
 
 def build_world(seed: int, maps: str = "fixed", task: str = "food", dangers: int = 0) -> World:
-    """Seeded world for any brain: ``fixed`` (stage 4 layout), ``random`` (§18), ``apartment``."""
+    """Seeded world for any brain: ``fixed`` (stage 4 layout), ``random`` (§18), ``apartment``.
+
+    ``doom1`` .. ``doom6`` are the mini-Doom levels (Plan §21-23, §27-32); their task
+    is ``doom`` (exit, enemies, the gun) and ``dangers`` adds hazard zones on top.
+    ``vizdoom1`` .. ``vizdoom6`` are the same layouts run by the Doom engine (Plan §24);
+    ``stock_*`` are the scenarios shipped with ViZDoom, maps nobody here drew (Plan §33).
+    """
+    if maps.startswith("stock_"):  # stage B11: a scenario shipped with ViZDoom (Plan §33)
+        from doomworm.environments.doom.stock import stock_world
+
+        if task != "doom":
+            raise ValueError("a doom level needs task 'doom'")
+        return stock_world(seed, maps)
+    if maps.startswith("doom") or maps.startswith("vizdoom"):
+        from doomworm.environments.doom.levels import doom_world
+
+        if task != "doom":
+            raise ValueError("a doom level needs task 'doom'")
+        if maps.startswith("vizdoom"):  # the same level run by the Doom engine (optional group)
+            from doomworm.environments.doom.vizdoom_world import vizdoom_world
+
+            return vizdoom_world(seed, maps)
+        world = doom_world(seed, maps)
+        world.dangers = [world.spawn_danger() for _ in range(dangers)]
+        return world
+    if task == "doom":
+        raise ValueError("task 'doom' needs a doom level (maps doom1..doom6)")
     if maps == "random":
         return apply_task(random_world(seed, MapConfig(n_food=N_FOOD, n_dangers=0)), task, dangers)
     if maps == "apartment":

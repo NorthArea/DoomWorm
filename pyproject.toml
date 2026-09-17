@@ -37,6 +37,9 @@ rl = [  # optional: PPO / NCP candidates of the A2 bake-off (Plan §20.4), torch
     "stable-baselines3>=2.3",
     "torch>=2.2",
 ]
+doom = [  # optional: track B, the real Doom behind the same Brain interface (Plan §24)
+    "vizdoom>=1.3.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -90,7 +93,7 @@ warn_unreachable = true
 pretty = true
 
 [[tool.mypy.overrides]]
-module = ["networkx.*", "matplotlib.*", "stable_baselines3.*", "torch.*", "ncps.*"]
+module = ["networkx.*", "matplotlib.*", "stable_baselines3.*", "torch.*", "ncps.*", "vizdoom.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------

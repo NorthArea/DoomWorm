@@ -14,6 +14,8 @@ Movement is never rewarded directly. Rewarded events:
     collision           +collision per tick of contact, capped per episode
     new cell visited    +new_cell (cell_size x cell_size grid)
     starved             +starvation once, episode ends
+    enemy hit           +hit per hit (mini-Doom, Plan §23)
+    enemy killed        +kill per kill; the exit is a target (+target), death as above
 """
 
 from __future__ import annotations
@@ -39,6 +41,8 @@ class RewardConfig:
     new_cell: float = 0.1
     cell_size: float = 1.0
     starvation: float = -20.0
+    hit: float = 2.0
+    kill: float = 10.0
 
 
 @dataclass
@@ -58,6 +62,8 @@ class RewardTracker:
             "collision": 0.0,
             "explore": 0.0,
             "starvation": 0.0,
+            "hit": 0.0,
+            "kill": 0.0,
         }
     )
     _visited: set[tuple[int, int]] = field(default_factory=set)
@@ -85,6 +91,8 @@ class RewardTracker:
         cleaned: int = 0,
         docked: bool = False,
         battery: float = 1.0,
+        hit: int = 0,
+        killed: int = 0,
     ) -> float:
         """Score one tick and return its reward."""
         reward = 0.0
@@ -96,6 +104,10 @@ class RewardTracker:
             reward += self._add("target", cfg.target)
         if damaged:
             reward += self._add("damage", cfg.damage)
+        if hit:
+            reward += self._add("hit", cfg.hit * hit)
+        if killed:
+            reward += self._add("kill", cfg.kill * killed)
         if cleaned:
             reward += self._add("clean", cfg.clean * cleaned)
         if battery >= cfg.recharged:

@@ -143,12 +143,15 @@ class MotorMapping:
     ``forward`` and ``reversal`` set the drive, ``turn_left`` / ``turn_right``
     the differential. Dorsal (SMDD) is read as left and ventral (SMDV) as
     right: an admitted artifice, the worm bends its head dorso-ventrally.
+    ``fire`` (Plan §22, track B) is the trigger group: pharyngeal pumping
+    motor neurons, read as "bite"; empty for a brain without a gun.
     """
 
     forward: list[str] = field(default_factory=list)
     reversal: list[str] = field(default_factory=list)
     turn_left: list[str] = field(default_factory=list)
     turn_right: list[str] = field(default_factory=list)
+    fire: list[str] = field(default_factory=list)
 
     def groups(self) -> dict[str, list[str]]:
         """Group name -> neurons."""
@@ -157,6 +160,7 @@ class MotorMapping:
             "reversal": self.reversal,
             "turn_left": self.turn_left,
             "turn_right": self.turn_right,
+            "fire": self.fire,
         }
 
     def neurons(self) -> set[str]:
@@ -164,11 +168,11 @@ class MotorMapping:
         return {n for g in self.groups().values() for n in g}
 
     def validate(self, connectome: Connectome) -> None:
-        """Raise if any neuron is missing or any group is empty."""
+        """Raise if any neuron is missing or any drive group is empty."""
         missing = sorted(n for n in self.neurons() if n not in connectome)
         if missing:
             raise KeyError(f"motor mapping references unknown neurons: {missing}")
-        empty = [name for name, group in self.groups().items() if not group]
+        empty = [name for name, group in self.groups().items() if not group and name != "fire"]
         if empty:
             raise ValueError(f"empty motor groups: {empty}")
 
@@ -206,6 +210,7 @@ def default_motor_mapping() -> MotorMapping:
         + [f"DA{i:02d}" for i in range(1, 10)],
         turn_left=["SMDDL", "SMDDR", "RIVL"],
         turn_right=["SMDVL", "SMDVR", "RIVR"],
+        fire=["M3L", "M3R", "M4", "MCL", "MCR"],
     )
 
 

@@ -34,23 +34,28 @@ class NCPBrain:
         forward: float = 0.5,
         name: str = "ncp",
         meta: dict[str, Any] | None = None,
+        outputs: int = 2,
     ) -> None:
         import torch
         from ncps.torch import CfC
         from ncps.wirings import AutoNCP
 
+        if outputs not in (2, 3):
+            raise ValueError("outputs must be 2 (wheels) or 3 (wheels + fire)")
         torch.set_num_threads(1)
         torch.manual_seed(seed)
         self.inputs = [c for c in inputs if c not in UNBOUNDED]
         self.units = units
         self.seed = seed
+        self.outputs = outputs  # 3: the third motor neuron is the trigger (track B)
         self.name = name
         self.meta = dict(meta or {}) | {"candidate": "ncp"}
-        self.wiring = AutoNCP(units, 2, seed=seed)
+        self.wiring = AutoNCP(units, outputs, seed=seed)
         self.model = CfC(len(self.inputs), self.wiring, batch_first=True)
         self.model.eval()
         self._torch = torch
-        self.bias_out = np.array([forward, forward])
+        self.bias_out = np.array([forward, forward, 0.0][:outputs])
+        self.fire = 0.0
         self.hidden: Any = None
         self.activity_vector = np.zeros(units)
 
@@ -59,6 +64,7 @@ class NCPBrain:
     def reset(self) -> None:
         """Clear the cell state."""
         self.hidden = None
+        self.fire = 0.0
         self.activity_vector = np.zeros(self.units)
 
     def act(self, channels: Mapping[str, float]) -> Wheels:
@@ -68,8 +74,10 @@ class NCPBrain:
         with torch.no_grad():
             out, self.hidden = self.model(x, self.hidden)
         self.activity_vector = self.hidden[0].numpy().astype(float)
-        left, right = np.clip(out[0, 0].numpy().astype(float) + self.bias_out, -1.0, 1.0)
-        return float(left), float(right)
+        motors = np.clip(out[0, 0].numpy().astype(float) + self.bias_out, -1.0, 1.0)
+        if self.outputs == 3:
+            self.fire = float(motors[2])
+        return float(motors[0]), float(motors[1])
 
     @property
     def activity(self) -> dict[str, float]:
@@ -80,8 +88,8 @@ class NCPBrain:
 
     @property
     def n_weights(self) -> int:
-        """Every torch parameter of the cell plus the two output biases."""
-        return int(sum(p.numel() for p in self.model.parameters())) + 2
+        """Every torch parameter of the cell plus the output biases."""
+        return int(sum(p.numel() for p in self.model.parameters())) + self.outputs
 
     def get_weights(self) -> list[float]:
         """Flat parameter vector (parameters in module order)."""
@@ -101,7 +109,7 @@ class NCPBrain:
                 chunk = self._torch.tensor(w[cut : cut + n], dtype=p.dtype).reshape(p.shape)
                 p.copy_(chunk)
                 cut += n
-        self.bias_out = w[cut : cut + 2].copy()
+        self.bias_out = w[cut : cut + self.outputs].copy()
 
     # --- persistence ---------------------------------------------------------------
 
@@ -112,6 +120,7 @@ class NCPBrain:
             "inputs": self.inputs,
             "units": self.units,
             "seed": self.seed,
+            "outputs": self.outputs,
             "weights": self.get_weights(),
             "meta": self.meta,
         }
@@ -124,7 +133,12 @@ class NCPBrain:
         if data.get("kind") != "ncp":
             raise ValueError(f"{path} is not an ncp brain")
         brain = cls(
-            data["inputs"], data["units"], data["seed"], name=Path(path).stem, meta=data.get("meta")
+            data["inputs"],
+            data["units"],
+            data["seed"],
+            name=Path(path).stem,
+            meta=data.get("meta"),
+            outputs=int(data.get("outputs", 2)),
         )
         brain.set_weights(data["weights"])
         return brain

@@ -76,3 +76,23 @@ class GroupMotorAdapter:
         """Return ``(motor_left, motor_right)`` in [-1, 1]."""
         c = self.components(activity)
         return _clip(c["drive"] + c["turn"]), _clip(c["drive"] - c["turn"])
+
+
+class FireAdapter:
+    """The trigger from a neuron group (Plan §22): ``fire = gain * mean(group)`` in [0, 1].
+
+    An admitted artifice: the worm has no gun. The group is read like a motor
+    group; the episode loop pulls the trigger when the value exceeds 0.5. The
+    topology is never changed for it.
+    """
+
+    def __init__(self, group: Sequence[str], gain: float = 10.0) -> None:
+        if not group:
+            raise ValueError("fire group must not be empty")
+        self.group = list(group)
+        self.gain = gain
+
+    def __call__(self, activity: Mapping[str, float]) -> float:
+        """Trigger level in [0, 1]."""
+        mean = sum(activity.get(n, 0.0) for n in self.group) / len(self.group)
+        return max(0.0, min(1.0, self.gain * mean))

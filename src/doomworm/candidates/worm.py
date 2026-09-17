@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from doomworm.adapters import SensoryAdapter
+from doomworm.adapters import FireAdapter, SensoryAdapter
 from doomworm.brain import Network, Simulator, load_brain, save_brain
 from doomworm.candidates.base import Wheels
 from doomworm.episode import MotorLike, average_activity
@@ -23,14 +23,17 @@ class WormBrain:
         brain_steps: int = 5,
         name: str = "worm",
         meta: dict[str, Any] | None = None,
+        trigger: FireAdapter | None = None,
     ) -> None:
         self.network = network
         self.sensory = sensory
         self.motor = motor
+        self.trigger = trigger
         self.brain_steps = brain_steps
         self.name = name
         self.meta = dict(meta or {})
         self.activity: dict[str, float] = {}
+        self.fire = 0.0
         self.sim = Simulator(network)
 
     def reset(self) -> None:
@@ -38,12 +41,15 @@ class WormBrain:
         self.network.reset()
         self.sim = Simulator(self.network)
         self.activity = {}
+        self.fire = 0.0
 
     def act(self, channels: Mapping[str, float]) -> Wheels:
         """One environment step: same input for ``brain_steps`` ticks, mean activity -> wheels."""
         currents = self.sensory(channels)
         window = [self.sim.step(currents) for _ in range(self.brain_steps)]
         self.activity = average_activity(window)
+        if self.trigger is not None:
+            self.fire = self.trigger(self.activity)
         return self.motor(self.activity)
 
     # --- Trainable ----------------------------------------------------------------
@@ -78,6 +84,7 @@ class WormBrain:
             scenario.brain_steps,
             name=name,
             meta={"scenario": "worm", "params": scenario.params},
+            trigger=scenario.trigger,
         )
 
     @classmethod
@@ -98,4 +105,5 @@ class WormBrain:
             scenario.brain_steps,
             name=Path(path).stem,
             meta={"scenario": "worm", "params": scenario.params, "source": str(path)} | keep,
+            trigger=scenario.trigger,
         )
