@@ -195,6 +195,10 @@ class Observation:
     cleaned: int = 0
     ammo: float = 0.0
     aim: float = 0.0
+    target_rising: float = 0.0  # the exit smell getting stronger since the last tick
+    target_falling: float = 0.0  # ... and weaker: the animal's own turn signal
+    prey_rising: float = 0.0
+    prey_falling: float = 0.0
     prey_left: float = 0.0  # the same enemy read as prey, not as a hazard (track B)
     prey_front: float = 0.0
     prey_right: float = 0.0
@@ -229,6 +233,10 @@ class Observation:
             "dock_right": self.dock_right,
             "ammo": self.ammo,
             "aim": self.aim,
+            "target_rising": self.target_rising,
+            "target_falling": self.target_falling,
+            "prey_rising": self.prey_rising,
+            "prey_falling": self.prey_falling,
             "prey_left": self.prey_left,
             "prey_front": self.prey_front,
             "prey_right": self.prey_right,
@@ -245,6 +253,7 @@ def _wrap_angle(angle: float) -> float:
 
 
 FOOD_FRONT_HALF_ANGLE = math.pi / 6  # 30 degrees
+CHANGE_GAIN = 25.0  # the change is read as a fraction of the signal (Weber), not a difference
 
 
 class World:
@@ -288,6 +297,14 @@ class World:
         # (the car of Plan §20.5.1 is mecanum and can move sideways).
         self.body: Body = DifferentialDrive()
         self.last_drive = Drive()
+        # Stage 20: what the *change* in a smell is. The animal senses it directly --
+        # ASEL fires on a rising salt concentration, ASER on a falling one, AWC on an
+        # odour going away -- and turns on the falling edge. Our channels were all
+        # absolute, so the brain could not tell 'getting worse' from 'far away'.
+        self._prev_target: float | None = None
+        self._prev_prey: float | None = None
+        self._change_target = (0.0, 0.0)  # rising, falling: recomputed once per tick
+        self._change_prey = (0.0, 0.0)
         # Arbitrary-angle solid lines. Generated levels use axis-aligned walls; a map
         # that comes from the Doom engine (stage B11) has angled ones (Plan §33).
         self.segments: list[tuple[float, float, float, float]] = []
@@ -412,6 +429,7 @@ class World:
         else:
             self.agent = candidate
 
+        self._update_changes()
         self.hunger = _clamp(self.hunger + self.hunger_rate, 0.0, 1.0)
         ate = self._eat()
         reached = self._reach()
@@ -636,6 +654,8 @@ class World:
         t_left, t_front, t_right = self._sense_target()
         d_left, d_front, d_right = self._sense_danger()
         p_left, p_front, p_right = self._sense_prey()
+        t_rise, t_fall = self._change_target
+        p_rise, p_fall = self._change_prey
         k_left, k_front, k_right = self._sense_dock()
         return Observation(
             sensor_left=left,
@@ -652,6 +672,10 @@ class World:
             danger_left=d_left,
             danger_front=d_front,
             danger_right=d_right,
+            target_rising=t_rise,
+            target_falling=t_fall,
+            prey_rising=p_rise,
+            prey_falling=p_fall,
             prey_left=p_left,
             prey_front=p_front,
             prey_right=p_right,
@@ -704,6 +728,30 @@ class World:
         ax, ay = self.agent.x, self.agent.y
         nx, ny = min(points, key=lambda p: math.dist((ax, ay), p))
         return self._sector_signal(nx, ny)
+
+    def _update_changes(self) -> None:
+        """Rise and fall of each gradient over the tick just taken, each in [0, 1].
+
+        Computed once per tick, never in :meth:`observe`, which a caller may use as
+        often as it likes. Scaled by :data:`CHANGE_GAIN` because a tick of travel
+        moves a 1/distance signal by a hundredth or so, and a channel the brain
+        reads should use its range. The pair is one-sided on purpose: the animal
+        has a neuron for each direction (ASEL for rising, ASER for falling), not
+        one signed cell.
+        """
+        for total, slot, out in (
+            (sum(self._sense_target()), "_prev_target", "_change_target"),
+            (sum(self._sense_prey()), "_prev_prey", "_change_prey"),
+        ):
+            previous = getattr(self, slot)
+            setattr(self, slot, total)
+            if previous is None:  # the first tick has nothing to compare against
+                setattr(self, out, (0.0, 0.0))
+                continue
+            # relative, not absolute: a sense reports a fraction of what it already
+            # feels, so the channel means the same thing near the source and far from it
+            delta = CHANGE_GAIN * (total - previous) / max(previous, 1e-6)
+            setattr(self, out, (_clamp(delta, 0.0, 1.0), _clamp(-delta, 0.0, 1.0)))
 
     def _sense_prey(self) -> tuple[float, float, float]:
         """The nearest visible enemy read as an attractant, by side (track B, stage B2d).

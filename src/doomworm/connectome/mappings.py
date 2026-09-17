@@ -274,6 +274,13 @@ def default_sensory_mapping() -> SensoryMapping:
     # the layer holds it and the brain only reads it. OLL was the best of the free
     # sensory pairs by reward on an untrained worm (doom1 -18.5 -> +0.5, doom2
     # -19.0 -> -2.5, doom4 -21.1 -> -5.9); a brain with no route here is unchanged.
+    # Stage 20: the *change* in a gradient, which is what the animal actually senses --
+    # ASEL fires when salt is rising, ASER when it is falling, and the falling edge is
+    # what raises the turn rate in a pirouette. Every other channel here is a level.
+    m.add("target_rising", ["ASEL"])
+    m.add("target_falling", ["ASER"])
+    m.add("prey_rising", ["ASEL"])
+    m.add("prey_falling", ["ASER"])
     m.add(NOVELTY["left"], ["OLLL"], NOVELTY_GAIN)
     m.add(NOVELTY["right"], ["OLLR"], NOVELTY_GAIN)
     m.add(NOVELTY["front"], ["OLLL", "OLLR"], NOVELTY_GAIN)

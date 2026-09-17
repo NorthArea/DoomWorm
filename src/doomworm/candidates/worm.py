@@ -26,6 +26,8 @@ class WormBrain:
         trigger: FireAdapter | None = None,
         trainable: Sequence[int] | None = None,
         tune_gains: bool = False,
+        noise: float = 0.0,
+        release: float = 1.0,
     ) -> None:
         self.network = network
         self.sensory = sensory
@@ -51,12 +53,21 @@ class WormBrain:
             float(getattr(trigger, "gain", 10.0)),
         )
         self.gain_genes = [0.0, 0.0, 0.0]
-        self.sim = Simulator(network)
+        # Stage 19: the animal's own noise. Off by default, so every published row
+        # still replays; seeded per episode, so a noisy row replays too.
+        self.noise = noise
+        self.release = release
+        self.episode = 0
+        self.sim = self._simulator()
+
+    def _simulator(self) -> Simulator:
+        return Simulator(self.network, noise=self.noise, release=self.release, seed=self.episode)
 
     def reset(self) -> None:
-        """Clear neuron state and start a fresh simulator."""
+        """Clear neuron state and start a fresh simulator (a new noise stream per episode)."""
         self.network.reset()
-        self.sim = Simulator(self.network)
+        self.episode += 1
+        self.sim = self._simulator()
         self.activity = {}
         self.fire = 0.0
 
@@ -100,7 +111,7 @@ class WormBrain:
             for slot, value in zip(self.trainable, values, strict=True):
                 current[slot] = value
             self.network.set_weights(current)
-        self.sim = Simulator(self.network)
+        self.sim = self._simulator()
 
     def _apply_gains(self) -> None:
         """Genes in [-1, 1] -> gains in [base / 8, base * 8]."""

@@ -140,10 +140,23 @@ Next, in order:
     the pirouette — a reversal and an omega turn driven by the gradient getting
     worse — and our neurons have leak but no derivative. Left to evolution
     first; a mapping change only if the numbers say search cannot find it.
-11. **Strafe.** The engine has it and the worm does not. Whether the nets are
+11. **Search, then teach.** With noise in the neurons the brain is a
+    distribution rather than a function, so it can propose several actions from
+    one state. Roll each forward in a copy of the world, keep the best, and the
+    connectome becomes a proposal distribution with the rollout as judge. Three
+    things follow, in order: does the search improve play at all; where is the
+    worm already right (the competence map, by situation rather than by one
+    number); and can the worm be *taught* what the search found. The last one
+    settles the question every negative result in this project has been unable
+    to answer -- whether the architecture cannot represent a behaviour, or
+    whether our search could not find it. The product is a brain that plays
+    alone, with no rollout at runtime, which is the only form that could ever
+    run on hardware.
+
+12. **Strafe.** The engine has it and the worm does not. Whether the nets are
     given a fourth output the animal cannot have is a question for the map, not
     a bug to fix.
-12. **Vision** (§11): the framebuffer through a very small encoder into
+13. **Vision** (§11): the framebuffer through a very small encoder into
     sensory channels. Only after the structured rows are closed, and the
     encoder must never become the network that solves the task.
 

@@ -18,10 +18,28 @@ from doomworm.brain.network import Network
 
 
 class Simulator:
-    """Advance a network one tick at a time."""
+    """Advance a network one tick at a time.
 
-    def __init__(self, network: Network) -> None:
+    Stage 19: the animal's own noise, optional and seeded. A real nervous system
+    is stochastic — vesicles are released with probability well below one, ion
+    channels open at random, spike timing jitters — and *C. elegans* turns that
+    noise into a search: the pirouette is a biased random walk, where the rate of
+    reversals rises when the gradient worsens. Our model threw all of it away for
+    reproducibility, which also removed the mechanism the animal reorients with.
+
+    ``noise`` adds a gaussian current to every neuron each tick; ``release`` is
+    the probability that a synapse transmits at all. Both are off by default, so
+    every published row still replays bit for bit, and both are seeded, so a run
+    that uses them replays too.
+    """
+
+    def __init__(
+        self, network: Network, noise: float = 0.0, release: float = 1.0, seed: int = 0
+    ) -> None:
         self.network = network
+        self.noise = noise
+        self.release = release
+        self._rng = np.random.default_rng(seed)
         self.time = 0
         self.ids = list(network.neurons)
         self._index = {nid: i for i, nid in enumerate(self.ids)}
@@ -46,7 +64,13 @@ class Simulator:
                 raise KeyError(f"unknown neuron {nid!r}")
             self._input[self._index[nid]] += value
 
-        current = self._input + self._weights @ self._activity
+        if self.release >= 1.0:
+            current = self._input + self._weights @ self._activity
+        else:  # a synapse either transmits this tick or it does not
+            live = self._rng.random(self._weights.shape) < self.release
+            current = self._input + (self._weights * live) @ self._activity
+        if self.noise:
+            current = current + self._rng.normal(0.0, self.noise, size=current.shape)
         self._potential = self._potential * self._keep + current
 
         graded = np.clip(self._potential / self._threshold, 0.0, 1.0)

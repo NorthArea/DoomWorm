@@ -69,6 +69,7 @@ PASSTHROUGH = (
     "danger_left", "danger_front", "danger_right", "health",
     "battery", "dock_left", "dock_front", "dock_right", "ammo", "aim",
     "prey_left", "prey_front", "prey_right",
+    "target_rising", "target_falling", "prey_rising", "prey_falling",
 )  # fmt: skip
 
 
