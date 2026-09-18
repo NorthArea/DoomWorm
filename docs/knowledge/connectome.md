@@ -53,3 +53,21 @@ Every conclusion is about the topology as a constraint, not about the animal.
 **For the other track:** the cheapest step towards a more real animal is more
 signs, not more training — neurotransmitter atlases and the CeNGEN expression
 data would settle the sign of far more connections than our GABA list does.
+
+## What this wiring is measurably good at, and what it is not
+
+Grouping 3600 searched decisions by situation (Doom track, 2026-09-18): the
+connectome's own first proposal is the best of six in 42-51 % of them, where
+chance is 17 %. The proposal distribution is well centred — this is not a
+network guessing.
+
+The spread across situations is the useful part. It is **most** right where its
+own reflex lives (51 % with a wall ahead, and a search over its proposals adds
+almost nothing there, +0.06). It is **least** right wherever the task is to
+orient onto a thing: a search adds twice as much (+0.13) in any situation
+involving a target to engage.
+
+**For the other track:** expect the connectome to carry avoidance and gradient
+following for free, and expect to pay for anything that requires facing a
+chosen object. Budget the effort accordingly, and measure by situation — one
+reward number hides this completely.
