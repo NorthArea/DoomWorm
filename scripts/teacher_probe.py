@@ -27,7 +27,6 @@ not to the connectome.
 from __future__ import annotations
 
 import argparse
-import copy
 import statistics as st
 import sys
 from pathlib import Path
@@ -35,8 +34,7 @@ from pathlib import Path
 from wormlab.body import Drive, drive_of
 from wormlab.candidates import WormBrain
 from wormlab.environments.worlds import build_world
-from wormlab.learning.reward import RewardConfig
-from wormlab.learning.search import RandomProposer, _mean_drive, _score_branch
+from wormlab.learning.search import RandomProposer, _mean_drive, rollout_branches
 
 ROOT = Path(__file__).resolve().parent.parent
 TEACHER = ROOT / "docs/doom/brains/squeeze2/seed0/cma_interface.json"
@@ -50,13 +48,10 @@ def distance(a: Drive, b: Drive) -> float:
 
 
 def decide(world: object, brain: object, k: int, candidates: int) -> Drive:
-    """One decision: draw candidates, roll them forward, average the best k."""
-    scored = [
-        _score_branch(copy.deepcopy(world), brain, HORIZON, RewardConfig(), None)  # type: ignore[arg-type]
-        for _ in range(candidates)
-    ]
-    order = sorted(range(len(scored)), key=lambda i: scored[i][0], reverse=True)
-    return _mean_drive([scored[i][1] for i in order[:k]])
+    """One decision: draw candidates from one state, roll them forward, average the best k."""
+    scores, firsts = rollout_branches(world, brain, candidates, HORIZON)  # type: ignore[arg-type]
+    order = sorted(range(len(scores)), key=scores.__getitem__, reverse=True)
+    return _mean_drive([firsts[i] for i in order[:k]])
 
 
 def probe(
@@ -71,11 +66,8 @@ def probe(
 
     for tick in range(STEPS):
         if tick % every == 0:
-            state = brain.sim.snapshot()
-            a = decide(world, brain, k, candidates)
-            brain.sim.restore(state)
+            a = decide(world, brain, k, candidates)  # rollout_branches restores for us
             b = decide(world, brain, k, candidates)  # same state, fresh draws
-            brain.sim.restore(state)
             firsts.append(a)
             seconds.append(b)
             held = a
@@ -135,9 +127,7 @@ def silent(seed: int, driver: str = "deterministic", draws: int = 48, every: int
             means.append((pair[0], pair[1]))
         brain.noise = drive_noise
         if driver == "the search":
-            state = brain.sim.snapshot()
             intent = decide(world, brain, 1, 12)
-            brain.sim.restore(state)
         else:
             intent = drive_of(brain.act(channels), float(getattr(brain, "fire", 0.0)))
         det.append(intent)

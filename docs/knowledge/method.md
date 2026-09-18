@@ -156,3 +156,53 @@ actually live on**. An expert that drives the system somewhere the student
 never goes teaches it about a region where its own behaviour is undefined —
 and the resulting failure looks exactly like "the architecture cannot express
 this", which is the one conclusion it does not support.
+
+## A control also tells you how big nothing is
+
+The same-state-twice ratio needs a control for a second reason, beyond the one
+above: it says what the ratio does when there is genuinely no structure. Ours
+came back at 0.93 on one width and 1.04 on another, from a proposer drawing
+uniform noise — so at that sample size anything in roughly [0.86, 1.12] is what
+*nothing* looks like, and a worm scoring 0.9 is not a finding.
+
+Run the control at every setting you run the measurement at, not once. Then the
+bar is a measured band rather than the number 1, and a result has to leave it.
+
+## Two implementations of one loop will not stay the same
+
+A rollout must restore the brain's snapshot **before every branch**. Ours did,
+in the library. Two later probes reimplemented the same loop and left it out,
+so branch k started wherever branch k-1's rollout had driven the neurons: the
+proposals stopped being draws from one state, and a measurement of what the
+state implied measured the drift instead. The published verdict survived the
+fix, but two of its numbers did not.
+
+The fix is not "be careful in probes". It is that the loop lives in the library
+with the invariant in its docstring and a test that asserts the brain is left
+where it was found, and a probe that wants branches calls it.
+
+## Beating a constant is not playing better
+
+Our student fit its teacher better than a constant did — 0.1579 against 0.1639,
+the first time in this project that happened — and then scored 0.29 where the
+untaught brain scored 0.31. An imitation error is a distance in action space
+averaged over every tick. A reward is collected by rare events. Nothing makes
+a few percent of the first turn into any of the second, and the direction of a
+small improvement is not even guaranteed.
+
+So an imitation number is a diagnostic, never a result. The result is the
+behaviour, measured the same way every other row is, on maps nothing trained
+on. Report both: the fit says whether the learning worked, the benchmark says
+whether it mattered, and they answer different questions.
+
+## Check the baseline's own error bar before naming a collapse
+
+Three maps said our taught student had collapsed: 1.97 untaught against 0.23
+taught. Twenty maps said the untaught brain scores 0.31, and the collapse was
+the baseline's sampling noise. A weak controller's reward is mostly variance,
+so a drop measured against a small-sample baseline can be entirely the
+baseline.
+
+Before writing down a difference, ask what the *unchanged* arm scores on the
+larger sample. It costs one more run and it has saved us from publishing a
+dramatic number twice now.

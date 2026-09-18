@@ -130,3 +130,32 @@ def test_noise_reaches_the_running_simulator() -> None:
     assert brain.sim.noise == 0.4, "the live simulator, not just the next one"
     brain.reset()
     assert brain.sim.noise == 0.4, "and it survives a reset"
+
+
+def test_every_branch_starts_from_the_same_neural_state() -> None:
+    """Stage 24: the bug that made two probes measure drift instead of the state.
+
+    Score the branches, then draw once more from the snapshot: if the loop had
+    let the neurons run on, the brain would be twelve ticks downstream and the
+    extra draw would not belong to the same distribution as the proposals.
+    """
+    from wormlab.learning.search import rollout_branches
+
+    brain = worm(episode=3005)
+    world = build_world(3005, "doom4", "doom")
+    brain.reset()
+    brain.act(world.observe().as_channels())
+    state = brain.sim.snapshot()
+
+    scores, firsts = rollout_branches(world, brain, candidates=5, horizon=4)
+    assert len(scores) == len(firsts) == 5
+    after = brain.sim.snapshot()
+    assert all(
+        (a == b).all() for a, b in zip(state, after, strict=True)
+    ), "the search left the brain where it found it"
+
+    quiet = worm(noise=0.0, episode=3005)
+    quiet.reset()
+    quiet.act(world.observe().as_channels())
+    _, same = rollout_branches(world, quiet, candidates=4, horizon=4)
+    assert len(set(same)) == 1, "with no noise every branch proposes the same thing"

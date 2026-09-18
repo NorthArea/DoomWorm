@@ -115,6 +115,35 @@ def _score_branch(
     return total, first or Drive()
 
 
+def rollout_branches(
+    world: World,
+    brain: BrainLike,
+    candidates: int,
+    horizon: int,
+    reward: RewardConfig | None = None,
+    sensors: SensorSuite | None = None,
+) -> tuple[list[float], list[Drive]]:
+    """Draw `candidates` proposals from *one* state and score each in its own copy.
+
+    The neural snapshot is restored before every branch and once more at the
+    end. Without that, branch k starts from wherever branch k-1's rollout left
+    the neurons: the proposals stop being draws from a single state, and any
+    measurement of what that state implies measures the drift instead. This
+    function exists because two probes reimplemented the loop and left it out.
+    """
+    reward_config = reward or RewardConfig()
+    state = brain.sim.snapshot()  # type: ignore[attr-defined]
+    scores: list[float] = []
+    firsts: list[Drive] = []
+    for _ in range(candidates):
+        brain.sim.restore(state)  # type: ignore[attr-defined]
+        score, first = _score_branch(copy.deepcopy(world), brain, horizon, reward_config, sensors)
+        scores.append(score)
+        firsts.append(first)
+    brain.sim.restore(state)  # type: ignore[attr-defined]
+    return scores, firsts
+
+
 def searched_episode(
     world: World,
     brain: BrainLike,
@@ -139,17 +168,9 @@ def searched_episode(
     for tick in range(steps):
         channels = obs.as_channels() if sensors is None else sensors.read(world, obs)
         if tick % cfg.plan_every == 0:
-            state = brain.sim.snapshot()  # type: ignore[attr-defined]
-            scores: list[float] = []
-            firsts: list[Drive] = []
-            for _ in range(cfg.candidates):
-                brain.sim.restore(state)  # type: ignore[attr-defined]
-                score, first = _score_branch(
-                    copy.deepcopy(world), brain, cfg.horizon, reward_config, sensors
-                )
-                scores.append(score)
-                firsts.append(first)
-            brain.sim.restore(state)  # type: ignore[attr-defined]
+            scores, firsts = rollout_branches(
+                world, brain, cfg.candidates, cfg.horizon, reward_config, sensors
+            )
             order = sorted(range(len(scores)), key=scores.__getitem__, reverse=True)
             best = order[0]
             top = order[: max(1, min(cfg.consensus, len(order)))]
