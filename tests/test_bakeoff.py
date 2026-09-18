@@ -17,7 +17,7 @@ def test_every_candidate_is_a_trainable_brain(kind: str) -> None:
     if kind == "ncp":
         pytest.importorskip("ncps")
     # the hybrid is the one candidate that is built on top of another brain (axis C7)
-    init = "docs/doom/brains/a1/worm_evolved_random.json" if kind == "hybrid" else None
+    init = "docs/brains/curriculum/worm_evolved_random.json" if kind == "hybrid" else None
     brain = build_candidate(CandidateSpec(kind, init=init))
     assert isinstance(brain, Trainable)
     assert brain.n_weights == len(brain.get_weights()) > 1000

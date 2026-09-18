@@ -1,0 +1,57 @@
+{
+  "scenario": "worm",
+  "params": {
+    "tonic_avb": 0.1,
+    "obstacle_gain": 3.0,
+    "food_gain": 1.0,
+    "gain": 0.45,
+    "decay": 0.5,
+    "gain_drive": 6.0,
+    "gain_turn": 6.0,
+    "gain_fire": 10.0,
+    "brain_steps": 5,
+    "maps": "doom4",
+    "task": "doom",
+    "dangers": 0,
+    "sensors": "ideal"
+  },
+  "candidate": "worm",
+  "layer": "none",
+  "train": {
+    "layer": "none",
+    "train_seeds": [
+      100,
+      101,
+      102
+    ],
+    "train_repeats": 1,
+    "steps": 600,
+    "population": 40,
+    "generations": 25,
+    "sigma": 0.02,
+    "init_sigma": 0.2,
+    "weight_range": [
+      -1.0,
+      1.0
+    ],
+    "mutation_fraction": 1.0,
+    "seed": 0,
+    "workers": 10,
+    "search": "cma",
+    "spec": {
+      "kind": "worm",
+      "init": null,
+      "variant_seed": 0,
+      "maps": "doom4",
+      "task": "doom",
+      "sensors": "ideal",
+      "dangers": 0,
+      "params": {
+        "trainable": "all",
+        "tune_gains": false
+      }
+    }
+  },
+  "fitness": 6.600000000000001,
+  "generations": 25
+}

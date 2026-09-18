@@ -40,7 +40,7 @@ EVOLVE_JOBS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "worm_from_worm_evolved_random",
         "worm",
-        ("--init-brain", "docs/doom/brains/a1/worm_evolved_random.json"),
+        ("--init-brain", "docs/brains/curriculum/worm_evolved_random.json"),
     ),
     ("worm_random", "worm_random", ()),
     ("worm_shuffled", "worm_shuffled", ()),

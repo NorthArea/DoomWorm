@@ -1,0 +1,46 @@
+{
+  "candidate": "rnn",
+  "layer": "needs",
+  "train": {
+    "layer": "needs",
+    "train_seeds": [
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111
+    ],
+    "train_repeats": 2,
+    "steps": 800,
+    "population": 40,
+    "generations": 25,
+    "sigma": 0.02,
+    "init_sigma": null,
+    "weight_range": [
+      -1.0,
+      1.0
+    ],
+    "mutation_fraction": 1.0,
+    "seed": 0,
+    "workers": 4,
+    "spec": {
+      "kind": "rnn",
+      "init": null,
+      "variant_seed": 0,
+      "maps": "apartment",
+      "task": "clean",
+      "sensors": "car",
+      "dangers": 0,
+      "params": {}
+    }
+  },
+  "fitness": 42.34166666666672,
+  "generations": 25
+}

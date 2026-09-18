@@ -47,3 +47,20 @@ Real topology, contact-count magnitudes, literature signs for one transmitter
 class, and our own search for every value. When a result is reported, the claim
 is about the topology as a constraint — not about the animal. See
 `connectome.md`.
+
+## Clearing the scratch desk is a procedure, not a delete
+
+`runs/` reached 191 MB of brains, rows and logs, and most of it backed a
+published number. What made it safe to clear:
+
+1. every lane's rows aggregated into a table that says how many seeds it came
+   from (`scripts/archive_runs.py` -> `docs/<track>/results/<lane>/`), with the
+   lane log beside it;
+2. the brains copied to `docs/<track>/brains/`, including the losing arm of any
+   comparison the choice was made on;
+3. **every saved brain loaded by the code before anything was removed** — 145
+   of 145. That check caught benchmark result files sitting in the brain
+   folders, and three hybrid brains pointing at a reflex whose path had moved.
+
+Do those three, in that order, and the desk is scratch again. Skip the third
+and a row silently stops replaying, which has already happened here once.
