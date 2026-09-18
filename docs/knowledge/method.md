@@ -64,3 +64,24 @@ published number. What made it safe to clear:
 
 Do those three, in that order, and the desk is scratch again. Skip the third
 and a row silently stops replaying, which has already happened here once.
+
+## What a search scores must be what it executes
+
+The first run of the proposal search said it was *worse* than the brain alone
+on two levels of three: doom4 +0.90 against −3.28, doom2 +0.63 against −1.22.
+It was not. Each branch was scored with the brain deciding afresh every tick,
+and then only the branch's *first* intent was applied, held for five ticks. The
+judge and the player were doing different things.
+
+Replanning every tick, so that the scored branch and the executed one agree:
+**+3.13 against +1.40** on the same six maps. The sign of the result came from
+the mismatch, not from the method.
+
+Cost of the correct version: about a hundred times an ordinary episode, 17
+seconds against a fraction of one. Too slow to train with, fine for generating
+a teacher.
+
+**For any track:** whenever a controller evaluates a plan and then executes
+something else — a held action, a smoothed action, a different horizon — the
+evaluation is measuring a policy nobody runs. Check that first, before
+believing a negative result about the search.

@@ -22,7 +22,7 @@ from wormlab.learning.search import SearchConfig, searched_episode
 
 ROOT = Path(__file__).resolve().parent.parent
 
-BRAIN = ROOT / "runs/squeeze2/seed0/cma_interface.json"  # the best worm the project has
+BRAIN = ROOT / "docs/doom/brains/squeeze2/seed0/cma_interface.json"  # the best worm we have
 
 
 def brain_for(level: str, noise: float) -> WormBrain:
