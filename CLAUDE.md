@@ -1,32 +1,59 @@
-# DoomWorm — project rules for agents
+# One repository, two tracks — rules for agents
 
-Source of truth: `Plan.md`. Read it before any implementation work.
+This repository holds two projects that share one nervous system and one
+platform. Read `Plan.md` and the track's own `docs/<track>/stages.md` before
+implementation work, and `docs/knowledge/` before an experiment.
 
-The project is a test bed: the natural network (the *C. elegans* connectome)
-against networks trained from scratch, playing Doom, under identical
-conditions. Levels, budgets and seeds are *conditions*, not goals; the
-deliverable is `docs/findings.md`, one row per question with the worm's number,
-the best self-trained number, the difference and a verdict. Every measurement
-that changes a row updates that file.
+```text
+src/wormlab/      the platform both tracks share. Changes rarely, and a change
+                  here must keep both tracks green.
+src/doomworm/     the Doom player. Changes fast.
+src/broomworm/    the home robot. Changes fast.
+docs/knowledge/   what either track learned that the other can use.
+docs/doom/        the Doom track's findings, stages, assumptions, results.
+docs/broom/       the robot track's.
+```
 
-The platform (world, engine, sensing, brain contract, body, benchmark) is
-finished before any new brain is written; then every candidate — the worm, its
-topology controls, a net from scratch, an NCP, PPO, hybrids, the hand-written
-floor — is compared only through the benchmark.
+`make tracks` prints this map. `make help` lists every target; the robot
+track's are prefixed `broom-`.
+
+## The question, in both tracks
+
+The natural network (the *C. elegans* connectome) against networks trained from
+scratch, under identical conditions. The task differs — one plays Doom, one
+drives a floor robot — the nervous system does not. Each track's deliverable is
+its own `findings.md`: one row per question, with the worm's number, the best
+self-trained number, the difference and a verdict. Every measurement that
+changes a row updates that file.
+
+## Working in two tracks at once
+
+- **Touch one track's folder per change.** Anything in `src/wormlab/` is shared:
+  changing it means running both tracks' tests, and saying so in the commit.
+- **A track never edits the sibling's `docs/<track>/` or `src/<track>/`.**
+- **Promote a finding to `docs/knowledge/` when it is true without naming the
+  task**, and only with the numbers and the run it came from. "Restricting the
+  genome to the interface synapses beats tuning all 5905 at the same budget" is
+  knowledge; "the worm cannot reach the exit on doom2" is a track result.
+- **Read the sibling's knowledge before an experiment.** Several entries there
+  exist because one track spent hours on something the other would repeat.
+- Commit messages name the track they touch.
 
 ## Workflow
-- Implement stages in the order of `docs/stages.md`. Never start stage N+1
-  until stage N works, is covered by tests and has a runnable demo.
+
+- Implement stages in the order of the track's `docs/<track>/stages.md`. Never
+  start stage N+1 until stage N works, is covered by tests and has a demo.
 - Test first. Each layer has its test module in `tests/`.
 - Minimal implementation per stage; prefer the simpler option when in doubt.
-- Record every non-obvious decision in `docs/assumptions.md`, with the
-  measurement behind it; tick the stage in `docs/stages.md`.
+- Record every non-obvious decision in `docs/<track>/assumptions.md`, with the
+  measurement behind it; tick the stage in `docs/<track>/stages.md`.
 
-## Hard constraints
+## Hard constraints (both tracks)
+
 - No CNN/transformer/RL framework between the world and the brain. Adapters are
   simple transforms.
 - Brain, connectome, environments, adapters and learning are independent
-  layers. No game logic in the brain.
+  layers. No task logic in the brain.
 - Connectome topology is FIXED; only synaptic weights are trainable.
 - Neuron model is leaky integrate-and-fire, activity graded in [0, 1]. No
   Hodgkin-Huxley, no NEURON, no body model.
@@ -39,25 +66,37 @@ floor — is compared only through the benchmark.
 - Reward is the single source of numbers; fitness is the sum of reward over an
   episode. Evaluate on several seeded maps the brain has never seen.
 - CPU + NumPy only. No GPU/CUDA/Rust/distributed until a result demands it.
-- The simulator is never more convenient than the game. When the two disagree,
-  the engine is right.
-- No framebuffer until the vision stage, and then only through a deliberately
+- The simulator is never more convenient than the real thing — the game for one
+  track, the machine for the other. When they disagree, reality is right.
+- No framebuffer until a vision stage, and then only through a deliberately
   small encoder.
 - Deterministic seeds; experiments save seed, brain, weights and world, and can
-  be replayed.
+  be replayed. A published row must replay from what is committed.
+
+## Where a track-specific thing belongs
+
+A sensor preset describes a *machine*, so it lives in the track that owns the
+machine and registers itself with `register_preset` (see
+`src/broomworm/presets.py`). A level, an engine, a hand-written floor: the
+track. The connectome, the simulator, the body, the search, the benchmark: the
+platform.
 
 ## Where a design choice is settled
+
 By measurement. Where a signal lands, which neuron pair carries it, what gain
 it gets — these are chosen by running the alternatives and reporting the
 numbers, never by the nicest story. What the network *does* with a signal is
 never hand-written.
 
 ## Tooling
+
 - `uv` for everything: `uv sync --all-groups`, `uv run pytest`,
   `uv run ruff check . --fix`, `uv run ruff format .`, `uv run mypy`.
-  `Makefile` wraps them: `make check`, `make demo-*`, `make watch-doom`.
-- src layout: code in `src/doomworm/`, tests in `tests/`, cross-cutting scripts
-  in `scripts/`, stage demos next to the stage code or under `experiments/`.
-- Experiment outputs go to `runs/` (git-ignored); published rows to `docs/`.
+  `Makefile` wraps them: `make setup`, `make check`, `make tracks`.
+- The CLI is `wormlab` (`doomworm` still works).
+- Experiment outputs go to `runs/` (git-ignored); published rows to
+  `docs/<track>/`.
 - Strict mypy and ruff must pass before a stage is done.
-- Never edit the source while a training lane is running.
+- Never edit the source while a training lane is running, and never snapshot
+  `docs/<track>/brains/` until the lane reports it is done — both cost us a day
+  once (`docs/knowledge/method.md`).

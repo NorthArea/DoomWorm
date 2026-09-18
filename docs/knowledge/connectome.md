@@ -1,0 +1,55 @@
+# The wiring itself
+
+Facts about the *C. elegans* connectome as a computational substrate, measured
+here, true whatever the animal is asked to do.
+
+## The pharyngeal group is an island, and it cost us the whole shooting story
+
+The pharyngeal nervous system — where the pumping neurons M3, M4 and MC live —
+is joined to the rest of the connectome by **exactly five connections, all
+through the pair RIPL/RIPR**. The trigger group's seventeen input neurons are
+all pharyngeal. No sensory channel reaches it by any other path.
+
+Measured on the Doom track, 2026-09-17. Consequence: a mapping that puts an
+output on a pharyngeal neuron and its input anywhere else is not a hard task,
+it is a **disconnected** one. Untrained, the real connectome answered 0.134
+with a target on the gun line against 0.157 with none — pure noise — while its
+degree-preserving shuffle, which has 399 crossing connections, answered in 77 %
+of ticks. That difference was read as "shuffled wiring is better at aiming" for
+a week. It was our mapping.
+
+**For the other track:** before mapping any output onto a named group, check how
+many connections cross into the region that group sits in. `RIP` is the only
+door into the pharynx.
+
+## Two hops from the sensors, almost everything is reachable
+
+Counting the synapses that a sensory current can influence *and* that can
+influence a motor group: 57 % within one hop each way, **99.3 % within two**,
+100 % within three. Measured on the Doom track's sensory and motor tables,
+2026-09-17.
+
+**For the other track:** you cannot narrow a search by "only the synapses on
+the path from sense to muscle" — that is nearly all of them. The cut that does
+narrow it is structural, not topological (see `search.md`).
+
+## What the connectome does and does not give us
+
+The data (Cook et al. 2019) gives: which neuron connects to which, whether the
+connection is chemical or a gap junction, and **how many synaptic contacts** the
+pair has — 1 to 401, mean 5.5. That count is the only quantity, and we use it as
+the initial weight, normalised per target neuron.
+
+It does not give: the sign of a connection, its strength in physical units, gap
+junction conductances, intrinsic neuron properties, or any of the neuropeptide
+signalling that travels outside synapses at all.
+
+We set signs from the literature for the GABAergic set (McIntire et al. 1993;
+Gendrel, Atlas & Hobert 2016) and learn the rest. So the honest description of
+what either track studies is: **real topology, contact-count magnitudes,
+literature signs for part of the network, and our own search for the values.**
+Every conclusion is about the topology as a constraint, not about the animal.
+
+**For the other track:** the cheapest step towards a more real animal is more
+signs, not more training — neurotransmitter atlases and the CeNGEN expression
+data would settle the sign of far more connections than our GABA list does.

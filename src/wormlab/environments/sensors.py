@@ -61,7 +61,20 @@ class SensorConfig:
 
 # ideal = every sensor of the vacuum, three 45-degree rays, no noise, no delay
 IDEAL = SensorConfig(bumper=True, cliff=True, wall_sensor=True, odometry=True)
+# The registry a track adds its own hardware to. The core ships only the noiseless
+# preset every track measures against; a preset describes a *machine*, so the
+# vacuum's and the car's live in the robot track and register themselves on import
+# (`broomworm.presets`). Two tracks can add presets without touching this file.
 PRESETS: dict[str, SensorConfig] = {"ideal": IDEAL}
+
+
+def register_preset(config: SensorConfig) -> SensorConfig:
+    """Make a track's sensor preset available by name to the shared machinery."""
+    if config.name in PRESETS and PRESETS[config.name] is not config:
+        raise ValueError(f"sensor preset {config.name!r} is already registered")
+    PRESETS[config.name] = config
+    return config
+
 
 PASSTHROUGH = (
     "food_left", "food_front", "food_right", "hunger",

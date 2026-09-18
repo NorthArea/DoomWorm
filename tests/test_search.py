@@ -11,9 +11,7 @@ from wormlab.learning.search import SearchConfig, searched_episode
 
 
 def worm(noise: float = 0.3, episode: int = 3000) -> WormBrain:
-    brain = WormBrain.from_scenario(
-        WormScenario(maps="doom4", task="doom", sensors="ideal")
-    )
+    brain = WormBrain.from_scenario(WormScenario(maps="doom4", task="doom", sensors="ideal"))
     brain.noise = noise
     brain.episode = episode
     return brain

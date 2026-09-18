@@ -22,7 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
-doomworm = "wormlab.cli:main"
+wormlab = "wormlab.cli:main"
+doomworm = "wormlab.cli:main"  # the old name, kept working
 
 [dependency-groups]
 dev = [
@@ -46,7 +47,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/wormlab", "src/doomworm"]
+packages = ["src/wormlab", "src/doomworm", "src/broomworm"]
 
 # ---------------------------------------------------------------------------
 # Ruff: lint + format

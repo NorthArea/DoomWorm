@@ -1,5 +1,10 @@
 # Findings: does the natural network play Doom better?
 
+> This is the **doom** track. What we learned here that holds whatever the
+> task is lives in `docs/knowledge/`, and the sibling track (the home robot,
+> `docs/broom/`) draws on the same file. Cross-track lessons are not
+> repeated in this document.
+
 The project's result. One row per question: the connectome worm against the
 best network trained from scratch, under the same budget and the same
 benchmark. Numbers are mean reward over >= 3 training seeds unless marked; the

@@ -1,6 +1,7 @@
 """Track B report: tables from the Doom benchmark rows (simulator and engine).
 
-    uv run python scripts/doom_report.py runs/benchmark_doom --out docs/results/b/b2_doom_<date>.md
+    uv run python scripts/doom_report.py runs/benchmark_doom \
+        --out docs/doom/results/b/b2_doom_<date>.md
 
 Reads ``train_<level>/seed<S>/eval_<level>/*.json`` (three seeds per candidate),
 ``floors/eval_<level>/`` and ``a2_transfer/eval_<level>/`` and writes: the

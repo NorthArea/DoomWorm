@@ -29,9 +29,7 @@ def brain_for(level: str, noise: float) -> WormBrain:
     if BRAIN.exists():
         worm = WormBrain.from_file(BRAIN, maps=level, task="doom", sensors="ideal")
     else:
-        worm = WormBrain.from_scenario(
-            WormScenario(maps=level, task="doom", sensors="ideal")
-        )
+        worm = WormBrain.from_scenario(WormScenario(maps=level, task="doom", sensors="ideal"))
     worm.noise = noise
     return worm
 

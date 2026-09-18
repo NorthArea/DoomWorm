@@ -1,95 +1,83 @@
-# DoomWorm
+# WormLab
 
-A test bed for one question:
+Two projects, one nervous system.
 
 > **Does the nervous system of *C. elegans* — 302 neurons, wired the way the
-> animal is actually wired — play Doom better than a network of the same size
-> trained from scratch?**
+> animal is actually wired — beat a network of the same size trained from
+> scratch?**
 
-The connectome is the candidate. A small recurrent net, a Neural Circuit
-Policy, PPO and a hand-written reflex player are the yardsticks. Everything is
-compared through one benchmark, on seeded levels nobody tuned against, and
-every number that changes a verdict lands in `docs/findings.md`.
+The connectome is the candidate in both of them. What differs is the task.
 
-## What is here
+| Track | The task | Code | Docs |
+|---|---|---|---|
+| **DoomWorm** | play Doom: monsters, a gun, an exit, and the classic game's own maps | `src/doomworm/` | `docs/doom/` |
+| **BroomWorm** | drive a floor robot: cover a room, dodge furniture, come back to the dock | `src/broomworm/` | `docs/broom/` |
 
-```text
-the world            a 2D simulator with walls, monsters, a gun and an exit;
-                     the same seeded layouts run by the real Doom engine through
-                     ViZDoom; the scenarios ViZDoom ships; and the classic
-                     game's own maps, e1m1..e4m9, from the Freedoom data
-                     (no framebuffer anywhere: structured observations only)
-the brain contract   channels in, Drive(forward, turn, strafe, fire) out
-the body             a vehicle turns that intent into actuators or engine buttons
-the candidates       the connectome, its topology controls (random, shuffled,
-                     dense), a small recurrent net, an NCP, PPO, a hybrid, and
-                     the zero-learning `doomguy` floor
-the training         evolution on the synaptic weights; the topology is fixed
-the food task        the simple attractant world the worm is pre-trained on
-                     before it sees a level (the curriculum of stage 5)
-```
-
-The worm senses Doom the way a worm senses anything: walls as touch, the exit
-as a smell, monsters as pain — and, since stage 6, as prey. It has no map, no
-memory of where it has been, and no image. See `docs/findings.md` for what that
-buys and what it costs.
-
-## Run it
+Everything they share — the connectome, the leaky-integrate-and-fire simulator,
+the sensory and motor adapters, the body contract, evolution, CMA-ES, the
+search and the benchmark — lives once, in `src/wormlab/`.
 
 ```bash
-make setup                    # venv, the connectome, the Doom data — everything
-make check                    # ruff, mypy, pytest
+make tracks     # what lives where
+make setup      # venv, the connectome, the Doom data
+make check      # ruff, mypy, the whole suite (both tracks)
+make help       # every target; the robot's are prefixed broom-
 ```
 
-Then look at it:
+## Why one repository
+
+Because the two tracks keep answering each other's questions. The Doom track
+found that the trigger it was using sits in the pharyngeal island, reachable
+only through a single pair of neurons — a fact about the wiring that the robot
+track would otherwise have had to discover for itself. The robot track measured
+how the worm transfers to sensors it was never trained on, which is the same
+question a new Doom level asks.
+
+So findings that hold *whatever the task is* are written once, in
+`docs/knowledge/`, with the numbers and the run they came from:
+
+| File | What it holds |
+|---|---|
+| `docs/knowledge/connectome.md` | what the wiring itself allows and forbids |
+| `docs/knowledge/search.md` | how to find weights in a fixed topology |
+| `docs/knowledge/sensing.md` | how to put a world in front of 302 neurons |
+| `docs/knowledge/method.md` | how to run an experiment without fooling yourself |
+
+A track's own story stays in its own `findings.md`. See
+`docs/knowledge/README.md` for the rule that keeps them apart.
+
+## The Doom track
 
 ```bash
 make demo-b1 LEVEL=doom4           # the hand-written floor on a simulator level
 make demo-b4 LEVEL=doom4           # the same level inside the Doom engine
-make demo-b11 STOCK=stock_defend   # a scenario shipped with ViZDoom
 make demo-classic CLASSIC=e1m1     # the classic game's own first map
+make watch-doomguy                 # watch it play, in a real Doom window
+make evolve-doom CANDIDATE=worm    # train one brain
+make lane-bakeoff                  # the full three-seed bake-off (hours, resumable)
 ```
 
-Watch it play, in a real Doom window at the game's own speed:
+Where it stands: the worm's first positive row is +0.66, no trained brain has
+beaten the hand-written floor, and nothing has ever reached an exit. The
+reasons are measured, not guessed — `docs/doom/findings.md`.
+
+## The robot track
 
 ```bash
-make watch-doomguy            # the floor, the one player that actually aims
-make watch-doom LEVEL=doom4   # a trained worm
-make watch-classic CLASSIC=e1m1
+make broom-firmware                # compile the ESP32 firmware
+make broom-motor-map LINK=fake     # map the shield's bits to wheels on the bench
 ```
 
-Train and measure:
+Where it stands: the simulation side was measured through stage 22 (transfer to
+a new sensor preset, robustness sweeps, the cost of training), and the hardware
+is being assembled — `docs/broom/findings.md`, `docs/broom/hardware.md`.
 
-```bash
-make evolve-doom CANDIDATE=worm LEVEL=doom4   # one brain
-make benchmark-doom LEVEL=doom6               # every brain of a seed, on a level
-make lane-bakeoff                             # the full three-seed bake-off (hours, resumable)
-make lane-memory                              # stage 16: with and without the memory layer
-make report                                   # rebuild the tables in docs/results/
-```
-
-`make help` lists every target.
-
-## Where the numbers are
-
-| File | What it holds |
-|---|---|
-| `docs/findings.md` | the map: one row per question, with the worm's number, the best self-trained number and a verdict |
-| `docs/stages.md` | what is built, what is next, and how to reproduce each row |
-| `docs/assumptions.md` | every non-obvious decision, dated, with the measurement behind it |
-| `docs/results/b/` | the benchmark tables the rows are computed from |
-| `docs/brains/` | trained brains, committed so a row can be replayed |
-
-## The rules this project keeps
+## The rules both tracks keep
 
 - The connectome's **topology is fixed**; only synaptic weights are trained.
-- The neuron model is leaky integrate-and-fire, activity graded in [0, 1]. No
-  Hodgkin-Huxley, no body model.
+- Leaky integrate-and-fire neurons, graded activity, no body model.
 - **No CNN, transformer or RL framework between the world and the brain.**
-  Adapters are simple transforms; PPO is a candidate, not the platform.
-- The brain never sees game logic, and the world is never made more convenient
-  than the game.
-- Deterministic seeds. Every experiment saves its seed, brain, weights and
-  world, and can be replayed.
-- A measurement beats an argument. When a design choice is open, it is settled
-  by running it, and the numbers go in `docs/assumptions.md`.
+- No task logic in the brain, and no framebuffer until a vision stage.
+- Deterministic seeds. A published row replays from what is committed.
+- A design choice is settled by measurement, and the losing measurements are
+  written down too.

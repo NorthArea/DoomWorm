@@ -10,16 +10,22 @@ CANDIDATE ?= worm
 WORKERS ?= 6
 TRAIN_LEVEL ?= doom4
 DOOM_SEED ?= 0
-WORM_BRAIN ?= docs/brains/a1/worm_evolved_random.json
-WATCH_BRAIN ?= docs/brains/doom/doom4/seed0/worm_from_worm_evolved_random.json
+WORM_BRAIN ?= docs/doom/brains/a1/worm_evolved_random.json
+WATCH_BRAIN ?= docs/doom/brains/doom/doom4/seed0/worm_from_worm_evolved_random.json
 WATCH_SEED ?= 3000
 DOOM_BENCH = --task doom --sensors ideal --steps 600 --test-seeds 12 --repeats 1
 
-.PHONY: help setup sync hooks fetch-data fetch-doom test test-fast cov lint format typecheck check clean \
+.PHONY: help tracks broom-arduino-setup broom-firmware broom-firmware-flash broom-motor-map setup sync hooks fetch-data fetch-doom test test-fast cov lint format typecheck check clean \
 	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos \
 	    demo-b1 demo-b4 demo-b11 demo-classic watch-doom watch-doomguy watch-stock watch-classic \
 	    benchmark-doom benchmark-vizdoom benchmark-classic evolve-doom train-worm compare play stimulate \
 	    lane-bakeoff lane-memory report
+
+tracks: ## What lives where: two tracks, one platform
+	@echo "  src/wormlab/    the platform both tracks share  (changes rarely)"
+	@echo "  src/doomworm/   the Doom player                 (doom-* targets, docs/doom/)"
+	@echo "  src/broomworm/  the home robot                  (broom-* targets, docs/broom/)"
+	@echo "  docs/knowledge/ what either track learned that the other can use"
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -152,8 +158,24 @@ lane-bakeoff: ## Train every candidate on doom4 and doom6, three seeds, then ben
 lane-memory: ## Stage 16: the worm and its shuffle, with and without the memory layer
 	$(UV) scripts/memory_lane.py
 
-report: ## Rebuild the result tables in docs/results/b/ from the benchmark rows
-	$(UV) python scripts/doom_report.py runs/benchmark_doom --out docs/results/b/b2_doom.md
+report: ## Rebuild the result tables in docs/doom/results/b/ from the benchmark rows
+	$(UV) python scripts/doom_report.py runs/benchmark_doom --out docs/doom/results/b/b2_doom.md
+
+
+# --- the robot track ----------------------------------------------------------
+
+broom-arduino-setup: ## Stage 23.2: project-local arduino-cli + ESP32 core + ESP32Servo (no global install)
+	mkdir -p .tools/arduino && test -x .tools/arduino-cli || (curl -sSL https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_macOS_ARM64.tar.gz | tar xz -C .tools arduino-cli)
+	$(ARDUINO) core update-index && $(ARDUINO) core install esp32:esp32 && $(ARDUINO) lib install ESP32Servo
+
+broom-firmware: ## Stage 23.2: compile firmware/esp32_car for the ESP32 Max V1.0 (ESP32 Dev Module)
+	$(ARDUINO) compile --fqbn $(FQBN) --warnings default firmware/esp32_car
+
+broom-firmware-flash: ## Stage 23.2: flash the car (GPIO0 "00" to GND + RST first; PORT=/dev/cu.usbserial-XXXX)
+	$(ARDUINO) upload --fqbn $(FQBN) --port $(PORT) firmware/esp32_car
+
+broom-motor-map: ## Stage 23.2 bench: map the shield's shift-register bits to wheels (LINK=fake|tcp)
+	$(UV) wormlab motor-map --link $(LINK)
 
 # --- watching ----------------------------------------------------------------
 

@@ -16,7 +16,7 @@ from wormlab.candidates.hybrid import REFLEX_CHANNELS
 from wormlab.cli import main
 from wormlab.learning import TrainConfig, train_candidate
 
-REFLEX = "docs/brains/a1/worm_evolved_random.json"
+REFLEX = "docs/doom/brains/a1/worm_evolved_random.json"
 TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, workers=1)
 
 

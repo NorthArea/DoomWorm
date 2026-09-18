@@ -8,7 +8,7 @@ curriculum worm) runs every step with its weights frozen, its wheel commands
 channels, and only that network is trained. The genome is the policy's, so the
 training harness, the benchmark and the layer stay untouched.
 
-    doomworm evolve --candidate hybrid --init-brain docs/brains/a2/worm.json
+    doomworm evolve --candidate hybrid --init-brain docs/doom/brains/a2/worm.json
 
 With the reflex removed the candidate is exactly the ``rnn`` row, which is what
 makes the comparison in `docs/findings.md` a fair one.
