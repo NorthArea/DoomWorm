@@ -1,5 +1,6 @@
 """Track B, stage B1: mini-Doom without Doom (Plan §21-23, §27-32) on the 2D platform."""
 
+import json
 import math
 from pathlib import Path
 
@@ -464,3 +465,22 @@ def test_prey_channels_are_silent_without_a_gun() -> None:
     assert channels["prey_left"] == 0.0
     assert channels["prey_front"] == 0.0
     assert channels["prey_right"] == 0.0
+
+
+def test_the_flailing_floor_benchmarks_like_any_brain(tmp_path: Path) -> None:
+    """Stage 25: the control every published row is now read against.
+
+    Uniform intents with no relation to the channels. It has to run through the
+    ordinary benchmark path, on the ordinary levels, or it is not the same
+    measurement as the rows it is compared with.
+    """
+    from wormlab.cli import SCRIPTED
+
+    assert "flailing" in SCRIPTED
+    out = tmp_path / "floor"
+    args = ["benchmark", "--maps", "doom4", "--task", "doom", "--sensors", "ideal"]
+    args += ["--scripted", "flailing", "--test-seeds", "2", "--steps", "20"]
+    assert main([*args, "--out-dir", str(out)]) == 0
+    saved = json.loads((out / "flailing.json").read_text())
+    assert saved["name"] == "flailing"
+    assert len(saved["rows"]) == 2 * saved["config"]["repeats"]

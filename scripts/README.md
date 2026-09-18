@@ -5,6 +5,8 @@ Stage-specific demos live next to the stage code, not here.
 |---|---|
 | `fetch_connectome.py` | download the connectome dataset |
 | `distill_lane.py` | stage 23: record the search as a teacher, train the brain towards it, measure the brain alone |
+| `reach_lane.py` | stage 25: the denominator every row was missing, and what a policy with no behaviour scores |
+| `reach_probe.py` | stage 25: sweep the search's look-ahead — at what depth does each part of the reward appear |
 | `dagger_lane.py` | stage 24: the student drives, the search labels — with a gate that refuses to collect until the labels are a function of the state |
 | `teacher_probe.py` | stage 23b: ask the same state twice — is a teacher a function of the state, and where |
 | `competence_map.py` | stage 22: play with the proposal search on and group the decisions by situation, into `docs/doom/results/competence/` |

@@ -28,7 +28,7 @@ MAP_CHOICES = (
     *(f"e{e}m{m}" for e in range(1, 5) for m in range(1, 10)),  # the classic episode maps
 )  # fmt: skip
 TASK_CHOICES = ("food", "target", "doom")
-SCRIPTED = ("follower", "doomguy")
+SCRIPTED = ("follower", "doomguy", "flailing")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -196,6 +196,13 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
 
         brain = GradientFollower()
         name = args.name or "driver_follower"
+    elif args.scripted == "flailing":
+        # Stage 25: the floor under the floor. Uniform intents, no relation to
+        # the channels -- what a row scores before any behaviour is involved.
+        from wormlab.learning.search import RandomProposer
+
+        brain = RandomProposer(seed=0)  # one stream across the episodes, reset() keeps it
+        name = args.name or "flailing"
     elif args.scripted == "doomguy":
         from doomworm import DoomguyBrain
 
@@ -430,3 +437,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "ppo":
         return run_ppo_cli(args)
     return run_play(args)
+
+
+if __name__ == "__main__":  # `python -m wormlab.cli` used to exit 0 in silence
+    raise SystemExit(main())

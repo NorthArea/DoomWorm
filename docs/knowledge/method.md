@@ -206,3 +206,36 @@ baseline.
 Before writing down a difference, ask what the *unchanged* arm scores on the
 larger sample. It costs one more run and it has saved us from publishing a
 dramatic number twice now.
+
+## Measure the floor under your floor, and the ceiling over it
+
+Two numbers turn a score into a result, and a project can run for weeks without
+either. Ours did.
+
+**The ceiling**: what the task pays if everything on it is collected, counted
+off the environment rather than estimated — and then bounded by what the episode
+can physically arrive at. Ours moves 0.2 units a tick, so 600 ticks buy 120
+units of travel across a floor of 283 cells: most of the exploration reward was
+on the map and out of reach in the time given. Without both numbers a reward is
+a number with no scale, and "the first positive row" can be 3 % of what was
+actually available.
+
+Take the bound from the system's own constant, not from driving it and
+measuring: our first two attempts at that measured how far it gets before
+hitting a wall, which is a fact about the map.
+
+**The floor under the floor**: what a policy with *no behaviour* scores —
+uniform actions, no relation to the observations — benchmarked under exactly
+the conditions the real rows use. Not a shuffled network, not an untrained one:
+those are still structured objects, and ours turned out to score the same as
+everything else. Twenty-four rows of careful comparison between trained brains
+and trained controls all sat inside the band of flailing at random, and nothing
+in any of those rows could have revealed it.
+
+Measure both before the first comparison, not after the twentieth. They cost
+one afternoon and they decide whether any later difference is worth reading.
+
+And give the flailing floor enough episodes. A single lucky kill was worth more
+here than any trained brain's entire episode, so a two-episode mean of a random
+policy was one coin flip -- it read as 8.55 against the worm's 2.35 until the
+sample grew, and then it read as −1.02.
