@@ -85,3 +85,38 @@ a teacher.
 something else — a held action, a smoothed action, a different horizon — the
 evaluation is measuring a policy nobody runs. Check that first, before
 believing a negative result about the search.
+
+## A search over proposals is measured against a random proposer, or not at all
+
+A rollout over the connectome's proposals beat the connectome alone: +3.13
+against +1.40. The obvious reading — the wiring proposes well — is wrong. The
+same rollout over **uniformly random intents** scored +3.45.
+
+The look-ahead does the work; what generates the candidates barely matters. Any
+"the network plus search is better" claim needs the random-proposer arm before
+it means anything, and it is a two-minute run.
+
+## Ask what chance would give before reading an agreement rate
+
+The competence map reported that the brain's own first proposal was the one the
+rollout kept in 42-51 % of decisions, against 17 % expected from six
+exchangeable candidates. That looked like a strong signal and was an artefact:
+the first proposal was chosen 41 % of the time and in **every one** of those its
+score only *tied* the best. `max()` returns the first maximum, and a reward made
+of coarse increments produces ties constantly.
+
+The fix is not a different tie-break, it is the question: with a discrete
+reward, how often are the candidates indistinguishable? Measure that first.
+
+## A teacher you cannot imitate is not a teacher
+
+Before building an expert-iteration loop, check that the expert's choice is a
+**function of the state**. Ours was not: a constant fitted per situation scored
+0.7144 against 0.7149 for one global constant — no situation-dependent
+structure at all — while a brain trained towards it reached 0.845, worse than
+the constant. The teacher was selecting lucky noise in hindsight, and hindsight
+does not generalise to a policy.
+
+Two cheap checks, in this order: does a per-situation constant beat a global
+one, and does the expert beat a random proposer. If either says no, there is
+nothing to distil and the loop will burn hours proving it slowly.
