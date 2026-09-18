@@ -5,6 +5,7 @@ Stage-specific demos live next to the stage code, not here.
 |---|---|
 | `fetch_connectome.py` | download the connectome dataset |
 | `distill_lane.py` | stage 23: record the search as a teacher, train the brain towards it, measure the brain alone |
+| `teacher_probe.py` | stage 23b: ask the same state twice — is a teacher a function of the state, and where |
 | `competence_map.py` | stage 22: play with the proposal search on and group the decisions by situation, into `docs/doom/results/competence/` |
 | `archive_runs.py` | turn a lane's raw benchmark rows into a table that outlives `runs/`, into `docs/doom/results/` |
 | `doom_report.py` | build the tables in `docs/results/b/` from the benchmark rows |

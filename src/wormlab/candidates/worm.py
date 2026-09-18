@@ -60,6 +60,24 @@ class WormBrain:
         self.episode = 0
         self.sim = self._simulator()
 
+    @property
+    def noise(self) -> float:
+        """How much current the neurons add to themselves each tick (stage 19).
+
+        It writes through to the running simulator. Before stage 23b it was a
+        plain attribute read only when a new one was built, so turning the noise
+        off mid-episode silently did nothing and a probe compared two arms that
+        were the same arm.
+        """
+        return self._noise
+
+    @noise.setter
+    def noise(self, value: float) -> None:
+        self._noise = float(value)
+        sim = getattr(self, "sim", None)
+        if sim is not None:
+            sim.noise = self._noise
+
     def _simulator(self) -> Simulator:
         return Simulator(self.network, noise=self.noise, release=self.release, seed=self.episode)
 

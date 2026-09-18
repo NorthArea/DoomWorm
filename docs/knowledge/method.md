@@ -120,3 +120,39 @@ does not generalise to a policy.
 Two cheap checks, in this order: does a per-situation constant beat a global
 one, and does the expert beat a random proposer. If either says no, there is
 nothing to distil and the loop will burn hours proving it slowly.
+
+## Ask the same state twice
+
+The cheapest test of whether anything is a function of the state costs one
+extra evaluation per decision: answer the same state **twice**, from the same
+internal snapshot, and compare.
+
+    within    how far the two answers to one state lie apart -- the noise
+    between   how far answers to different states lie apart -- the signal
+
+Their ratio is the whole diagnosis, and it carries its own baseline: at 1.0 the
+quantity says nothing about the state, whatever it looks like in a plot. It
+needs no labels, no fitted model and no training run, and it applies to a
+policy, a teacher, a score, a learned feature, anything with a state and an
+output.
+
+It is also how to tell a fix from a rescaling. Averaging the best k branches
+looked like it was making our teacher deterministic — the spread of its
+decisions fell from 0.708 to 0.163 as k grew. The ratio never moved: 1.03,
+0.97, 0.94, 1.03. Both halves shrank together, because there was nothing under
+the noise to uncover.
+
+## A silent answer may be a badly chosen question
+
+When the ratio says a controller is not responding to the state, ask *where it
+was measured* before concluding it cannot respond. The same estimator along
+three trajectories separated the two readings for us: steering itself, the
+worm's answer varied five times more between states than within one; under the
+search's steering, 1.3 times. Same brain, same estimator, same number of
+states.
+
+So a demonstration set is recorded **on the trajectory the student will
+actually live on**. An expert that drives the system somewhere the student
+never goes teaches it about a region where its own behaviour is undefined —
+and the resulting failure looks exactly like "the architecture cannot express
+this", which is the one conclusion it does not support.

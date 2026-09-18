@@ -75,3 +75,58 @@ def test_a_wider_search_never_scores_its_own_choice_lower() -> None:
     )
     for row in rows:
         assert row.scores[row.chosen] == max(row.scores)
+
+
+def test_consensus_averages_the_best_branches_and_one_keeps_the_old_behaviour() -> None:
+    """Stage 23b: the decision is the mean of the best k, and k=1 is stage 21."""
+    from wormlab.body import Drive
+    from wormlab.learning.search import _mean_drive
+
+    drives = [Drive(forward=1.0, turn=-1.0), Drive(forward=0.0, turn=1.0)]
+    mean = _mean_drive(drives)
+    assert (mean.forward, mean.turn) == (0.5, 0.0)
+    assert _mean_drive([drives[0]]) == drives[0]
+
+    world = build_world(3003, "doom4", "doom")
+    _, rows = searched_episode(
+        world, worm(episode=3003), 10, SearchConfig(candidates=4, horizon=5, plan_every=5)
+    )
+    for row in rows:  # the default is one, so the chosen branch is executed unchanged
+        assert row.scores[row.chosen] == max(row.scores)
+
+
+def test_the_random_proposer_answers_the_state_not_at_all() -> None:
+    """The control stage 23 needed: same contract, no relation to the channels."""
+    from wormlab.learning.search import RandomProposer
+
+    control = RandomProposer(seed=7)
+    control.reset()
+    a = [control.act({"sensor_front": 0.0}) for _ in range(20)]
+    b = [control.act({"sensor_front": 1.0}) for _ in range(20)]
+    assert len(set(a)) == 20, "every draw is fresh"
+    assert set(a).isdisjoint(b)
+    assert all(-1.0 <= left <= 1.0 and -1.0 <= right <= 1.0 for left, right in a)
+
+    # restoring must not rewind the draws, or every branch becomes the same one
+    state = control.snapshot()
+    first = control.act({})
+    control.restore(state)
+    assert control.act({}) != first
+
+    world = build_world(3004, "doom4", "doom")
+    reward, rows = searched_episode(
+        world, control, 10, SearchConfig(candidates=3, horizon=5, plan_every=5)
+    )
+    assert rows, "the search cannot tell it from a brain"
+    assert isinstance(reward, float)
+
+
+def test_noise_reaches_the_running_simulator() -> None:
+    """Stage 23b: setting it mid-episode used to do nothing until the next reset."""
+    brain = worm(noise=0.0)
+    brain.reset()
+    assert brain.sim.noise == 0.0
+    brain.noise = 0.4
+    assert brain.sim.noise == 0.4, "the live simulator, not just the next one"
+    brain.reset()
+    assert brain.sim.noise == 0.4, "and it survives a reset"

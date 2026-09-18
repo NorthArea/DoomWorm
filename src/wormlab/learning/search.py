@@ -22,8 +22,11 @@ be searched at all: a ViZDoom process has no copy.
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
 
 from wormlab.body import Drive, drive_of
 from wormlab.environments.sensors import SensorSuite
@@ -40,6 +43,15 @@ class SearchConfig:
     horizon: int = 15  # ticks each one is rolled forward
     plan_every: int = 5  # decisions are held for this many ticks (standard MPC)
     noise: float = 0.3  # the brain must be stochastic or every candidate is the same
+    consensus: int = 1
+    """How many of the best branches to average into the decision (stage 23b).
+
+    One takes the single luckiest draw, which is what the first version did and
+    which turned out not to be a function of the state at all: the same state
+    gave a different answer every time, so there was nothing to imitate. The
+    mean of the best k averages the noise out and leaves whatever the state
+    actually implies — the part a brain could learn.
+    """
 
 
 @dataclass
@@ -52,6 +64,17 @@ class SearchRow:
     chosen_drive: Drive
     modal_drive: Drive  # what the brain would have done on its own, unsearched
     channels: dict[str, float] = field(default_factory=dict)
+
+
+def _mean_drive(drives: Sequence[Drive]) -> Drive:
+    """The average intent of several branches (stage 23b's consensus)."""
+    n = float(len(drives))
+    return Drive(
+        forward=sum(d.forward for d in drives) / n,
+        turn=sum(d.turn for d in drives) / n,
+        strafe=sum(d.strafe for d in drives) / n,
+        fire=sum(d.fire for d in drives) / n,
+    )
 
 
 def _score_branch(
@@ -127,8 +150,10 @@ def searched_episode(
                 scores.append(score)
                 firsts.append(first)
             brain.sim.restore(state)  # type: ignore[attr-defined]
-            best = max(range(len(scores)), key=scores.__getitem__)
-            held = firsts[best]
+            order = sorted(range(len(scores)), key=scores.__getitem__, reverse=True)
+            best = order[0]
+            top = order[: max(1, min(cfg.consensus, len(order)))]
+            held = _mean_drive([firsts[i] for i in top])
             row = SearchRow(
                 tick=tick,
                 scores=scores,
@@ -160,3 +185,41 @@ def searched_episode(
         if world.finished:
             break
     return total, rows
+
+
+class RandomProposer:
+    """The control every proposal search has to beat: intents drawn from nothing.
+
+    Stage 23 found that the rollout over *these* scores as well as the rollout
+    over the connectome's own proposals, which is why this lives in the library
+    and not in a scratch script. A search is measured against it or not at all.
+
+    It carries a `sim` with the same snapshot/restore contract as a real brain,
+    so :func:`searched_episode` cannot tell the difference.
+    """
+
+    def __init__(self, seed: int = 0) -> None:
+        self.sim = self  # the search snapshots the brain's state; ours is the RNG's
+        self.rng = np.random.default_rng(seed)
+        self.fire = 0.0
+
+    def reset(self) -> None:
+        """Nothing to forget."""
+
+    def snapshot(self) -> Any:
+        """Nothing: a real brain's snapshot holds its voltages, never its noise.
+
+        Restoring the RNG here would make every branch an identical draw and
+        quietly turn the control into a constant.
+        """
+        return None
+
+    def restore(self, state: Any) -> None:
+        """Nothing to put back."""
+        del state
+
+    def act(self, channels: Mapping[str, float]) -> tuple[float, float]:
+        """A wheel pair with no relation to the channels at all."""
+        del channels
+        self.fire = float(self.rng.random())
+        return float(self.rng.uniform(-1, 1)), float(self.rng.uniform(-1, 1))
