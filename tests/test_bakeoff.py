@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.candidates import CANDIDATES, CandidateSpec, Trainable, WormBrain, build_candidate
-from doomworm.cli import main
-from doomworm.learning import TrainConfig, fitness_of, train_candidate
+from wormlab.candidates import CANDIDATES, CandidateSpec, Trainable, WormBrain, build_candidate
+from wormlab.cli import main
+from wormlab.learning import TrainConfig, fitness_of, train_candidate
 
 TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, workers=1)
 
@@ -81,9 +81,9 @@ def test_evolve_cli(tmp_path: Path) -> None:
 
 
 def test_seed_summary_aggregates_over_directories(tmp_path: Path) -> None:
-    from doomworm.candidates import ScriptedBrain
-    from doomworm.learning import BenchmarkConfig, run_benchmark, save_result
-    from doomworm.learning.summary import collect, main, summary_table
+    from wormlab.candidates import ScriptedBrain
+    from wormlab.learning import BenchmarkConfig, run_benchmark, save_result
+    from wormlab.learning.summary import collect, main, summary_table
 
     cfg = BenchmarkConfig(maps="random", task="food", sensors="ideal", test_seeds=(1,), steps=10)
 

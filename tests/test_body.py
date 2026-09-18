@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from doomworm.body import (
+from wormlab.body import (
     DifferentialDrive,
     Drive,
     MecanumDrive,

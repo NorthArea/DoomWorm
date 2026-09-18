@@ -1,9 +1,9 @@
 """Episode loop: reward wiring and termination (Plan §8, §9)."""
 
-from doomworm.environments.simple_2d import AgentState, World
-from doomworm.experiments.episode import run_episode
-from doomworm.experiments.food_agent import build_scenario
-from doomworm.learning import RewardTracker
+from wormlab.environments.simple_2d import AgentState, World
+from wormlab.experiments.episode import run_episode
+from wormlab.experiments.food_agent import build_scenario
+from wormlab.learning import RewardTracker
 
 
 def test_episode_ends_on_starvation() -> None:

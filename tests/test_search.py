@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from doomworm.candidates import WormBrain
-from doomworm.environments.worlds import build_world
-from doomworm.experiments.worm_agent import WormScenario
-from doomworm.learning.search import SearchConfig, searched_episode
+from wormlab.candidates import WormBrain
+from wormlab.environments.worlds import build_world
+from wormlab.experiments.worm_agent import WormScenario
+from wormlab.learning.search import SearchConfig, searched_episode
 
 
 def worm(noise: float = 0.3, episode: int = 3000) -> WormBrain:

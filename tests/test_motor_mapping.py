@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from doomworm.adapters import GroupMotorAdapter
-from doomworm.brain import Simulator
-from doomworm.connectome import (
+from wormlab.adapters import GroupMotorAdapter
+from wormlab.brain import Simulator
+from wormlab.connectome import (
     Connectome,
     MotorMapping,
     build_network,
@@ -14,9 +14,9 @@ from doomworm.connectome import (
     default_sensory_mapping,
     load_cook2019,
 )
-from doomworm.environments.simple_2d import AgentState, World
-from doomworm.episode import average_activity, run_episode
-from doomworm.experiments import food_agent
+from wormlab.environments.simple_2d import AgentState, World
+from wormlab.episode import average_activity, run_episode
+from wormlab.experiments import food_agent
 
 
 @pytest.fixture(scope="module")

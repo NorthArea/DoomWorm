@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from doomworm.brain import Simulator
-from doomworm.candidates import WormBrain
-from doomworm.experiments.worm_agent import WormScenario
+from wormlab.brain import Simulator
+from wormlab.candidates import WormBrain
+from wormlab.experiments.worm_agent import WormScenario
 
 
 def scenario() -> WormScenario:

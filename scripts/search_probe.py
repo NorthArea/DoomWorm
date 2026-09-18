@@ -13,12 +13,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from doomworm.candidates import WormBrain
-from doomworm.environments.worlds import build_world
-from doomworm.episode import run_brain_episode
-from doomworm.experiments.worm_agent import WormScenario
-from doomworm.learning.reward import RewardConfig, RewardTracker
-from doomworm.learning.search import SearchConfig, searched_episode
+from wormlab.candidates import WormBrain
+from wormlab.environments.worlds import build_world
+from wormlab.episode import run_brain_episode
+from wormlab.experiments.worm_agent import WormScenario
+from wormlab.learning.reward import RewardConfig, RewardTracker
+from wormlab.learning.search import SearchConfig, searched_episode
 
 ROOT = Path(__file__).resolve().parent.parent
 

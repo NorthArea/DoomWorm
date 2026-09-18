@@ -6,23 +6,23 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.candidates import (
+from doomworm import DoomguyBrain
+from doomworm.levels import LEVELS, doom_world
+from wormlab.candidates import (
     CandidateSpec,
-    DoomguyBrain,
     RNNBrain,
     ScriptedBrain,
     WormBrain,
     build_candidate,
 )
-from doomworm.cli import main
-from doomworm.connectome import default_motor_mapping, load_cook2019
-from doomworm.environments.doom.levels import LEVELS, doom_world
-from doomworm.environments.gym_env import DoomwormEnv
-from doomworm.environments.simple_2d import AgentState, Enemy, Target, Wall, World
-from doomworm.environments.worlds import build_world
-from doomworm.episode import fire_of, run_brain_episode
-from doomworm.experiments.worm_agent import WormScenario
-from doomworm.learning import BenchmarkConfig, RewardConfig, RewardTracker, run_benchmark
+from wormlab.cli import main
+from wormlab.connectome import default_motor_mapping, load_cook2019
+from wormlab.environments.gym_env import DoomwormEnv
+from wormlab.environments.simple_2d import AgentState, Enemy, Target, Wall, World
+from wormlab.environments.worlds import build_world
+from wormlab.episode import fire_of, run_brain_episode
+from wormlab.experiments.worm_agent import WormScenario
+from wormlab.learning import BenchmarkConfig, RewardConfig, RewardTracker, run_benchmark
 
 
 def arena(**kwargs: object) -> World:
@@ -340,7 +340,7 @@ def test_play_cli_on_a_doom_level(tmp_path: Path) -> None:
 
 def test_ncp_gets_a_third_output_on_the_doom_task(tmp_path: Path) -> None:
     pytest.importorskip("ncps")
-    from doomworm.candidates.ncp import NCPBrain
+    from wormlab.candidates.ncp import NCPBrain
 
     three = build_candidate(CandidateSpec("ncp", maps="doom4", task="doom", sensors="ideal"))
     assert isinstance(three, NCPBrain)
@@ -366,10 +366,10 @@ def test_the_trigger_answers_the_gun_line_before_any_training() -> None:
     """
     import numpy as np
 
-    from doomworm.candidates import WormBrain
-    from doomworm.connectome import default_sensory_mapping
-    from doomworm.environments.worlds import build_world
-    from doomworm.experiments.worm_agent import WormScenario
+    from wormlab.candidates import WormBrain
+    from wormlab.connectome import default_sensory_mapping
+    from wormlab.environments.worlds import build_world
+    from wormlab.experiments.worm_agent import WormScenario
 
     def fire_rates(*, through_the_door: bool) -> tuple[float, float]:
         mapping = default_sensory_mapping()
@@ -411,10 +411,10 @@ def test_an_untrained_worm_turns_its_body_toward_the_enemy() -> None:
 
     import numpy as np
 
-    from doomworm.candidates import WormBrain
-    from doomworm.connectome import default_sensory_mapping
-    from doomworm.environments.simple_2d import AgentState, Enemy, World
-    from doomworm.experiments.worm_agent import WormScenario
+    from wormlab.candidates import WormBrain
+    from wormlab.connectome import default_sensory_mapping
+    from wormlab.environments.simple_2d import AgentState, Enemy, World
+    from wormlab.experiments.worm_agent import WormScenario
 
     def turn_bias(*, with_prey: bool, side: str) -> float:
         mapping = default_sensory_mapping()
@@ -454,7 +454,7 @@ def test_an_untrained_worm_turns_its_body_toward_the_enemy() -> None:
 
 def test_prey_channels_are_silent_without_a_gun() -> None:
     """A monster you cannot shoot is a hazard, not prey (levels 1-3, and every A-track world)."""
-    from doomworm.environments.worlds import build_world
+    from wormlab.environments.worlds import build_world
 
     with_gun = build_world(3000, "doom4", "doom")
     without = build_world(3000, "doom3", "doom")  # same enemy, no gun

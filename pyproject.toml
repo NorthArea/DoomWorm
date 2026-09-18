@@ -1,5 +1,5 @@
 [project]
-name = "doomworm"
+name = "wormlab"
 version = "0.1.0"
 description = "C. elegans connectome as a trainable controller: from a 3-neuron net to Doom."
 readme = "README.md"
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-doomworm = "doomworm.cli:main"
+doomworm = "wormlab.cli:main"
 
 [dependency-groups]
 dev = [
@@ -46,7 +46,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/doomworm"]
+packages = ["src/wormlab", "src/doomworm"]
 
 # ---------------------------------------------------------------------------
 # Ruff: lint + format
@@ -105,7 +105,7 @@ addopts = "-ra --strict-markers --import-mode=importlib"
 filterwarnings = ["error"]
 
 [tool.coverage.run]
-source = ["doomworm"]
+source = ["wormlab"]
 branch = true
 
 [tool.coverage.report]

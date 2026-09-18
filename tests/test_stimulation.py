@@ -2,8 +2,8 @@
 
 import pytest
 
-from doomworm.brain import stimulate
-from doomworm.connectome import Connectome, build_network, load_cook2019
+from wormlab.brain import stimulate
+from wormlab.connectome import Connectome, build_network, load_cook2019
 
 
 @pytest.fixture(scope="module")

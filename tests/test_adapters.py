@@ -1,6 +1,6 @@
 """Sensory and motor adapters (Plan §2.2, §43)."""
 
-from doomworm.adapters import MotorAdapter, SensoryAdapter
+from wormlab.adapters import MotorAdapter, SensoryAdapter
 
 
 def test_sensor_mapping() -> None:

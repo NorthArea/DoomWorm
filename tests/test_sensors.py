@@ -4,11 +4,11 @@ import math
 
 import pytest
 
-from doomworm.environments.sensors import IDEAL, PRESETS, SensorConfig, SensorSuite
-from doomworm.environments.simple_2d import AgentState, Danger, Obstacle, Wall, World
-from doomworm.episode import run_episode
-from doomworm.experiments import food_agent
-from doomworm.experiments.worm_agent import WormScenario
+from wormlab.environments.sensors import IDEAL, PRESETS, SensorConfig, SensorSuite
+from wormlab.environments.simple_2d import AgentState, Danger, Obstacle, Wall, World
+from wormlab.episode import run_episode
+from wormlab.experiments import food_agent
+from wormlab.experiments.worm_agent import WormScenario
 
 
 def world_with_wall_ahead() -> World:

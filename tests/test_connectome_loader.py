@@ -2,8 +2,8 @@
 
 import pytest
 
-from doomworm.brain import Simulator
-from doomworm.connectome import (
+from wormlab.brain import Simulator
+from wormlab.connectome import (
     GABA_NEURONS,
     Connection,
     ConnectionType,

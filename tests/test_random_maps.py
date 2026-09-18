@@ -4,8 +4,8 @@ import math
 
 import pytest
 
-from doomworm.environments.maze import MapConfig, random_world
-from doomworm.experiments.worm_agent import WormScenario
+from wormlab.environments.maze import MapConfig, random_world
+from wormlab.experiments.worm_agent import WormScenario
 
 
 def test_random_world_is_deterministic_and_seed_dependent() -> None:

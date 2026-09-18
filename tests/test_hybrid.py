@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.candidates import (
+from wormlab.candidates import (
     CandidateSpec,
     HybridBrain,
     RNNBrain,
@@ -12,9 +12,9 @@ from doomworm.candidates import (
     build_candidate,
     load_candidate,
 )
-from doomworm.candidates.hybrid import REFLEX_CHANNELS
-from doomworm.cli import main
-from doomworm.learning import TrainConfig, train_candidate
+from wormlab.candidates.hybrid import REFLEX_CHANNELS
+from wormlab.cli import main
+from wormlab.learning import TrainConfig, train_candidate
 
 REFLEX = "docs/brains/a1/worm_evolved_random.json"
 TINY = TrainConfig(train_seeds=(100,), steps=15, population=3, generations=2, workers=1)

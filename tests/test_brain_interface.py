@@ -5,12 +5,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from doomworm.candidates import Brain, ScriptedBrain, WormBrain
-from doomworm.environments.gym_env import DoomwormEnv
-from doomworm.environments.worlds import build_world
-from doomworm.episode import run_brain_episode, run_episode
-from doomworm.experiments.worm_agent import WormScenario, run_worm
-from doomworm.learning import (
+from wormlab.candidates import Brain, ScriptedBrain, WormBrain
+from wormlab.environments.gym_env import DoomwormEnv
+from wormlab.environments.worlds import build_world
+from wormlab.episode import run_brain_episode, run_episode
+from wormlab.experiments.worm_agent import WormScenario, run_worm
+from wormlab.learning import (
     BenchmarkConfig,
     RewardTracker,
     leaderboard,
@@ -120,7 +120,7 @@ def test_benchmark_and_leaderboard(tmp_path: Path) -> None:
 def test_old_loop_still_works() -> None:
     sc = WormScenario()
     world = sc.make_world(1)
-    from doomworm.brain import Simulator
+    from wormlab.brain import Simulator
 
     trace = run_episode(world, Simulator(sc.template), sc.sensory, sc.motor, 5)
     assert len(trace) == 5

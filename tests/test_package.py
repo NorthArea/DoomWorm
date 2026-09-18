@@ -1,11 +1,11 @@
 import numpy as np
 
-import doomworm
-from doomworm.cli import main
+import wormlab
+from wormlab.cli import main
 
 
 def test_version_is_set() -> None:
-    assert doomworm.__version__ != "0.0.0"
+    assert wormlab.__version__ != "0.0.0"
 
 
 def test_cli_help_exits_zero(capsys) -> None:  # type: ignore[no-untyped-def]

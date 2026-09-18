@@ -2,8 +2,8 @@
 
 import math
 
-from doomworm.experiments.episode import run_episode
-from doomworm.experiments.obstacle_agent import SENSOR_THRESHOLD, build_scenario
+from wormlab.experiments.episode import run_episode
+from wormlab.experiments.obstacle_agent import SENSOR_THRESHOLD, build_scenario
 
 
 def test_agent_drives_reacts_and_turns() -> None:

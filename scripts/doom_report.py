@@ -17,7 +17,7 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
-from doomworm.learning.benchmark import BenchmarkResult, load_results
+from wormlab.learning.benchmark import BenchmarkResult, load_results
 
 COLUMNS = (
     "reward",

@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from doomworm.brain import load_brain
-from doomworm.experiments.evolve_small import SmallFoodScenario, train
-from doomworm.learning import EvolutionConfig, evaluate
+from wormlab.brain import load_brain
+from wormlab.experiments.evolve_small import SmallFoodScenario, train
+from wormlab.learning import EvolutionConfig, evaluate
 
 CFG = EvolutionConfig(population=16, generations=8, elite_fraction=0.25, mutation_sigma=0.3)
 

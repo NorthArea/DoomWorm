@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 import numpy as np
 import pytest
 
-from doomworm.learning.cmaes import CMAConfig, cma_es
+from wormlab.learning.cmaes import CMAConfig, cma_es
 
 
 def sphere(x: np.ndarray) -> float:

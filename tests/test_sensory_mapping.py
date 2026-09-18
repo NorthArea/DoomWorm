@@ -4,15 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.brain import Simulator, stimulate
-from doomworm.connectome import (
+from wormlab.brain import Simulator, stimulate
+from wormlab.connectome import (
     Connectome,
     SensoryMapping,
     build_network,
     default_sensory_mapping,
     load_cook2019,
 )
-from doomworm.environments.simple_2d import AgentState, Food, Obstacle, World
+from wormlab.environments.simple_2d import AgentState, Food, Obstacle, World
 
 
 @pytest.fixture(scope="module")

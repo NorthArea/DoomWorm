@@ -10,11 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from doomworm.candidates import DoomguyBrain
-from doomworm.environments.doom.levels import doom_world
-from doomworm.environments.doom.wad import SCALE, map_lumps, write_wad
-from doomworm.episode import run_brain_episode
-from doomworm.learning import BenchmarkConfig, RewardTracker, run_benchmark
+from doomworm import DoomguyBrain
+from doomworm.levels import doom_world
+from doomworm.wad import SCALE, map_lumps, write_wad
+from wormlab.episode import run_brain_episode
+from wormlab.learning import BenchmarkConfig, RewardTracker, run_benchmark
 
 
 def test_wad_writer_mirrors_the_layout(tmp_path: Path) -> None:
@@ -47,7 +47,7 @@ def test_wad_writer_mirrors_the_layout(tmp_path: Path) -> None:
 
 
 vzd = pytest.importorskip("vizdoom")
-from doomworm.environments.doom.vizdoom_world import vizdoom_world  # noqa: E402
+from doomworm.engine import vizdoom_world  # noqa: E402
 
 
 def test_engine_runs_the_same_layout() -> None:

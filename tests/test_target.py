@@ -2,12 +2,12 @@
 
 import pytest
 
-from doomworm.connectome import default_sensory_mapping
-from doomworm.environments.simple_2d import AgentState, Food, Obstacle, Target, World
-from doomworm.episode import run_episode
-from doomworm.experiments import food_agent
-from doomworm.experiments.worm_agent import WormScenario
-from doomworm.learning import RewardConfig, RewardTracker
+from wormlab.connectome import default_sensory_mapping
+from wormlab.environments.simple_2d import AgentState, Food, Obstacle, Target, World
+from wormlab.episode import run_episode
+from wormlab.experiments import food_agent
+from wormlab.experiments.worm_agent import WormScenario
+from wormlab.learning import RewardConfig, RewardTracker
 
 
 def make_world(**kwargs: object) -> World:

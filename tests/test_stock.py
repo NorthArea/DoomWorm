@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import pytest
 
-from doomworm.environments.worlds import build_world
+from wormlab.environments.worlds import build_world
 
 pytest.importorskip("vizdoom")
 
-from doomworm.environments.doom.stock import (
+from doomworm.stock import (
     SCENARIOS,
     STOCK_LEVELS,
     is_stock_level,
@@ -76,7 +76,7 @@ def test_build_world_knows_the_stock_levels() -> None:
 
 def test_the_classic_maps_are_levels_like_any_other() -> None:
     """The game's own maps, from the Freedoom data (`make fetch-doom`)."""
-    from doomworm.environments.doom.stock import IWAD, is_classic_level
+    from doomworm.stock import IWAD, is_classic_level
 
     assert is_classic_level("e1m1")
     assert is_classic_level("e4m9")

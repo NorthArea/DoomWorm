@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from doomworm.environments.simple_2d import AgentState, Food, Obstacle, World
+from wormlab.environments.simple_2d import AgentState, Food, Obstacle, World
 
 DEG = math.pi / 180
 

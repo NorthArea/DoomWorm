@@ -71,31 +71,31 @@ clean: ## Remove caches and experiment outputs (keeps the venv)
 # --- the platform, stage by stage --------------------------------------------
 
 demo-0: ## Three neurons in a chain
-	$(UV) python -m doomworm.experiments.three_neurons
+	$(UV) python -m wormlab.experiments.three_neurons
 
 demo-1: ## Obstacle avoidance (PNG in runs/)
-	$(UV) python -m doomworm.experiments.obstacle_agent --plot
+	$(UV) python -m wormlab.experiments.obstacle_agent --plot
 
 demo-2: ## The food task: the curriculum world (PNG in runs/)
-	$(UV) python -m doomworm.experiments.food_agent --plot
+	$(UV) python -m wormlab.experiments.food_agent --plot
 
 demo-3: ## Reward comparison of three brains
-	$(UV) python -m doomworm.experiments.reward_demo
+	$(UV) python -m wormlab.experiments.reward_demo
 
 demo-5: ## Connectome statistics
-	$(UV) python -m doomworm.experiments.connectome_stats
+	$(UV) python -m wormlab.experiments.connectome_stats
 
 demo-6: ## Debug screen GIF (runs/stage6_debug.gif)
-	$(UV) python -m doomworm.experiments.debug_screen_demo
+	$(UV) python -m wormlab.experiments.debug_screen_demo
 
 demo-7: ## Sensory mapping and per-channel responders
-	$(UV) python -m doomworm.experiments.sensory_mapping_demo
+	$(UV) python -m wormlab.experiments.sensory_mapping_demo
 
 demo-8: ## Motor mapping, commands per channel
-	$(UV) python -m doomworm.experiments.motor_mapping_demo
+	$(UV) python -m wormlab.experiments.motor_mapping_demo
 
 demo-9: ## The untrained worm drives the agent (PNG + GIF + JSONL log)
-	$(UV) python -m doomworm.experiments.worm_agent --seed $(SEED) --plot --gif
+	$(UV) python -m wormlab.experiments.worm_agent --seed $(SEED) --plot --gif
 
 demos: demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 ## Run every platform demo
 

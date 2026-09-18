@@ -7,9 +7,9 @@ from collections.abc import Callable, Mapping
 
 import pytest
 
-from doomworm.candidates import RNNBrain, ScriptedBrain
-from doomworm.episode import BrainLike
-from doomworm.layer import NOVELTY, MemoryLayer
+from wormlab.candidates import RNNBrain, ScriptedBrain
+from wormlab.episode import BrainLike
+from wormlab.layer import NOVELTY, MemoryLayer
 
 
 class Recorder:
@@ -74,11 +74,11 @@ def test_memory_is_per_episode_and_can_be_made_to_forget() -> None:
 
 def test_the_layer_reaches_the_worm_and_only_through_the_channels() -> None:
     """The worm reads novelty (stage 16); a brain without that route cannot tell."""
-    from doomworm.candidates import CandidateSpec, WormBrain, build_candidate
-    from doomworm.connectome import default_sensory_mapping
-    from doomworm.environments.worlds import build_world
-    from doomworm.episode import run_brain_episode
-    from doomworm.experiments.worm_agent import WormScenario
+    from wormlab.candidates import CandidateSpec, WormBrain, build_candidate
+    from wormlab.connectome import default_sensory_mapping
+    from wormlab.environments.worlds import build_world
+    from wormlab.episode import run_brain_episode
+    from wormlab.experiments.worm_agent import WormScenario
 
     def motors(agent_factory: Callable[[], BrainLike]) -> list[tuple[float, float]]:
         world = build_world(3000, "doom4", "doom")
