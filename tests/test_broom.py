@@ -15,6 +15,7 @@ import pytest
 
 import broomworm  # noqa: F401  -- importing the track registers its task and presets
 from broomworm.cli import build_parser, main
+from broomworm.roomba import RoombaBrain
 from wormlab.environments.worlds import TASKS, build_world
 
 
@@ -41,10 +42,15 @@ def test_a_track_cannot_register_the_same_task_twice() -> None:
         register_task("clean", lambda _w: None)
 
 
+def track_commands() -> set[str]:
+    """Subcommand names of this track's parser."""
+    subs = [a for a in build_parser()._actions if a.__class__.__name__ == "_SubParsersAction"]
+    return set(subs[0].choices or {})
+
+
 def test_every_hardware_command_is_wired() -> None:
     """The seven that were lost in the split, by name, so they cannot go again."""
-    subs = [a for a in build_parser()._actions if a.__class__.__name__ == "_SubParsersAction"]
-    assert set(subs[0].choices or {}) == {
+    assert {
         "drive",
         "compare-log",
         "selftest",
@@ -52,7 +58,12 @@ def test_every_hardware_command_is_wired() -> None:
         "motor-map",
         "calibrate",
         "plot-log",
-    }
+    } <= track_commands()
+
+
+def test_the_measurement_path_is_wired() -> None:
+    """The three that measure: the shared CLI knows only the other track's task and floors."""
+    assert {"benchmark", "evolve", "ppo"} <= track_commands()
 
 
 def test_no_command_prints_help_instead_of_guessing() -> None:
@@ -89,3 +100,66 @@ def test_a_drive_log_replays_in_the_simulator(tmp_path: Path) -> None:
     assert [r["tick"] for r in ticks] == list(range(12))
     assert "battery" in ticks[0]["channels"], "the robot's own channels are recorded"
     assert main(["compare-log", "--log", str(log), "--out", str(tmp_path / "cmp.md")]) == 0
+
+
+def test_the_track_registers_its_layers_on_import() -> None:
+    """Stage J4: the conditions every published row of this track was measured under.
+
+    The split left the harness knowing only the other track's layer, so a row
+    asked for under `--planner needs` could not be produced at all.
+    """
+    from wormlab.learning.bakeoff import BRAIN_LAYERS, layer_names, wrap
+    from wormlab.learning.rl import ENV_LAYERS
+
+    assert {"coverage", "needs"} <= set(BRAIN_LAYERS)
+    assert {"coverage", "needs"} <= set(ENV_LAYERS)
+    assert "needs" in layer_names()
+
+    from broomworm.layer import PlannerLayer
+    from broomworm.roomba import RoombaBrain
+    from wormlab.candidates import CandidateSpec
+
+    spec = CandidateSpec(kind="worm", maps="apartment", task="clean", sensors="vacuum")
+    wrapped = wrap(RoombaBrain(), spec, "needs")
+    assert isinstance(wrapped, PlannerLayer)
+    assert wrap(RoombaBrain(), spec, "none").__class__ is RoombaBrain
+
+
+def test_an_unknown_layer_says_which_ones_exist() -> None:
+    from wormlab.candidates import CandidateSpec
+    from wormlab.learning.bakeoff import wrap
+
+    spec = CandidateSpec(kind="worm", maps="apartment", task="clean", sensors="vacuum")
+    with pytest.raises(ValueError, match="needs"):
+        wrap(RoombaBrain(), spec, "nonesuch")
+
+
+def test_ppo_refuses_a_layer_nobody_registered() -> None:
+    """Silence here would file a row measured bare as if it had met the layer."""
+    from wormlab.learning.rl import PPOConfig, make_env
+
+    cfg = PPOConfig(maps="apartment", task="clean", sensors="vacuum", layer="nonesuch")
+    with pytest.raises(ValueError, match="no environment layer"):
+        make_env(cfg)
+
+
+def test_a_room_file_is_a_world_this_track_registers() -> None:
+    """Stage J4: `room:<file>` is a real room measured with a tape, so the track owns it."""
+    from wormlab.environments.worlds import MAP_KINDS
+
+    assert "room:" in MAP_KINDS
+    world = build_world(0, "room:data/rooms/example_room.json", "clean")
+    assert world.dirt is not None
+    assert world.width > 0.0
+
+
+def test_the_benchmark_row_carries_the_layer_in_its_name(tmp_path: Path) -> None:
+    """The published rows of this track are `<brain>+needs`; the name is the condition."""
+    out = tmp_path / "bench"
+    argv = ["benchmark", "--scripted", "roomba", "--planner", "needs"]
+    argv += ["--test-seeds", "1", "--repeats", "1", "--steps", "40", "--out-dir", str(out)]
+    assert main(argv) == 0
+    rows = json.loads((out / "roomba+needs.json").read_text())
+    assert rows["config"]["task"] == "clean"
+    assert rows["config"]["sensors"] == "vacuum"
+    assert rows["rows"], "one episode, one row"

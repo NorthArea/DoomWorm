@@ -35,7 +35,7 @@ from wormlab.connectome import (
 from wormlab.environments.maze import rooms_visited
 from wormlab.environments.sensors import PRESETS, SensorSuite
 from wormlab.environments.simple_2d import World
-from wormlab.environments.worlds import build_world
+from wormlab.environments.worlds import MAP_KINDS, TASKS, build_world
 from wormlab.episode import Record, run_episode
 from wormlab.experiments.episode import print_trace, render_ascii, save_log, save_plot
 from wormlab.learning import RewardTracker
@@ -83,13 +83,15 @@ class WormScenario:
         # the trigger (Plan §22) reads the pharyngeal group; absent when the mapping has none
         self.trigger: FireAdapter | None = FireAdapter(m.fire, gain_fire) if m.fire else None
         self.brain_steps = brain_steps
-        if maps not in ("fixed", "random", "apartment") and not is_doom_level(maps):
+        known_maps = ("fixed", "random", "apartment")
+        registered = tuple(MAP_KINDS)  # a track's own worlds, e.g. room:<file> (stage J4)
+        if maps not in known_maps and not is_doom_level(maps) and not maps.startswith(registered):
             raise ValueError(
-                "maps must be 'fixed', 'random', 'apartment', doom1..6, vizdoom1..6 or stock_*"
+                f"maps must be {known_maps}, doom1..6, vizdoom1..6, stock_* or one of {registered}"
             )
         self.maps = maps
-        if task not in ("food", "target", "doom"):
-            raise ValueError("task must be 'food', 'target' or 'doom'")
+        if task not in ("food", "target", "doom", *TASKS):
+            raise ValueError(f"task must be 'food', 'target', 'doom' or one of {tuple(TASKS)}")
         self.task = task
         self.dangers = dangers
         if sensors not in PRESETS:

@@ -15,6 +15,10 @@ dist/
 .coverage.*
 htmlcov/
 
+# Project-local toolchains: arduino-cli, the ESP32 core, ESP32Servo
+# (make broom-arduino-setup); hundreds of MB, and its own Python files
+.tools/
+
 # IDE / local tooling
 .idea/
 .vscode/

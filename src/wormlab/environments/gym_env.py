@@ -63,6 +63,14 @@ class DoomwormEnv(gym.Env[np.ndarray, np.ndarray]):
         self._seed = 0
         self.last_channels: dict[str, float] = {}
 
+    def vector(self, channels: dict[str, float]) -> np.ndarray:
+        """Channels in this env's fixed order, as the observation a policy sees.
+
+        Public because a layer wrapper lives outside this module (a track owns
+        its layer) and has to turn its own merged channels into an observation.
+        """
+        return self._vector(channels)
+
     def _vector(self, channels: dict[str, float]) -> np.ndarray:
         return np.array([channels.get(c, 0.0) for c in self.channel_names], dtype=np.float64)
 

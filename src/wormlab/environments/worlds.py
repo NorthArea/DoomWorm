@@ -55,8 +55,12 @@ def build_world(
     if maps == "apartment":
         world = apartment_world(seed, ApartmentConfig(n_food=N_FOOD))
         return _with_body(apply_task(world, task, dangers), body)
+    for prefix, factory in MAP_KINDS.items():
+        if maps.startswith(prefix):
+            return _with_body(factory(seed, maps, task, dangers), body)
     if maps != "fixed":
-        raise ValueError("maps must be 'fixed', 'random' or 'apartment'")
+        known = ", ".join(["fixed", "random", "apartment", *(f"{p}..." for p in sorted(MAP_KINDS))])
+        raise ValueError(f"unknown maps {maps!r}; this process knows: {known}")
     world = World(
         width=20.0,
         height=20.0,
@@ -87,6 +91,24 @@ def _with_body(world: World, body: str) -> World:
     """Attach the platform's vehicle to a freshly built world."""
     world.body = build_body(body)
     return world
+
+
+MapFactory = Callable[[int, str, str, int], World]
+
+MAP_KINDS: dict[str, MapFactory] = {}
+"""Map names a track owns, by prefix. See :func:`register_map`."""
+
+
+def register_map(prefix: str, factory: MapFactory) -> None:
+    """Let a track build worlds of its own from a name, e.g. ``room:<file>``.
+
+    The third member of the same family as :func:`register_task` and
+    :func:`wormlab.environments.sensors.register_preset`: a real room measured
+    with a tape belongs to the track that owns the machine standing in it.
+    """
+    if prefix in MAP_KINDS:
+        raise ValueError(f"map kind already registered: {prefix}")
+    MAP_KINDS[prefix] = factory
 
 
 TASKS: dict[str, Callable[[World], None]] = {}

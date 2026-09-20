@@ -11,7 +11,7 @@ Brain like any other and goes through the benchmark unchanged.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -65,8 +65,26 @@ class _SeedCycle(gym.Wrapper[np.ndarray, np.ndarray, np.ndarray, np.ndarray]):
         return self.env.reset(seed=seed, options=options)
 
 
+EnvLayer = Callable[[Any], "gym.Env[np.ndarray, np.ndarray]"]
+
+ENV_LAYERS: dict[str, EnvLayer] = {}
+"""The same engineered layers, as Gymnasium wrappers, by name.
+
+A policy has to meet the layer the other candidates are wrapped in, or its row
+is measured under different conditions. A track registers its wrapper here on
+import, beside the brain-side layer (:func:`wormlab.learning.bakeoff.register_layer`).
+"""
+
+
+def register_env_layer(name: str, factory: EnvLayer) -> None:
+    """Make ``name`` usable as ``PPOConfig.layer``; raises if it is taken."""
+    if name in ENV_LAYERS:
+        raise ValueError(f"environment layer {name!r} is already registered")
+    ENV_LAYERS[name] = factory
+
+
 def make_env(cfg: PPOConfig) -> gym.Env[np.ndarray, np.ndarray]:
-    """The training environment: world -> sensors -> planner layer -> seed cycle."""
+    """The training environment: world -> sensors -> the layer -> seed cycle."""
     base = DoomwormEnv(
         lambda seed: build_world(seed, cfg.maps, cfg.task, cfg.dangers),
         sensors=cfg.sensors,
@@ -76,7 +94,14 @@ def make_env(cfg: PPOConfig) -> gym.Env[np.ndarray, np.ndarray]:
     )
     env: gym.Env[np.ndarray, np.ndarray] = base
     if cfg.layer != "none":
-        env = base
+        if cfg.layer not in ENV_LAYERS:
+            # Silence here would train the policy bare and file the row as if it
+            # had met the layer; the split left exactly that behind (stage J4).
+            raise ValueError(
+                f"no environment layer named {cfg.layer!r}: import the track that owns it "
+                f"(registered: {sorted(ENV_LAYERS) or 'none'})"
+            )
+        env = ENV_LAYERS[cfg.layer](base)
     return _SeedCycle(env, cfg.train_seeds)
 
 

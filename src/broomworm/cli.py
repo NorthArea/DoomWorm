@@ -7,6 +7,10 @@
     broomworm compare-log --log X      replay a drive log in the simulator, compare
     broomworm robustness --brain X     sweep the sensor preset's assumed numbers
     broomworm plot-log --log X         picture of a drive log
+    broomworm play --brain X           one episode, printed and plotted
+    broomworm benchmark --brain X      the A2/A3 protocol: rows under this track's layer
+    broomworm evolve --candidate worm  train a candidate under that same layer
+    broomworm ppo                      the PPO candidate, inside the layer (rl group)
 
 These describe a *machine*, so by the repository's own rule they belong to the
 track that owns the machine rather than to the shared platform. They were lost
@@ -14,8 +18,12 @@ when the two tracks were split -- the modules survived, the wiring did not -- an
 `make broom-motor-map`, the first thing anyone runs at the bench, has been
 broken since. Restored here, where the next split cannot take them again.
 
-Everything about brains, training and the benchmark stays on `wormlab`; this
-command is only the robot and the room.
+The brains, the search and the benchmark machinery stay on `wormlab`; the
+conditions this track measures under do not. The shared commands only know the
+Doom track's task and floors, so `benchmark`, `evolve` and `ppo` live here too,
+with this track's defaults: the `clean` task, an apartment, the `vacuum` or
+`car` preset, and the engineered layer every published row of this track was
+measured under.
 
 `drive --link sim` and `robustness` want the vacuum world, which the shared
 simulator lost in the same split (stage J2). Against a real link -- `--link tcp`
@@ -102,6 +110,70 @@ def build_parser() -> argparse.ArgumentParser:
     pl = sub.add_parser("plot-log", help="picture of a drive log")
     pl.add_argument("--log", type=Path, required=True)
     pl.add_argument("--out", type=Path, default=None, help="PNG path (default: next to the log)")
+
+    ply = sub.add_parser("play", help="one episode of a saved brain, printed and plotted")
+    ply.add_argument("--brain", type=Path, required=True)
+    ply.add_argument("--seed", type=int, default=3000, help="world seed")
+    ply.add_argument("--steps", type=int, default=800)
+    ply.add_argument("--every", type=int, default=50)
+    ply.add_argument("--plot", action="store_true", help="save runs/play_<seed>.png")
+    ply.add_argument("--maps", choices=MAP_CHOICES, default=None, help="override the brain")
+    ply.add_argument("--task", choices=TASK_CHOICES, default=None, help="override the brain")
+    ply.add_argument("--dangers", type=int, default=None, help="override the brain")
+    ply.add_argument("--sensors", choices=SENSOR_PRESETS, default=None, help="override the brain")
+
+    bench = sub.add_parser("benchmark", help="run a brain through this track's benchmark")
+    bench.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
+    bench.add_argument("--scripted", choices=SCRIPTED, default=None, help="a hand-written brain")
+    bench.add_argument("--name", default=None, help="row name (default: file stem)")
+    bench.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    bench.add_argument("--task", choices=TASK_CHOICES, default="clean")
+    bench.add_argument("--dangers", type=int, default=0)
+    bench.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
+    bench.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
+    bench.add_argument("--repeats", type=int, default=3, help="sensor-noise seeds per map")
+    bench.add_argument("--steps", type=int, default=800)
+    bench.add_argument("--out-dir", type=Path, default=Path("runs") / "benchmark")
+    bench.add_argument(
+        "--planner",
+        choices=["none", "coverage", "needs"],
+        default="none",
+        help="wrap with the map layer; every published row of this track is +needs",
+    )
+
+    ev = sub.add_parser("evolve", help="train a candidate under this track's layer")
+    ev.add_argument("--candidate", required=True, help="worm, worm_random, worm_shuffled, rnn, ...")
+    ev.add_argument("--init-brain", type=Path, default=None, help="start from a saved brain")
+    ev.add_argument("--variant-seed", type=int, default=0, help="seed of a control topology")
+    ev.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
+    ev.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    ev.add_argument("--task", choices=TASK_CHOICES, default="clean")
+    ev.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
+    ev.add_argument("--train-seeds", type=int, default=3, help="maps 100..100+N-1")
+    ev.add_argument("--train-repeats", type=int, default=1, help="noise seeds per training map")
+    ev.add_argument("--steps", type=int, default=800)
+    ev.add_argument("--population", type=int, default=40)
+    ev.add_argument("--generations", type=int, default=25)
+    ev.add_argument("--sigma", type=float, default=0.02)
+    ev.add_argument("--init-sigma", type=float, default=None)
+    ev.add_argument("--search", choices=["mutation", "cma"], default="mutation")
+    ev.add_argument("--trainable", default=None, help="subset of weights (candidate-specific)")
+    ev.add_argument("--tune-gains", action="store_true", help="also search the adapter gains")
+    ev.add_argument("--seed", type=int, default=0, help="evolution seed")
+    ev.add_argument("--workers", type=int, default=1, help="processes for fitness evaluation")
+    ev.add_argument("--out", type=Path, default=None, help="default runs/a2/<candidate>.json")
+
+    ppo = sub.add_parser("ppo", help="train the PPO candidate under the layer (rl group)")
+    ppo.add_argument("--layer", choices=["none", "coverage", "needs"], default="needs")
+    ppo.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    ppo.add_argument("--task", choices=TASK_CHOICES, default="clean")
+    ppo.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
+    ppo.add_argument("--train-seeds", type=int, default=3)
+    ppo.add_argument("--steps", type=int, default=800)
+    ppo.add_argument("--timesteps", type=int, default=300_000)
+    ppo.add_argument("--n-steps", type=int, default=2048)
+    ppo.add_argument("--seed", type=int, default=0)
+    ppo.add_argument("--out", type=Path, default=Path("runs") / "a2" / "ppo.json")
     return parser
 
 
@@ -216,6 +288,139 @@ def run_robustness_cli(args: argparse.Namespace) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text, encoding="utf-8")
     print(f"saved {out}")
+    return 0
+
+
+def build_scripted(args: argparse.Namespace) -> tuple[Any, str]:
+    """The brain a command was asked for, and the name its row carries."""
+    if args.scripted == "follower":
+        from broomworm.layer import GradientFollower
+
+        return GradientFollower(), args.name or "driver_follower"
+    if args.scripted == "roomba":
+        from broomworm.roomba import RoombaBrain
+
+        return RoombaBrain(), args.name or "roomba"
+    if args.brain is not None:
+        from wormlab.candidates import load_candidate
+
+        brain = load_candidate(
+            args.brain, maps=args.maps, task=args.task, dangers=getattr(args, "dangers", 0)
+        )
+        return brain, args.name or args.brain.stem
+    raise SystemExit("give --brain <file> or --scripted <name>")
+
+
+def run_play_cli(args: argparse.Namespace) -> int:
+    """The shared player, with this track's worlds available (``--task clean``)."""
+    from wormlab.cli import run_play
+
+    args.watch = False  # a Doom-engine window; this track has no engine
+    return run_play(args)
+
+
+def run_benchmark_cli(args: argparse.Namespace) -> int:
+    """The A2/A3 protocol: one brain, the track's world, its layer, the leaderboard."""
+    from wormlab.learning import BenchmarkConfig, run_benchmark, save_result, write_leaderboard
+
+    cfg = BenchmarkConfig(
+        maps=args.maps,
+        task=args.task,
+        dangers=args.dangers,
+        sensors=args.sensors,
+        test_seeds=tuple(range(3000, 3000 + args.test_seeds)),
+        steps=args.steps,
+        repeats=args.repeats,
+    )
+    brain, name = build_scripted(args)
+    if args.planner != "none":
+        from broomworm.layer import PlannerLayer
+        from wormlab.environments.sensors import PRESETS
+
+        brain = PlannerLayer(brain, PRESETS[args.sensors], mode=args.planner)
+        # "+planner" is the stage-19 coverage row name; other modes carry their own.
+        name += "+planner" if args.planner == "coverage" else f"+{args.planner}"
+    print(f"benchmark {name}: {cfg.episodes} episodes on {cfg.maps}/{cfg.task}/{cfg.sensors}")
+    result = run_benchmark(
+        brain,
+        name,
+        cfg,
+        on_episode=lambda r: print(
+            f"  seed {r.seed} rep {r.repeat}: reward {r.reward:7.1f}  coverage {r.coverage:.2f}  "
+            f"collisions {r.collisions:3d}  ticks {r.ticks}",
+            flush=True,
+        ),
+    )
+    path = save_result(result, args.out_dir)
+    print(f"\nsaved {path}\n")
+    print(write_leaderboard(args.out_dir))
+    return 0
+
+
+def run_evolve_cli(args: argparse.Namespace) -> int:
+    """Train one candidate with the shared harness, under this track's layer (stage 21.2)."""
+    from wormlab.candidates import CandidateSpec
+    from wormlab.learning import TrainConfig, train_candidate
+
+    spec = CandidateSpec(
+        kind=args.candidate,
+        init=None if args.init_brain is None else str(args.init_brain),
+        variant_seed=args.variant_seed,
+        maps=args.maps,
+        task=args.task,
+        sensors=args.sensors,
+        params={"trainable": args.trainable, "tune_gains": args.tune_gains},
+    )
+    cfg = TrainConfig(
+        layer=args.layer,
+        train_seeds=tuple(range(100, 100 + args.train_seeds)),
+        train_repeats=args.train_repeats,
+        steps=args.steps,
+        population=args.population,
+        generations=args.generations,
+        sigma=args.sigma,
+        init_sigma=args.init_sigma,
+        mutation_fraction=0.05 if args.candidate == "worm_dense" else 1.0,
+        seed=args.seed,
+        workers=args.workers,
+        search=args.search,
+    )
+    out = args.out or Path("runs") / "a2" / f"{spec.label()}.json"
+    print(
+        f"evolve {spec.label()} under layer {cfg.layer}: {cfg.population} x {cfg.generations} "
+        f"on maps {cfg.train_seeds}, {cfg.workers} workers -> {out}"
+    )
+    result = train_candidate(
+        spec,
+        cfg,
+        out,
+        on_generation=lambda g: print(
+            f"  gen {g.generation:3d}  best {g.best:8.2f}  mean {g.mean:8.2f}", flush=True
+        ),
+    )
+    print(f"best train fitness {result.best_fitness:.2f}; saved {out}")
+    print(f"benchmark: broomworm benchmark --brain {out} --planner {cfg.layer}")
+    return 0
+
+
+def run_ppo_cli(args: argparse.Namespace) -> int:
+    """Train the PPO candidate inside the same layer the others are wrapped in (stage 21.4)."""
+    from wormlab.learning.rl import PPOConfig, train_ppo
+
+    cfg = PPOConfig(
+        maps=args.maps,
+        task=args.task,
+        sensors=args.sensors,
+        steps=args.steps,
+        layer=args.layer,
+        train_seeds=tuple(range(100, 100 + args.train_seeds)),
+        timesteps=args.timesteps,
+        n_steps=args.n_steps,
+        seed=args.seed,
+    )
+    print(f"ppo under layer {cfg.layer}: {cfg.timesteps} steps on {cfg.train_seeds} -> {args.out}")
+    out = train_ppo(cfg, args.out, verbose=1)
+    print(f"saved {out}; benchmark: broomworm benchmark --brain {out} --planner {cfg.layer}")
     return 0
 
 
@@ -395,6 +600,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "motor-map": run_motor_map_cli,
         "calibrate": run_calibrate_cli,
         "plot-log": run_plot_log_cli,
+        "play": run_play_cli,
+        "benchmark": run_benchmark_cli,
+        "evolve": run_evolve_cli,
+        "ppo": run_ppo_cli,
     }
     if args.command not in handlers:
         build_parser().print_help()

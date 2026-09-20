@@ -11,5 +11,6 @@ Sibling track: :mod:`doomworm`. What each track learns that the other can use
 goes in `docs/knowledge/`, not in either package.
 """
 
+from broomworm import layer as _layer  # noqa: F401  -- registers the coverage/needs layers
 from broomworm import presets as _presets  # noqa: F401  (registers the machines)
 from broomworm import tasks  # noqa: F401  -- registers the `clean` task

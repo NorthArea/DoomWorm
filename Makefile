@@ -1,4 +1,4 @@
-# DoomWorm developer shortcuts. Everything runs through uv; nothing is installed globally.
+# WormLab developer shortcuts. Everything runs through uv; nothing is installed globally.
 
 .DEFAULT_GOAL := help
 UV := uv run
@@ -11,11 +11,16 @@ WORKERS ?= 6
 TRAIN_LEVEL ?= doom4
 DOOM_SEED ?= 0
 WORM_BRAIN ?= docs/brains/curriculum/worm_evolved_random.json
+A2_WORM ?= docs/broom/brains/a2/worm_from_worm_evolved_random.json
+BROOM_BRAIN ?= $(A2_WORM)
+LINK ?= fake
 WATCH_BRAIN ?= docs/doom/brains/doom/doom4/seed0/worm_from_worm_evolved_random.json
 WATCH_SEED ?= 3000
 DOOM_BENCH = --task doom --sensors ideal --steps 600 --test-seeds 12 --repeats 1
 
-.PHONY: help tracks broom-arduino-setup broom-firmware broom-firmware-flash broom-motor-map setup sync hooks fetch-data fetch-doom test test-fast cov lint format typecheck check clean \
+.PHONY: help tracks broom-arduino-setup broom-firmware broom-firmware-flash broom-motor-map \
+	    broom-selftest broom-calibrate broom-robustness broom-benchmark broom-evolve-a2 broom-benchmark-a2 \
+	    broom-evolve-car broom-benchmark-car broom-drive broom-dayone setup sync hooks fetch-data fetch-doom test test-fast cov lint format typecheck check clean \
 	    demo-0 demo-1 demo-2 demo-3 demo-5 demo-6 demo-7 demo-8 demo-9 demos \
 	    demo-b1 demo-b4 demo-b11 demo-classic watch-doom watch-doomguy watch-stock watch-classic \
 	    benchmark-doom benchmark-vizdoom benchmark-classic evolve-doom train-worm compare play stimulate \
@@ -185,6 +190,47 @@ broom-calibrate: ## Measure metres per world unit and the wheel base (LINK=sim|t
 
 broom-robustness: ## Sweep the sensor preset's assumed numbers around the scripted robot
 	$(UV) broomworm robustness --scripted roomba
+
+broom-benchmark: ## One brain through this track's benchmark (BROOM_BRAIN=..., ARGS=...)
+	$(UV) broomworm benchmark --brain $(BROOM_BRAIN) --planner needs $(ARGS)
+
+broom-evolve-a2: ## Train $(CANDIDATE) under the needs layer on the vacuum preset -> runs/a2/
+	$(UV) broomworm evolve --candidate $(CANDIDATE) --workers $(WORKERS) $(EVOLVE_ARGS)
+
+broom-benchmark-a2: ## The A2 table: every brain in runs/a2/ plus the scripted floors -> runs/benchmark_a2/
+	$(UV) broomworm benchmark --scripted roomba --out-dir runs/benchmark_a2
+	$(UV) broomworm benchmark --scripted follower --planner needs --out-dir runs/benchmark_a2
+	for b in runs/a2/*.json; do case $$b in *.meta.json) ;; *) \
+	  $(UV) broomworm benchmark --brain $$b --planner needs --out-dir runs/benchmark_a2 || exit 1 ;; esac; done
+
+broom-evolve-car: ## Retrain $(CANDIDATE) on the car preset -> runs/a2_car/ (PPO: broomworm ppo --sensors car)
+	$(UV) broomworm evolve --candidate $(CANDIDATE) --sensors car --workers $(WORKERS) --out runs/a2_car/$(CANDIDATE).json
+
+broom-benchmark-car: ## The A3 table: the A2 brains and the floors on the car preset -> runs/benchmark_car/
+	$(UV) broomworm benchmark --scripted roomba --sensors car --out-dir runs/benchmark_car
+	$(UV) broomworm benchmark --scripted follower --planner needs --sensors car --out-dir runs/benchmark_car
+	for b in worm worm_from_worm_evolved_random rnn ppo; do \
+	  $(UV) broomworm benchmark --brain docs/broom/brains/a2/$$b.json --planner needs --sensors car \
+	    --out-dir runs/benchmark_car || exit 1; done
+	for b in runs/a2_car/*.json; do case $$b in *.meta.json) ;; runs/a2_car/\*.json) ;; *) \
+	  $(UV) broomworm benchmark --brain $$b --name $$(basename $$b .json)_car --planner needs \
+	    --sensors car --out-dir runs/benchmark_car || exit 1 ;; esac; done
+
+broom-drive: ## A brain over the simulator link, recorded, then replayed and compared (stage 22.1)
+	$(UV) broomworm drive --brain $(A2_WORM) --planner needs --seed 3002 --steps 300 --every 50 \
+	  --record runs/drive/worm_sim_3002.jsonl
+	$(UV) broomworm compare-log --log runs/drive/worm_sim_3002.jsonl --out runs/drive/worm_sim_3002_vs_replay.md
+	$(UV) broomworm plot-log --log runs/drive/worm_sim_3002.jsonl
+
+broom-dayone: ## Rehearse the whole day on the car, on the simulator: bench, self-test, calibrate, room drive, compare
+	$(UV) broomworm motor-map --link fake --ms 100
+	$(UV) broomworm selftest --link sim --sensors car --seed 3001 --out runs/dayone/selftest.md
+	printf '0.8\n60\n' | $(UV) broomworm calibrate --link sim --sensors car --seed 3001 --out runs/dayone/calibration.json
+	printf 'w\nw\nw\nw\nd\nd\nw\nw\nw\n' | $(UV) broomworm drive --link sim --teleop --sensors car \
+	  --room data/rooms/example_room.json --every 1 --record runs/dayone/room.jsonl
+	$(UV) broomworm plot-log --log runs/dayone/room.jsonl
+	$(UV) broomworm compare-log --log runs/dayone/room.jsonl --out runs/dayone/room_vs_replay.md
+	@echo "rehearsed: on the car the same lines run with --link tcp (docs/broom/hardware.md)"
 
 # --- watching ----------------------------------------------------------------
 

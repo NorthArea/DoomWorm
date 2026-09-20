@@ -29,7 +29,28 @@ from wormlab.episode import BrainLike
 from wormlab.learning.benchmark import BenchmarkConfig, run_benchmark
 from wormlab.learning.evolution import EvolutionConfig, EvolutionResult, GenerationStats, evolve
 
-LAYERS = ("none", "memory")
+LayerFactory = Callable[[BrainLike, "CandidateSpec"], BrainLike]
+
+BRAIN_LAYERS: dict[str, LayerFactory] = {}
+"""Layers a track owns, by name. See :func:`register_layer`.
+
+``none`` and ``memory`` are the platform's own. A track that puts its brains
+under an engineered layer of its own registers it here on import, the same
+arrangement as :func:`wormlab.environments.sensors.register_preset`: the
+platform owns the harness, the track owns the layer its machine needs.
+"""
+
+
+def register_layer(name: str, factory: LayerFactory) -> None:
+    """Make ``name`` available to ``--layer`` / ``wrap``; raises if it is taken."""
+    if name in ("none", "memory") or name in BRAIN_LAYERS:
+        raise ValueError(f"layer {name!r} is already registered")
+    BRAIN_LAYERS[name] = factory
+
+
+def layer_names() -> tuple[str, ...]:
+    """Every layer a candidate can be trained and benchmarked under, right now."""
+    return ("none", "memory", *sorted(BRAIN_LAYERS))
 
 
 @dataclass(frozen=True)
@@ -63,13 +84,15 @@ class TrainConfig:
 
 def wrap(brain: BrainLike, spec: CandidateSpec, layer: str) -> BrainLike:
     """The condition a candidate is trained and benchmarked under (Plan §9)."""
-    if layer not in LAYERS:
-        raise ValueError(f"layer must be one of {LAYERS}")
+    if layer == "none":
+        return brain
     if layer == "memory":
         from wormlab.layer import MemoryLayer
 
         return MemoryLayer(brain)
-    return brain
+    if layer in BRAIN_LAYERS:
+        return BRAIN_LAYERS[layer](brain, spec)
+    raise ValueError(f"layer must be one of {layer_names()}")
 
 
 def benchmark_config(spec: CandidateSpec, cfg: TrainConfig) -> BenchmarkConfig:

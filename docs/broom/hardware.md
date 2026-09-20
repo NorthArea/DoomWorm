@@ -117,14 +117,21 @@ before unboxing, not compiled, pins are placeholders).
 4. **Marker "dock"** (22.4): K210 beacon into the layer, return to the start spot.
 5. **Coverage, map, call** (22.5): the acceptance of Plan §20.5.1.
 
-Brains are chosen on the `car` preset by the A2 protocol (`make benchmark-car`,
-`make evolve-car CANDIDATE=...`); results in `docs/results/a3/stage22_car_2026-09-15.md`.
+Brains are chosen on the `car` preset by the A2 protocol (`make broom-benchmark-car`,
+`make broom-evolve-car CANDIDATE=...`); results in `docs/broom/results/a3/stage22_car_2026-09-15.md`.
 
 ## Day one on the car (everything below is ready, nothing needs the machine to prepare)
 
+**Rehearse it first, without the car**: `make broom-dayone` runs the whole
+sequence over the simulator link -- bench motor map, self-test, calibration
+from two typed measurements, a teleop drive through `data/rooms/example_room.json`,
+the plot, and the log replayed against the simulator -- and leaves its
+artefacts in `runs/dayone/`. On the machine the same lines run with
+`--link tcp`.
+
 Wheels first: the QA052 shield sets motor directions through a shift register
 whose bit map is undocumented. Before anything drives, `broomworm motor-map
---link tcp` (`make motor-map`) energises the eight bits one by one, asks which
+--link tcp` (`make broom-motor-map`) energises the eight bits one by one, asks which
 wheel turned which way, and prints the `MOTOR_FWD` / `MOTOR_BWD` lines for the
 sketch. Rehearsal without the car: `broomworm motor-map --link fake`.
 
@@ -156,31 +163,31 @@ sketch. Rehearsal without the car: `broomworm motor-map --link fake`.
    --calibration runs/calibration.json --room data/rooms/<name>.json --record runs/drive/real1.jsonl`
    (keys `w a s d x`, `q` to stop). Then look at it: `uv run broomworm plot-log --log runs/drive/real1.jsonl`
    (path from odometry, bumper hits, rays, wheels).
-6. **Compare with the simulator**: `uv run broomworm compare-log --log runs/drive/real1.jsonl`.
+6. **Compare with the simulator**: `uv run wormlab compare-log --log runs/drive/real1.jsonl`.
    Read the per-channel RMSE against the `car` preset: rays tell how far the
    noise/dropout numbers are off, odometry tells how much the command
    integration drifts. Adjust `CAR` in `environments/sensors.py` from the
-   numbers, re-run `make benchmark-car`, and only then put a brain on the car.
+   numbers, re-run `make broom-benchmark-car`, and only then put a brain on the car.
 7. **First autonomous drive**: the transferred curriculum worm
-   (`--brain docs/brains/a2/worm_from_worm_evolved_random.json --planner needs`),
-   then PPO-car (`docs/brains/car/ppo.json`, needs `uv sync --group rl`).
+   (`--brain docs/broom/brains/a2/worm_from_worm_evolved_random.json --planner needs`),
+   then PPO-car (`docs/broom/brains/car/ppo.json`, needs `uv sync --group rl`).
 
 ## Commands
 
 ```bash
-make selftest-sim                              # the day-one self-test and calibration, on the simulator
-make benchmark-car                             # every candidate on the car preset -> runs/benchmark_car/
-make evolve-car CANDIDATE=rnn                  # retrain a candidate on the car preset -> runs/a2_car/
-make demo-22                                   # brain over the sim link + log replay comparison
+make broom-dayone                              # the day-one self-test and calibration, on the simulator
+make broom-benchmark-car                             # every candidate on the car preset -> runs/benchmark_car/
+make broom-evolve-car CANDIDATE=rnn                  # retrain a candidate on the car preset -> runs/a2_car/
+make broom-drive                                   # brain over the sim link + log replay comparison
 printf 'w\nw\nd\nw\n' | uv run broomworm drive --teleop --sensors car --seed 3002 --record runs/drive/teleop.jsonl
 uv run broomworm drive --teleop --link tcp --sensors car --record runs/drive/real.jsonl
-uv run broomworm compare-log --log runs/drive/real.jsonl --seed 3002
+uv run wormlab compare-log --log runs/drive/real.jsonl --seed 3002
 ```
 
 ## The vacuum (the project's target platform, Plan §48)
 
 Kept for when the real vacuum arrives; the `vacuum` preset and its A2 table
-(`docs/results/a2/a2_bakeoff_2026-09-15.md`) stay the reference.
+(`docs/broom/results/a2/a2_bakeoff_2026-09-15.md`) stay the reference.
 
 | Channel(s) | Sensor | Assumed part |
 |---|---|---|
