@@ -150,9 +150,9 @@ def test_every_branch_starts_from_the_same_neural_state() -> None:
     scores, firsts = rollout_branches(world, brain, candidates=5, horizon=4)
     assert len(scores) == len(firsts) == 5
     after = brain.sim.snapshot()
-    assert all(
-        (a == b).all() for a, b in zip(state, after, strict=True)
-    ), "the search left the brain where it found it"
+    assert all((a == b).all() for a, b in zip(state, after, strict=True)), (
+        "the search left the brain where it found it"
+    )
 
     quiet = worm(noise=0.0, episode=3005)
     quiet.reset()

@@ -512,3 +512,22 @@ def test_ablating_a_reflex_makes_the_tick_fall_through() -> None:
     # ablating everything leaves one behaviour: forward
     empty = DoomguyBrain(ablate=REFLEXES)
     assert empty.act({"sensor_front": 1.0, "bumper_left": 1.0}) == (1.0, 1.0)
+
+
+def test_the_face_probe_reads_a_turn_out_of_a_held_channel() -> None:
+    """Stage 27: the isolated measurement, with no world in the way."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    from face_probe import TICKS, face, hold  # type: ignore[import-not-found]
+    from wormlab.candidates import CandidateSpec, build_candidate
+
+    brain = build_candidate(CandidateSpec("worm"))
+    turns = hold(brain, "danger_left")
+    assert len(turns) == TICKS
+    assert all(-1.0 <= t <= 1.0 for t in turns)
+    assert hold(brain, "danger_left", value=0.0) != turns, "the channel drives the answer"
+
+    got = face(brain, ("danger_left", "danger_right"))
+    assert set(got) == {"sign", "size", "hold", "stop"}
+    assert got["size"] >= abs(got["sign"]) / 2, "size bounds what the sides can differ by"

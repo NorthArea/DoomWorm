@@ -71,3 +71,42 @@ involving a target to engage.
 following for free, and expect to pay for anything that requires facing a
 chosen object. Budget the effort accordingly, and measure by situation — one
 reward number hides this completely.
+
+## What the wiring gives is a bias, not a capacity
+
+The clearest case we have. The hand-written floor's most expensive reflex is
+coming round onto a target off the bow, and the question was whether the
+connectome can express it at all.
+
+Measured with no world in the way -- one side channel held steady, the intent
+read back -- the answer is yes: the right sign, a turn that holds while the
+signal does, and one that settles when the target centres (0.030). All three
+training seeds agree on the sign, and neither the shuffled connectome nor a
+random topology of the same size does.
+
+Then train *directly* for that reflex, nothing else scored: the connectome
+reaches 0.735, its shuffle 0.499 -- and a random topology 0.979, the best of the
+three. Every topology can represent it. The real one is not special at
+representing it.
+
+So the two measurements say different things and both are needed. Capacity is
+not where the anatomy shows up; **what it does is decide what you find when the
+reward never asks for it directly.** Trained on a game that pays only for kills
+and exits, the real wiring lands the correct sign anyway and the controls do
+not. That is an inductive bias, and it is the kind of claim a shuffled control
+can actually establish.
+
+Read it with the sample in mind: three seeds agreeing is one chance in eight.
+
+## And a reflex that exists can still be useless
+
+The same circuit, swept over signal strength, turns at 0.007 when the sector
+channel reads 0.05 -- a target across the room -- against the 0.6 the
+hand-written floor uses. At the gun's range it manages 0.055. The reflex is
+present and its gain is out by an order of magnitude exactly where the task
+needs it.
+
+A brain trained harder (stage 18's CMA run) does have the gain, 0.49 at 0.05,
+and pays for it by never stopping: it spins past. Presence, gain and
+termination are three separate properties, and a circuit that has one of them
+looks from the outside exactly like a circuit that has none.
