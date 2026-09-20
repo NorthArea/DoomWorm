@@ -5,7 +5,7 @@ description = "C. elegans connectome as a trainable controller: from a 3-neuron 
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Alexandr" }]
+authors = [{ name = "Aleksandr Iuskasov" }]
 keywords = ["c-elegans", "connectome", "spiking-neural-network", "neuroevolution", "doom"]
 classifiers = [
     "Programming Language :: Python :: 3",
