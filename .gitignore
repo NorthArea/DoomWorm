@@ -21,6 +21,11 @@ htmlcov/
 .mcp.json
 .DS_Store
 
+# PPO's training checkpoints, written every 30k steps. The final ppo.zip is
+# the published brain and sits beside them; these are residue (audited by
+# scripts/audit_brains.py, removed 2026-09-20)
+ppo_ckpt/
+
 # Experiment outputs (results are saved here, see docs/)
 runs/
 *.log
