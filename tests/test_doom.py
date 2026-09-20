@@ -484,3 +484,31 @@ def test_the_flailing_floor_benchmarks_like_any_brain(tmp_path: Path) -> None:
     saved = json.loads((out / "flailing.json").read_text())
     assert saved["name"] == "flailing"
     assert len(saved["rows"]) == 2 * saved["config"]["repeats"]
+
+
+def test_ablating_a_reflex_makes_the_tick_fall_through() -> None:
+    """Stage 26: each reflex claims a tick or passes, and an ablated one always passes."""
+    from doomworm.doomguy import REFLEXES, DoomguyBrain
+
+    with pytest.raises(ValueError, match="no such reflex: sneeze"):
+        DoomguyBrain(ablate=["sneeze"])
+
+    # an enemy on the gun line, in range: the full brain stands and fires
+    aimed = {"danger_front": 0.5, "aim": 1.0, "ammo": 1.0}
+    full = DoomguyBrain()
+    assert full.act(aimed) == (0.0, 0.0)
+    assert full.fire == 1.0
+
+    # without `shoot` the same tick falls to `face`, which closes the distance
+    no_shoot = DoomguyBrain(ablate=["shoot"])
+    assert no_shoot.act(aimed) == (1.0, 1.0)
+    assert no_shoot.fire == 0.0
+
+    # without either, it falls all the way to the exit gradient
+    quiet = DoomguyBrain(ablate=["shoot", "face"])
+    quiet.act(aimed)
+    assert quiet.fire == 0.0
+
+    # ablating everything leaves one behaviour: forward
+    empty = DoomguyBrain(ablate=REFLEXES)
+    assert empty.act({"sensor_front": 1.0, "bumper_left": 1.0}) == (1.0, 1.0)

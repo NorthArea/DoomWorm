@@ -110,7 +110,9 @@ def show_floor(who: tuple[str, ...]) -> None:
                 "--out-dir", str(OUT / level),
             ]  # fmt: skip
             out = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT).stdout
-            row = [ln for ln in out.splitlines() if ln.startswith("| 1 |")]
+            # by name, never by rank: the summary lists every brain already in
+            # the directory, so "the first row" is whichever ran best before
+            row = [ln for ln in out.splitlines() if f"| {name} |" in ln]
             print(f"  {level:8s} {row[0] if row else 'FAILED'}", flush=True)
 
 

@@ -239,3 +239,34 @@ And give the flailing floor enough episodes. A single lucky kill was worth more
 here than any trained brain's entire episode, so a two-episode mean of a random
 policy was one coin flip -- it read as 8.55 against the worm's 2.35 until the
 sample grew, and then it read as −1.02.
+
+## Publish what your benchmark can read
+
+The ± beside a mean is usually the spread over episodes, which is not the error
+on the mean. Divide by the square root of the episode count and you have the
+number that decides whether any two rows differ at all.
+
+Ours: ±0.2 on the easiest level, ±4.2, ±6.2, and **±7.0** on the hardest. That
+interval is larger than several margins this project had already reported as
+results, and it is not a subtle correction -- doubling the seeds moved an
+*unchanged* arm by 6.35 points on one level and 3.05 on another, both of them
+bigger than differences we had discussed as findings.
+
+Print it once, next to the table, and read every row through it. It costs one
+division and it retires whole arguments.
+
+## An ablation with a fallthrough measures the fallthrough
+
+Removing six of seven reflexes to price the seventh gave three arms with
+*identical* scores to four decimal places. They were not measuring those
+reflexes: with everything else gone the tick fell through to "drive forward",
+and none of the three fired often enough to change it.
+
+The leave-one-out direction does not have this problem, because what remains is
+still a working controller. The keep-one direction needs its fallthrough named
+and measured as its own arm, or several of its rows are the same number wearing
+different labels.
+
+(Ours was worth measuring anyway: driving straight forever scored *below*
+flailing at random, because a policy that jams into a wall pays the collision
+penalty for every remaining tick.)

@@ -5,6 +5,7 @@ Stage-specific demos live next to the stage code, not here.
 |---|---|
 | `fetch_connectome.py` | download the connectome dataset |
 | `distill_lane.py` | stage 23: record the search as a teacher, train the brain towards it, measure the brain alone |
+| `ablation_lane.py` | stage 26: price each of the hand-written floor's reflexes, and what the benchmark can read |
 | `reach_lane.py` | stage 25: the denominator every row was missing, and what a policy with no behaviour scores |
 | `reach_probe.py` | stage 25: sweep the search's look-ahead — at what depth does each part of the reward appear |
 | `dagger_lane.py` | stage 24: the student drives, the search labels — with a gate that refuses to collect until the labels are a function of the state |

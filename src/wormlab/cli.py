@@ -68,6 +68,13 @@ def build_parser() -> argparse.ArgumentParser:
     bench = sub.add_parser("benchmark", help="run a saved brain through the benchmark")
     bench.add_argument("--brain", type=Path, default=None, help="worm brain JSON")
     bench.add_argument(
+        "--ablate",
+        nargs="*",
+        default=(),
+        metavar="REFLEX",
+        help="doomguy only: reflexes to switch off (stage 26)",
+    )
+    bench.add_argument(
         "--scripted",
         choices=SCRIPTED,
         default=None,
@@ -206,8 +213,10 @@ def run_benchmark_cli(args: argparse.Namespace) -> int:
     elif args.scripted == "doomguy":
         from doomworm import DoomguyBrain
 
-        brain = DoomguyBrain()
-        name = args.name or "doomguy"
+        # stage 26: --ablate switches reflexes off, so the cost of removing one
+        # is measured down the same path every published row came from
+        brain = DoomguyBrain(ablate=args.ablate)
+        name = args.name or ("doomguy" if not args.ablate else f"doomguy-{'-'.join(args.ablate)}")
     elif args.brain is not None:
         from wormlab.candidates import load_candidate
 
