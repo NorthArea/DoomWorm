@@ -5,6 +5,7 @@ Stage-specific demos live next to the stage code, not here.
 |---|---|
 | `fetch_connectome.py` | download the connectome dataset |
 | `distill_lane.py` | stage 23: record the search as a teacher, train the brain towards it, measure the brain alone |
+| `audit_brains.py` | which published brains anything still points at, and whether they all still load |
 | `face_probe.py` | stage 27: can the wiring turn towards something off to the side — sign, gain, hold, stop |
 | `ablation_lane.py` | stage 26: price each of the hand-written floor's reflexes, and what the benchmark can read |
 | `reach_lane.py` | stage 25: the denominator every row was missing, and what a policy with no behaviour scores |
