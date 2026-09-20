@@ -1,0 +1,406 @@
+"""The robot track's own command line: the machine, and the bench in front of it.
+
+    broomworm motor-map --link fake    which shift-register bit turns which wheel
+    broomworm selftest --link tcp      day-one check: protocol, sensors, wheels
+    broomworm calibrate --link tcp     metres per unit, and the wheel base
+    broomworm drive --teleop           drive the simulator or the machine, record it
+    broomworm compare-log --log X      replay a drive log in the simulator, compare
+    broomworm robustness --brain X     sweep the sensor preset's assumed numbers
+    broomworm plot-log --log X         picture of a drive log
+
+These describe a *machine*, so by the repository's own rule they belong to the
+track that owns the machine rather than to the shared platform. They were lost
+when the two tracks were split -- the modules survived, the wiring did not -- and
+`make broom-motor-map`, the first thing anyone runs at the bench, has been
+broken since. Restored here, where the next split cannot take them again.
+
+Everything about brains, training and the benchmark stays on `wormlab`; this
+command is only the robot and the room.
+
+`drive --link sim` and `robustness` want the vacuum world, which the shared
+simulator lost in the same split (stage J2). Against a real link -- `--link tcp`
+-- and at the bench, everything here works now.
+"""
+
+from __future__ import annotations
+
+import argparse
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+from wormlab import __version__
+
+SENSOR_PRESETS = ("ideal", "vacuum", "noisy", "car")
+MAP_CHOICES = ("fixed", "random", "apartment")
+TASK_CHOICES = ("food", "target", "clean")
+SCRIPTED = ("follower", "roomba")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """The robot track's commands, and nothing else."""
+    parser = argparse.ArgumentParser(prog="broomworm", description=__doc__)
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    sub = parser.add_subparsers(dest="command", title="commands")
+
+    drv = sub.add_parser("drive", help="drive the simulator or the machine through one link")
+    add_link_args(drv)
+    drv.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
+    drv.add_argument("--scripted", choices=SCRIPTED, default=None)
+    drv.add_argument("--teleop", action="store_true", help="wasd / 'l r' pairs from stdin")
+    drv.add_argument("--planner", choices=["none", "coverage", "needs"], default="none")
+    drv.add_argument("--steps", type=int, default=800)
+    drv.add_argument("--every", type=int, default=25, help="print a line every N ticks")
+    drv.add_argument("--record", type=Path, default=None, help="drive log (JSON lines)")
+
+    cmp_log = sub.add_parser("compare-log", help="replay a drive log in the simulator, compare")
+    cmp_log.add_argument("--log", type=Path, required=True)
+    cmp_log.add_argument(
+        "--against", type=Path, default=None, help="another log instead of a replay"
+    )
+    cmp_log.add_argument("--seed", type=int, default=None, help="override the log's world seed")
+    cmp_log.add_argument("--sensors", choices=SENSOR_PRESETS, default=None)
+    cmp_log.add_argument("--sensor-seed", type=int, default=None)
+    cmp_log.add_argument("--room", type=Path, default=None, help="replay in this room file")
+    cmp_log.add_argument("--out", type=Path, default=None, help="write the markdown report here")
+
+    rb = sub.add_parser("robustness", help="sweep the assumed sensor numbers around a brain")
+    rb.add_argument("--brain", type=Path, default=None, help="saved candidate brain")
+    rb.add_argument("--scripted", choices=SCRIPTED, default=None)
+    rb.add_argument("--name", default=None)
+    rb.add_argument("--planner", choices=["none", "coverage", "needs"], default="needs")
+    rb.add_argument("--sensors", choices=SENSOR_PRESETS, default="car")
+    rb.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    rb.add_argument("--task", choices=TASK_CHOICES, default="clean")
+    rb.add_argument("--test-seeds", type=int, default=6, help="maps 3000..3000+N-1")
+    rb.add_argument("--repeats", type=int, default=2)
+    rb.add_argument("--steps", type=int, default=800)
+    rb.add_argument(
+        "--params", default=None, help="comma-separated subset of the grid (default: all)"
+    )
+    rb.add_argument(
+        "--out", type=Path, default=None, help="markdown table (default: runs/robustness/<name>.md)"
+    )
+
+    st = sub.add_parser("selftest", help="day-one check of the machine behind a link")
+    add_link_args(st)
+    st.add_argument("--frames", type=int, default=10, help="frames to watch at rest")
+    st.add_argument("--out", type=Path, default=None, help="write the report here")
+
+    mm = sub.add_parser("motor-map", help="bench: which shift-register bit turns which wheel")
+    mm.add_argument("--link", choices=["fake", "tcp"], default="fake")
+    mm.add_argument("--host", default="192.168.4.1")
+    mm.add_argument("--port", type=int, default=5000)
+    mm.add_argument("--duty", type=float, default=0.5)
+    mm.add_argument("--ms", type=int, default=400, help="how long each bit is energised")
+
+    cal = sub.add_parser("calibrate", help="measure metres per unit and the wheel base")
+    add_link_args(cal)
+    cal.add_argument("--ticks", type=int, default=20, help="ticks of each run")
+    cal.add_argument("--out", type=Path, default=Path("runs") / "calibration.json")
+
+    pl = sub.add_parser("plot-log", help="picture of a drive log")
+    pl.add_argument("--log", type=Path, required=True)
+    pl.add_argument("--out", type=Path, default=None, help="PNG path (default: next to the log)")
+    return parser
+
+
+def add_link_args(parser: argparse.ArgumentParser) -> None:
+    """Arguments shared by every command that opens a robot link."""
+    parser.add_argument("--link", choices=["sim", "tcp"], default="sim")
+    parser.add_argument("--host", default="192.168.4.1", help="robot address for --link tcp")
+    parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--sensors", choices=SENSOR_PRESETS, default="vacuum")
+    parser.add_argument(
+        "--unit-m", type=float, default=None, help="metres per world unit (default: preset)"
+    )
+    parser.add_argument(
+        "--calibration", type=Path, default=None, help="JSON from broomworm calibrate"
+    )
+    parser.add_argument("--seed", type=int, default=3000, help="world seed (sim link)")
+    parser.add_argument("--maps", choices=MAP_CHOICES, default="apartment")
+    parser.add_argument("--room", type=Path, default=None, help="room file instead of --maps")
+    parser.add_argument("--task", choices=TASK_CHOICES, default="clean")
+    parser.add_argument("--sensor-seed", type=int, default=0)
+
+
+def open_link(args: argparse.Namespace) -> Any:
+    """The link the arguments describe: a seeded simulator world or a TCP machine."""
+    from dataclasses import replace
+
+    from broomworm.hardware import Calibration, SimLink, connect_tcp, load_calibration
+
+    if args.link == "tcp":
+        cal = (
+            load_calibration(args.calibration)
+            if args.calibration is not None
+            else Calibration.for_preset(args.sensors)
+        )
+        if args.unit_m is not None:
+            cal = replace(cal, unit_m=args.unit_m)
+        tcp = connect_tcp(args.host, args.port, cal)
+        if args.room is not None:
+            from broomworm.hardware import load_room
+
+            tcp.room = load_room(args.room).to_dict()
+        return tcp
+    from wormlab.environments.worlds import build_world
+
+    maps = f"room:{args.room}" if args.room is not None else args.maps
+    world = build_world(args.seed, maps, args.task)
+    link = SimLink(world, args.sensors, args.sensor_seed, args.seed, maps, args.task)
+    if args.room is not None:
+        from broomworm.hardware import load_room
+
+        link.room = load_room(args.room).to_dict()
+    return link
+
+
+def run_robustness_cli(args: argparse.Namespace) -> int:
+    """Stage 22.1f: one preset parameter at a time, worse than assumed, table of the drops."""
+    import broomworm.presets  # noqa: F401  -- registers this track's presets
+    from broomworm.robustness import CAR_GRID, sweep, sweep_table, worst_cells
+    from wormlab.environments.sensors import PRESETS, SensorConfig
+    from wormlab.episode import BrainLike
+    from wormlab.learning import BenchmarkConfig
+
+    inner: BrainLike
+    if args.scripted == "follower":
+        from broomworm.layer import GradientFollower
+
+        inner = GradientFollower()
+        name = args.name or "driver_follower"
+    elif args.scripted == "roomba":
+        from broomworm.roomba import RoombaBrain
+
+        inner = RoombaBrain()
+        name = args.name or "roomba"
+    elif args.brain is not None:
+        from wormlab.candidates import load_candidate
+
+        inner = load_candidate(args.brain, maps=args.maps, task=args.task)
+        name = args.name or args.brain.stem
+    else:
+        raise SystemExit("robustness: give --brain <file> or --scripted <name>")
+
+    def factory(cfg: SensorConfig) -> BrainLike:
+        if args.planner == "none":
+            return inner
+        from broomworm.layer import PlannerLayer
+
+        return PlannerLayer(inner, cfg, mode=args.planner)
+
+    grid = dict(CAR_GRID)
+    if args.params:
+        wanted = [p.strip() for p in args.params.split(",") if p.strip()]
+        unknown = [p for p in wanted if p not in grid]
+        if unknown:
+            raise SystemExit(f"robustness: unknown parameters {unknown}; known: {sorted(grid)}")
+        grid = {p: grid[p] for p in wanted}
+    bench = BenchmarkConfig(
+        maps=args.maps,
+        task=args.task,
+        sensors=args.sensors,
+        test_seeds=tuple(range(3000, 3000 + args.test_seeds)),
+        steps=args.steps,
+        repeats=args.repeats,
+    )
+    row_name = name if args.planner == "none" else f"{name}+{args.planner}"
+    print(f"robustness of {row_name} around {args.sensors}: {bench.episodes} episodes per cell")
+    rows = sweep(factory, row_name, PRESETS[args.sensors], grid, bench)
+    worst = ", ".join(f"{r.param}={r.label}" for r in worst_cells(rows))
+    text = f"# {row_name} around the {args.sensors} preset\n\n" + sweep_table(rows)
+    text += f"\nlargest drops: {worst}\n"
+    print(text)
+    out = args.out or Path("runs") / "robustness" / f"{row_name}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(f"saved {out}")
+    return 0
+
+
+def run_selftest_cli(args: argparse.Namespace) -> int:
+    """Stage 22.2: protocol, sensors and wheels of the machine behind the link."""
+    from broomworm.hardware import selftest
+
+    link = open_link(args)
+    try:
+        report = selftest(link, rest_frames=args.frames)
+    finally:
+        link.close()
+    text = f"# selftest over {link.name} ({args.sensors})\n\n" + report.markdown()
+    print(text)
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(text, encoding="utf-8")
+    return 0 if report.ok else 1
+
+
+def run_motor_map_cli(args: argparse.Namespace) -> int:
+    """Probe the eight direction bits and print the tables for the sketch."""
+    from broomworm.hardware import Calibration, FakeRobot, connect_tcp, motor_map, serve_fake
+    from broomworm.hardware.link import SimLink
+    from broomworm.presets import CAR  # the track owns its machine's preset
+    from wormlab.environments.worlds import build_world
+
+    if args.link == "tcp":
+        link = connect_tcp(args.host, args.port, Calibration.for_preset("car"))
+    else:
+        sim = SimLink(build_world(3001, "apartment", "clean"), CAR, sensor_seed=0)
+        link = serve_fake(FakeRobot(sim, Calibration.for_preset("car")))
+    try:
+        report = motor_map(link, duty=args.duty, ms=args.ms)
+    finally:
+        link.close()
+    print(f"# motor map over {link.name}\n")
+    print(report.markdown())
+    return 0 if not report.problems else 1
+
+
+def run_calibrate_cli(args: argparse.Namespace) -> int:
+    """Stage 22.2: two measured runs -> runs/calibration.json."""
+    from broomworm.hardware import Calibration, calibrate, save_calibration
+
+    link = open_link(args)
+    base = getattr(link, "calibration", None) or Calibration.for_preset(args.sensors)
+    try:
+        measured = calibrate(link, base, ticks=args.ticks)
+    finally:
+        link.close()
+    print(f"saved {save_calibration(measured, args.out)}")
+    return 0
+
+
+def run_plot_log_cli(args: argparse.Namespace) -> int:
+    """Stage 22.2: PNG of a drive log."""
+    from broomworm.hardware import plot_drive_log, read_drive_log
+
+    meta, rows = read_drive_log(args.log)
+    if not rows:
+        raise SystemExit(f"plot-log: {args.log} has no rows")
+    out = args.out if args.out is not None else args.log.with_suffix(".png")
+    print(f"saved {plot_drive_log(rows, out, meta, meta.get('room'))}")
+    return 0
+
+
+def run_drive_cli(args: argparse.Namespace) -> int:
+    """Stage 22: one loop for the simulator and the machine, with recording."""
+    import sys
+
+    from broomworm.hardware import Teleop, drive, raw_keys
+    from broomworm.hardware.link import RobotLink
+    from wormlab.episode import BrainLike
+
+    controller: BrainLike
+    if args.teleop:
+        stream = raw_keys() if sys.stdin.isatty() else sys.stdin
+        controller = Teleop(stream)
+    elif args.scripted == "follower":
+        from broomworm.layer import GradientFollower
+
+        controller = GradientFollower()
+    elif args.scripted == "roomba":
+        from broomworm.roomba import RoombaBrain
+
+        controller = RoombaBrain()
+    elif args.brain is not None:
+        from wormlab.candidates import load_candidate
+
+        controller = load_candidate(args.brain, maps=args.maps, task=args.task)
+    else:
+        raise SystemExit("drive: give --teleop, --brain <file> or --scripted <name>")
+    if args.planner != "none":
+        from broomworm.layer import PlannerLayer
+        from wormlab.environments.sensors import PRESETS
+
+        controller = PlannerLayer(controller, PRESETS[args.sensors], mode=args.planner)
+
+    link: RobotLink = open_link(args)
+    name = getattr(controller, "name", "?")
+    print(f"drive {name} over {link.name} ({args.sensors}), {args.steps} ticks", flush=True)
+
+    def show(row: object) -> None:
+        from broomworm.hardware import DriveRow
+
+        assert isinstance(row, DriveRow)
+        if row.tick % args.every:
+            return
+        ch = row.channels
+        pose = "" if row.truth is None else f"  true ({row.truth[0]:.1f}, {row.truth[1]:.1f})"
+        print(
+            f"  t={row.tick:4d} wheels ({row.wheels[0]:+.2f}, {row.wheels[1]:+.2f})  "
+            f"front {ch.get('sensor_front', 0.0):.2f}  bump {ch.get('bumper_left', 0.0):.0f}"
+            f"{ch.get('bumper_right', 0.0):.0f}  odom ({ch.get('odom_x', 0.0):.1f}, "
+            f"{ch.get('odom_y', 0.0):.1f})  battery {ch.get('battery', 0.0):.2f}{pose}",
+            flush=True,
+        )
+
+    try:
+        rows = drive(link, controller, args.steps, log=args.record, on_tick=show)
+    finally:
+        link.close()
+        stream_close = getattr(getattr(controller, "stream", None), "close", None)
+        if args.teleop and sys.stdin.isatty() and stream_close is not None:
+            stream_close()
+    print(f"{len(rows)} ticks driven" + (f", log {args.record}" if args.record else ""))
+    return 0
+
+
+def run_compare_log_cli(args: argparse.Namespace) -> int:
+    """Stage 22: replay a drive log in the simulator (or against another log) and report."""
+    from dataclasses import replace
+
+    from broomworm.hardware import Calibration, compare_logs, read_drive_log, replay_in_sim
+
+    meta, rows = read_drive_log(args.log)
+    if not rows:
+        raise SystemExit(f"compare-log: {args.log} has no rows")
+    if args.against is not None:
+        other_meta, other = read_drive_log(args.against)
+        label = f"{args.log} vs {args.against}"
+    else:
+        other_meta = dict(meta)
+        for key in ("seed", "sensors", "sensor_seed"):
+            value = getattr(args, key.replace("-", "_"))
+            if value is not None:
+                other_meta[key] = value
+        if args.room is not None:
+            from broomworm.hardware import load_room
+
+            other_meta["room"] = load_room(args.room).to_dict()
+        other = replay_in_sim(other_meta, rows)
+        label = f"{args.log} vs replay ({other_meta.get('sensors')}, seed {other_meta.get('seed')})"
+    report = compare_logs(rows, other)
+    sensors = str(meta.get("sensors") or "vacuum")
+    cal = Calibration.for_preset(sensors)
+    if "unit_m" in (meta.get("calibration") or {}):
+        cal = replace(cal, unit_m=float(meta["calibration"]["unit_m"]))
+    text = f"# {label}\n\n" + report.markdown(cal)
+    print(text)
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(text, encoding="utf-8")
+        print(f"saved {args.out}")
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Dispatch. No command prints the help rather than guessing at one."""
+    args = build_parser().parse_args(argv)
+    handlers = {
+        "drive": run_drive_cli,
+        "compare-log": run_compare_log_cli,
+        "selftest": run_selftest_cli,
+        "robustness": run_robustness_cli,
+        "motor-map": run_motor_map_cli,
+        "calibrate": run_calibrate_cli,
+        "plot-log": run_plot_log_cli,
+    }
+    if args.command not in handlers:
+        build_parser().print_help()
+        return 1
+    return handlers[args.command](args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 from wormlab.body import build_body
 from wormlab.environments.maze import ApartmentConfig, MapConfig, apartment_world, random_world
@@ -88,13 +89,37 @@ def _with_body(world: World, body: str) -> World:
     return world
 
 
+TASKS: dict[str, Callable[[World], None]] = {}
+"""Task overlays a track owns, by name. See :func:`register_task`."""
+
+
+def register_task(name: str, overlay: Callable[[World], None]) -> None:
+    """Let a track add its own task to the shared world (stage J2).
+
+    The same arrangement as `register_preset`: a sensor preset describes a
+    machine and a task describes what that machine is *for*, so both belong to
+    the track rather than the platform. The vacuum's dirt, dock and battery live
+    in the World because every track's simulator is the same simulator -- what
+    the robot track owns is the decision to switch them on.
+
+    Before this, splitting the tracks silently removed `clean` from the shared
+    dispatcher and took the robot track's world-dependent commands with it.
+    """
+    if name in TASKS:
+        raise ValueError(f"task already registered: {name}")
+    TASKS[name] = overlay
+
+
 def apply_task(world: World, task: str, dangers: int) -> World:
-    """Task overlays: ``target`` (come to X). ``food`` is the world as built."""
+    """Task overlays: ``target`` (come to X), ``food`` as built, plus any a track registered."""
     if task == "target":
         world.foods = []
         world.respawn_target = True
         world.target = world.spawn_target()
+    elif task in TASKS:
+        TASKS[task](world)
     elif task != "food":
-        raise ValueError("task must be 'food' or 'target'")
+        known = ", ".join(sorted({"food", "target", *TASKS}))
+        raise ValueError(f"unknown task {task!r}; this process knows: {known}")
     world.dangers = [world.spawn_danger() for _ in range(dangers)]
     return world

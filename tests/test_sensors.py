@@ -120,4 +120,8 @@ def test_episode_runs_with_a_suite_and_scenario_param() -> None:
     assert sc.make_sensors(1) is None, "the ideal preset is noiseless: the loop reads the world"
     with pytest.raises(ValueError, match="sensors"):
         WormScenario(sensors="lidar")
-    assert set(PRESETS) == {"ideal"}
+    # the platform ships exactly one preset of its own; a track adds more by
+    # importing itself, so asserting the registry's whole contents here would
+    # only be testing which other test module ran first
+    assert PRESETS["ideal"].name == "ideal"
+    assert not PRESETS["ideal"].noise_sigma, "the platform's own preset is the noiseless one"

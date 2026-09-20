@@ -24,6 +24,7 @@ dependencies = [
 [project.scripts]
 wormlab = "wormlab.cli:main"
 doomworm = "wormlab.cli:main"  # the old name, kept working
+broomworm = "broomworm.cli:main"  # the robot track: the machine and the bench
 
 [dependency-groups]
 dev = [

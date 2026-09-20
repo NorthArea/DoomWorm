@@ -57,20 +57,33 @@ make evolve-doom CANDIDATE=worm    # train one brain
 make lane-bakeoff                  # the full three-seed bake-off (hours, resumable)
 ```
 
-Where it stands: the worm's first positive row is +0.66, no trained brain has
-beaten the hand-written floor, and nothing has ever reached an exit. The
+Where it stands, after stage 25 gave every row a denominator: an episode can
+reach 22-46 points, and **no trained brain in this project is distinguishable
+from flailing at random** (+0.37 to −24.52 by level). The hand-written floor is
+the only thing that ever leaves that band — 59 % of what `doom6` allows. The
 reasons are measured, not guessed — `docs/doom/findings.md`.
 
 ## The robot track
 
+This track has its own command, `broomworm`, because these describe a *machine*
+rather than a brain. In order, from the bench to the floor:
+
 ```bash
 make broom-firmware                # compile the ESP32 firmware
-make broom-motor-map LINK=fake     # map the shield's bits to wheels on the bench
+make broom-motor-map LINK=fake     # which shift-register bit turns which wheel
+broomworm selftest --link tcp      # day one: protocol, sensors, wheels
+broomworm calibrate --link tcp     # metres per unit, and the wheel base
+broomworm drive --teleop --record run.jsonl    # drive it, keep the log
+broomworm compare-log --log run.jsonl          # replay that log in the simulator
+broomworm robustness --brain X     # sweep the sensor preset's assumed numbers
 ```
 
-Where it stands: the simulation side was measured through stage 22 (transfer to
-a new sensor preset, robustness sweeps, the cost of training), and the hardware
-is being assembled — `docs/broom/findings.md`, `docs/broom/hardware.md`.
+Everything about brains, training and the benchmark stays on `wormlab`.
+
+Where it stands: the simulation side is measured through stage 22 (transfer to a
+new sensor preset, robustness sweeps, the cost of training), the firmware
+compiles and the bench answers — `docs/broom/findings.md`,
+`docs/broom/hardware.md`.
 
 ## The rules both tracks keep
 

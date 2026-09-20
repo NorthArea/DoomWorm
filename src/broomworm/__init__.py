@@ -12,3 +12,4 @@ goes in `docs/knowledge/`, not in either package.
 """
 
 from broomworm import presets as _presets  # noqa: F401  (registers the machines)
+from broomworm import tasks  # noqa: F401  -- registers the `clean` task

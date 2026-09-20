@@ -175,7 +175,16 @@ broom-firmware-flash: ## Stage 23.2: flash the car (GPIO0 "00" to GND + RST firs
 	$(ARDUINO) upload --fqbn $(FQBN) --port $(PORT) firmware/esp32_car
 
 broom-motor-map: ## Stage 23.2 bench: map the shield's shift-register bits to wheels (LINK=fake|tcp)
-	$(UV) wormlab motor-map --link $(LINK)
+	$(UV) broomworm motor-map --link $(LINK)
+
+broom-selftest: ## Day one on the machine: protocol, sensors, wheels (LINK=sim|tcp)
+	$(UV) broomworm selftest --link $(LINK)
+
+broom-calibrate: ## Measure metres per world unit and the wheel base (LINK=sim|tcp)
+	$(UV) broomworm calibrate --link $(LINK)
+
+broom-robustness: ## Sweep the sensor preset's assumed numbers around the scripted robot
+	$(UV) broomworm robustness --scripted roomba
 
 # --- watching ----------------------------------------------------------------
 
